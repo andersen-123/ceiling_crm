@@ -1,0 +1,16 @@
+name: Fast Dart Syntax Check
+
+on:
+  workflow_dispatch: # Запускается вручную из вкладки Actions
+  push:
+    branches: [ main ]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: dart analyze --fatal-infos
