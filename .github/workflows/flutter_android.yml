@@ -2,7 +2,8 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -10,29 +11,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Клонируем репозиторий
+      # Клонируем репозиторий
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Устанавливаем Flutter (версия стабильная)
-      - name: Set up Flutter
+      # Устанавливаем Flutter (стабильная версия)
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.18.0' # последняя версия Flutter с Dart 3.3+
 
+      # Кэшируем pub packages для ускорения сборки
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            **/pubspec.lock
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
 
-      # 3. Устанавливаем зависимости
+      # Получаем зависимости
       - name: Install dependencies
         run: flutter pub get
 
-      # 4. Сборка release APK
-      - name: Build release APK
+      # Сборка APK в режиме release
+      - name: Build APK
         run: flutter build apk --release
 
-      # 5. Сохраняем APK как артефакт
+      # Сохраняем артефакт APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ceiling_crm-release
+          name: app-release.apk
           path: build/app/outputs/flutter-apk/app-release.apk
