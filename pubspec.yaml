@@ -15,7 +15,7 @@ dependencies:
   sqflite: ^2.2.8+4
   path_provider: ^2.0.14
   intl: ^0.18.1
-  image_picker: ^1.1.0
+  image_picker: ^1.0.8
   pdf: ^3.11.0
   excel: ^2.0.3
 
