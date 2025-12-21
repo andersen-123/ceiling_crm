@@ -1,85 +1,55 @@
 import 'package:flutter/material.dart';
+import '../models/estimate.dart';
 import 'estimate_edit_screen.dart';
-import 'calculator_screen.dart';
 
-class EstimatesListScreen extends StatelessWidget {
-  const EstimatesListScreen({super.key});
+class EstimateListScreen extends StatefulWidget {
+  const EstimateListScreen({super.key});
+
+  @override
+  State<EstimateListScreen> createState() => _EstimateListScreenState();
+}
+
+class _EstimateListScreenState extends State<EstimateListScreen> {
+  final List<Estimate> _estimates = [];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Мои сметы'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('PotolokForLife'),
-                  content: const Text(
-                    'Приложение для расчета смет натяжных потолков\n\n'
-                    'Используйте калькулятор для создания сметы на основе реальных цен из Excel-шаблона.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'),
-                    ),
-                  ],
+      appBar: AppBar(title: const Text('Сметы')),
+      body: ListView.builder(
+        itemCount: _estimates.length,
+        itemBuilder: (context, index) {
+          final est = _estimates[index];
+          return ListTile(
+            title: Text(est.clientName),
+            subtitle: Text('Площадь: ${est.area} м², Цена: ${est.price} ₽'),
+            onTap: () async {
+              final updated = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EstimateEditScreen(estimate: est),
                 ),
               );
+              if (updated != null) {
+                setState(() {
+                  _estimates[index] = updated;
+                });
+              }
             },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.assignment, size: 80, color: Colors.grey),
-            const SizedBox(height: 20),
-            const Text(
-              'Список смет',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                'Для начала работы создайте смету через калькулятор',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CalculatorScreen(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.calculate),
-              label: const Text('Открыть калькулятор'),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const EstimateEditScreen(),
-            ),
           );
         },
-        icon: const Icon(Icons.add),
-        label: const Text('Новая смета'),
+      ),
+      floatingActionButton: FloatingActionButton(
+        child: const Icon(Icons.add),
+        onPressed: () async {
+          final newEstimate = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const EstimateEditScreen()),
+          );
+          if (newEstimate != null) {
+            setState(() => _estimates.add(newEstimate));
+          }
+        },
       ),
     );
   }
