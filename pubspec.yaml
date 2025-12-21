@@ -24,7 +24,7 @@ dependencies:
   intl: ^0.18.1
 
   # Files & Excel
-  excel: ^5.0.0
+  excel: ^4.1.2
   path_provider: ^2.0.14
   shared_preferences: ^2.1.1
 
