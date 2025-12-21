@@ -19,7 +19,7 @@ if (flutterRoot == null) {
 
 android {
     namespace "com.example.tensionceilingapp"
-    compileSdkVersion 34
+    compileSdk 36
     ndkVersion "26.1.10909125"
 
     compileOptions {
