@@ -6,38 +6,44 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        platform: [android, windows, linux]
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.13.5'  # последняя стабильная версия Flutter
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build
-        run: |
-          if [ "${{ matrix.platform }}" == "android" ]; then
-            flutter build apk --release
-          elif [ "${{ matrix.platform }}" == "windows" ]; then
-            flutter build windows --release
-          elif [ "${{ matrix.platform }}" == "linux" ]; then
-            flutter build linux --release
-          fi
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+          flutter-version: '3.13.5'
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-build
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/windows/runner/Release/
-            build/linux/x64/release/bundle/
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.13.5'
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: build/windows/runner/Release/
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.13.5'
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: build/linux/x64/release/bundle/
