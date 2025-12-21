@@ -38,11 +38,7 @@ jobs:
 
       # Сборка APK в режиме release
       - name: Build Android APK
-        run: |
-          cd android
-          ./gradlew clean
-          cd ..
-          flutter build apk --release --no-android-gradle-daemon
+        run: flutter build apk --release --no-android-gradle-daemon
       # Сохраняем артефакт APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
