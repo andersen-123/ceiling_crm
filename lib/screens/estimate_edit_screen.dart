@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../database/database_helper.dart';
 import '../models/estimate.dart';
+import '../services/auto_save_service.dart';
 
 class EstimateEditScreen extends StatefulWidget {
   final Estimate? estimate;
@@ -10,17 +13,41 @@ class EstimateEditScreen extends StatefulWidget {
 }
 
 class _EstimateEditScreenState extends State<EstimateEditScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _clientController;
-  late TextEditingController _areaController;
-  late TextEditingController _priceController;
+  final _nameController = TextEditingController();
+  final _totalController = TextEditingController();
+  final AutoSaveService _autoSaveService = AutoSaveService();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  Estimate? _estimate;
 
   @override
   void initState() {
     super.initState();
-    _clientController = TextEditingController(text: widget.estimate?.clientName ?? '');
-    _areaController = TextEditingController(text: widget.estimate?.area.toString() ?? '');
-    _priceController = TextEditingController(text: widget.estimate?.price.toString() ?? '');
+    _estimate = widget.estimate ?? Estimate(name: '', total: 0.0);
+    _nameController.text = _estimate!.name;
+    _totalController.text = _estimate!.total.toString();
+    _autoSaveService.startAutoSave(_estimate!);
+  }
+
+  @override
+  void dispose() {
+    _autoSaveService.stop();
+    _nameController.dispose();
+    _totalController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    _estimate!
+      ..name = _nameController.text
+      ..total = double.tryParse(_totalController.text) ?? 0.0;
+
+    if (_estimate!.id == null) {
+      await _dbHelper.insertEstimate(_estimate!);
+    } else {
+      await _dbHelper.updateEstimate(_estimate!);
+    }
+    if (mounted) context.pop();
   }
 
   @override
@@ -28,45 +55,24 @@ class _EstimateEditScreenState extends State<EstimateEditScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Редактирование сметы')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _clientController,
-                decoration: const InputDecoration(labelText: 'Имя клиента'),
-                validator: (v) => v!.isEmpty ? 'Введите имя' : null,
-              ),
-              TextFormField(
-                controller: _areaController,
-                decoration: const InputDecoration(labelText: 'Площадь м²'),
-                keyboardType: TextInputType.number,
-                validator: (v) => v!.isEmpty ? 'Введите площадь' : null,
-              ),
-              TextFormField(
-                controller: _priceController,
-                decoration: const InputDecoration(labelText: 'Цена ₽'),
-                keyboardType: TextInputType.number,
-                validator: (v) => v!.isEmpty ? 'Введите цену' : null,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    final est = Estimate(
-                      clientName: _clientController.text,
-                      area: double.parse(_areaController.text),
-                      price: double.parse(_priceController.text),
-                      id: widget.estimate?.id,
-                    );
-                    Navigator.pop(context, est);
-                  }
-                },
-                child: const Text('Сохранить'),
-              )
-            ],
-          ),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Название сметы'),
+            ),
+            TextField(
+              controller: _totalController,
+              decoration: const InputDecoration(labelText: 'Итого, ₽'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _save,
+              child: const Text('Сохранить'),
+            ),
+          ],
         ),
       ),
     );
