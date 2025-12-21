@@ -17,13 +17,10 @@ if (flutterRoot == null) {
     throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
 }
 
-
 android {
+    namespace "com.example.tensionceilingapp"
     compileSdkVersion 34
     ndkVersion "26.1.10909125"
-    // ⬇⬇⬇ ДОБАВЬТЕ ЭТУ СТРОКУ ⬇⬇⬇
-    namespace 'com.example.tensionceilingapp'
-    // ⬆⬆⬆ ДОБАВЬТЕ ЭТУ СТРОКУ ⬆⬆⬆
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
