@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../database/database_helper.dart';
 import '../models/estimate.dart';
-import 'estimate_edit_screen.dart';
 
 class EstimateListScreen extends StatefulWidget {
   const EstimateListScreen({super.key});
@@ -10,46 +11,49 @@ class EstimateListScreen extends StatefulWidget {
 }
 
 class _EstimateListScreenState extends State<EstimateListScreen> {
-  final List<Estimate> _estimates = [];
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+  List<Estimate> _estimates = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEstimates();
+  }
+
+  Future<void> _loadEstimates() async {
+    final estimates = await _dbHelper.getEstimates();
+    setState(() {
+      _estimates = estimates;
+    });
+  }
+
+  Future<void> _deleteEstimate(int id) async {
+    await _dbHelper.deleteEstimate(id);
+    _loadEstimates();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Сметы')),
+      appBar: AppBar(title: const Text('Список смет')),
       body: ListView.builder(
         itemCount: _estimates.length,
         itemBuilder: (context, index) {
-          final est = _estimates[index];
+          final estimate = _estimates[index];
           return ListTile(
-            title: Text(est.clientName),
-            subtitle: Text('Площадь: ${est.area} м², Цена: ${est.price} ₽'),
-            onTap: () async {
-              final updated = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => EstimateEditScreen(estimate: est),
-                ),
-              );
-              if (updated != null) {
-                setState(() {
-                  _estimates[index] = updated;
-                });
-              }
-            },
+            title: Text(estimate.name),
+            subtitle: Text('Итого: ${estimate.total} ₽'),
+            onTap: () => context.go('/estimate_edit', extra: estimate),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => _deleteEstimate(estimate.id!),
+            ),
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
-        onPressed: () async {
-          final newEstimate = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const EstimateEditScreen()),
-          );
-          if (newEstimate != null) {
-            setState(() => _estimates.add(newEstimate));
-          }
-        },
+        onPressed: () => context.go('/estimate_edit'),
       ),
     );
   }
