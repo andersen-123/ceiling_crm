@@ -10,20 +10,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Клонируем репозиторий
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Устанавливаем Flutter (версия стабильная)
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.16.6' # стабильная версия
+          flutter-version: '3.16.6'
 
+      # 3. Устанавливаем зависимости
       - name: Install dependencies
         run: flutter pub get
 
+      # 4. Сборка release APK
       - name: Build release APK
         run: flutter build apk --release
 
+      # 5. Сохраняем APK как артефакт
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
