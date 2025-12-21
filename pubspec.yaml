@@ -9,7 +9,20 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.6
+  cupertino_icons: ^1.0.2
+  provider: ^6.1.2
+  sqflite: ^2.3.3+1
+  path: ^1.8.3
+  intl: ^0.19.0
+  image_picker: ^1.1.2
+  shared_preferences: ^2.2.2
+  url_launcher: ^6.3.0
+  flutter_email_sender: ^6.2.1
+  open_file: ^3.3.3
+  printing: ^5.11.2
+  pdf: ^3.10.6
+  syncfusion_flutter_pdf: ^25.1.45
+  syncfusion_flutter_xlsio: ^25.1.45
 
 dev_dependencies:
   flutter_test:
