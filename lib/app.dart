@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'core/theme.dart';
 import 'core/routing.dart';
+import 'core/theme.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class App extends StatelessWidget {
+  const App({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Ceiling CRM',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: appTheme,
       routerConfig: router,
     );
   }
