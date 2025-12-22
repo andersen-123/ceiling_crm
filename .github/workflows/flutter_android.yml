@@ -28,12 +28,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
       
-      - name: Install dependencies
-        run: |
-          # УБИРАЕМ УДАЛЕНИЕ КЭША GRADLE
-          # rm -rf ~/.gradle/wrapper/dists/gradle-*  <-- УДАЛИТЬ ЭТУ СТРОКУ
-          flutter clean
-          flutter pub get
+- name: Install dependencies
+  run: |
+    # Сначала пробуем загрузить Gradle отдельно
+    echo "Предварительная загрузка Gradle..."
+    cd android
+    ./gradlew --version || echo "Gradle загрузка завершилась с ошибкой, продолжаем..."
+    cd ..
+    
+    flutter clean
+    flutter pub get
+    
+    # Явно проверяем наличие Gradle
+    if [ -f ~/.gradle/wrapper/dists/gradle-*/gradle-*/bin/gradle ]; then
+      echo "✓ Gradle найден в кэше"
+    else
+      echo "⚠ Gradle не найден, будет загружен во время сборки"
+    fi
       
       - name: Build APK with retry
         run: |
