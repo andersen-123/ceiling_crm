@@ -14,53 +14,89 @@ jobs:
       
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
-        with:
+        with: 
           flutter-version: '3.22.3'
       
-      # ★★★ ВАЖНО: Добавляем кэширование Gradle ★★★
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/wrapper
-            ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      
-- name: Install dependencies
-  run: |
-    # Сначала пробуем загрузить Gradle отдельно
-    echo "Предварительная загрузка Gradle..."
-    cd android
-    ./gradlew --version || echo "Gradle загрузка завершилась с ошибкой, продолжаем..."
-    cd ..
-    
-    flutter clean
-    flutter pub get
-    
-    # Явно проверяем наличие Gradle
-    if [ -f ~/.gradle/wrapper/dists/gradle-*/gradle-*/bin/gradle ]; then
-      echo "✓ Gradle найден в кэше"
-    else
-      echo "⚠ Gradle не найден, будет загружен во время сборки"
-    fi
-      
-      - name: Build APK with retry
+      - name: Pre-download Gradle
         run: |
-          # Пробуем собрать несколько раз при сетевых ошибках
-          for i in {1..3}; do
-            echo "Попытка сборки #$i..."
-            if flutter build apk --release --no-android-gradle-daemon; then
-              echo "Сборка успешна!"
-              exit 0
-            fi
-            if [ $i -lt 3 ]; then
-              echo "Ошибка, ждем 10 секунд перед повторной попыткой..."
-              sleep 10
+          echo "Явная загрузка Gradle для избежания сетевых ошибок..."
+          mkdir -p ~/.gradle/wrapper/dists
+          
+          # Пытаемся скачать Gradle с резервными источниками
+          for url in \
+            "https://github.com/gradle/gradle-distributions/releases/download/v8.5.0/gradle-8.5-all.zip" \
+            "https://downloads.gradle-dn.com/distributions/gradle-8.5-all.zip" \
+            "https://services.gradle.org/distributions/gradle-8.5-all.zip"
+          do
+            echo "Попытка скачать с: $url"
+            if curl -L --retry 3 --max-time 300 -o /tmp/gradle.zip "$url"; then
+              echo "Успешно скачали Gradle"
+              unzip -q /tmp/gradle.zip -d ~/.gradle/wrapper/dists/
+              GRADLE_DIR=$(find ~/.gradle/wrapper/dists -name "gradle-8.5*" -type d | head -1)
+              if [ -n "$GRADLE_DIR" ]; then
+                echo "Gradle распакован в: $GRADLE_DIR"
+                touch "$GRADLE_DIR/.gradle-8.5-all.zip.ok"
+                break
+              fi
+            else
+              echo "Не удалось скачать с $url"
             fi
           done
-          echo "Все попытки сборки завершились ошибкой"
+      
+      - name: Install dependencies
+        run: |
+          flutter clean
+          flutter pub get
+      
+      - name: Build APK with improved retry
+        run: |
+          MAX_ATTEMPTS=5
+          ATTEMPT_DELAY=30
+          
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "=== Попытка сборки #$i/$MAX_ATTEMPTS ==="
+            echo "Время: $(date)"
+            
+            # Проверяем доступность GitHub
+            echo "Проверка доступности GitHub..."
+            if timeout 15 curl -s -I https://github.com | grep -q "HTTP/2 200"; then
+              echo "✓ GitHub доступен"
+            else
+              echo "⚠ Проблемы с доступом к GitHub"
+              echo "8.8.8.8" | sudo tee /etc/resolv.conf > /dev/null 2>&1 || true
+            fi
+            
+            # Запускаем сборку с таймаутом
+            if timeout 300 flutter build apk --release --no-android-gradle-daemon --verbose 2>&1 | tee "build_log_$i.txt"; then
+              echo "✓ Сборка успешна!"
+              
+              if [ -d ~/.gradle/wrapper/dists ]; then
+                echo "Сохранение информации о Gradle кэше..."
+                find ~/.gradle/wrapper/dists -name "*.zip.ok" -o -name "*.lock" | head -5
+              fi
+              
+              exit 0
+            fi
+            
+            # Анализируем ошибку
+            if grep -q "HTTP response code: 503\|SocketException\|Unexpected end of file" "build_log_$i.txt"; then
+              echo "⚠ Сетевая ошибка, попробуем ещё раз..."
+            else
+              echo "✗ Другая ошибка, прекращаем попытки"
+              cat "build_log_$i.txt" | tail -50
+              exit 1
+            fi
+            
+            if [ $i -lt $MAX_ATTEMPTS ]; then
+              WAIT_TIME=$((ATTEMPT_DELAY * i))
+              echo "Ожидание $WAIT_TIME секунд перед следующей попыткой..."
+              sleep $WAIT_TIME
+            fi
+          done
+          
+          echo "✗ Все $MAX_ATTEMPTS попыток завершились ошибкой"
+          echo "Последние ошибки:"
+          tail -100 build_log_*.txt || true
           exit 1
       
       - name: Upload APK
