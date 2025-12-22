@@ -1,37 +1,8 @@
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
-    }
-}
-
-def flutterRoot = localProperties.getProperty('flutter.sdk')
-if (flutterRoot == null) {
-    throw new GradleScriptException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
-}
-
-def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-if (flutterVersionCode == null) {
-    flutterVersionCode = '1'
-}
-
-def flutterVersionName = localProperties.getProperty('flutter.versionName')
-if (flutterVersionName == null) {
-    flutterVersionName = '1.0'
-}
-
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android' // <-- ОСТАВЬТЕ ЭТО
-apply plugin: 'kotlin-android-extensions' // <-- УДАЛИТЕ ЭТУ СТРОКУ (устарело)
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
-
 android {
     namespace "com.example.ceiling_crm"
     
-    compileSdkVersion 34 // <-- ОБНОВИТЕ ДО 34 (если было меньше)
-    ndkVersion "26.1.10909125"
-
+    compileSdkVersion 34
+    
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -51,32 +22,15 @@ android {
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
-        
-        // Добавьте для новых версий Android
-        multiDexEnabled true
     }
 
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            // Оптимизации для релиза
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // УБЕРИТЕ ЭТИ СТРОКИ ДЛЯ ПЕРВОЙ СБОРКИ:
+            // minifyEnabled true
+            // shrinkResources true
+            // proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-}
-
-flutter {
-    source '../..'
-}
-
-dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    
-    // Для новых версий Android
-    implementation 'androidx.multidex:multidex:2.0.1'
-    
-    // Для работы с файлами
-    implementation 'androidx.core:core-ktx:1.13.1'
 }
