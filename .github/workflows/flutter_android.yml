@@ -17,9 +17,19 @@ jobs:
         with:
           flutter-version: '3.22.3'
       
+      - name: Debug - Show Environment
+        run: |
+          echo "=== Информация о среде ==="
+          flutter --version
+          java --version
+          echo "Kotlin версия в build.gradle:"
+          grep "kotlin_version" android/build.gradle || echo "Не найдено"
+          echo "Android Gradle Plugin:"
+          grep "com.android.tools.build:gradle" android/build.gradle || echo "Не найдено"
+      
       - name: Pre-download Gradle
         run: |
-          echo "Явная загрузка Gradle для избежания сетевых ошибок..."
+          echo "Явная загрузка Gradle..."
           mkdir -p ~/.gradle/wrapper/dists
           
           # Пытаемся скачать Gradle с резервными источниками
@@ -45,106 +55,87 @@ jobs:
       
       - name: Install dependencies
         run: |
+          echo "=== Установка зависимостей ==="
           flutter clean
           flutter pub get
+          
+          echo "Проверка Android проекта..."
+          cd android
+          ./gradlew --version || echo "Gradle версия недоступна"
+          cd ..
       
-      - name: Build APK with improved retry
+      - name: Build APK Step by Step
+        id: build-apk
         run: |
-          MAX_ATTEMPTS=3
-          ATTEMPT_DELAY=30
+          echo "=== Поэтапная сборка APK ==="
           
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            echo "=== Попытка сборки #$i/$MAX_ATTEMPTS ==="
-            echo "Время: $(date)"
+          # 1. Проверка Flutter проекта
+          echo "1. Проверка Flutter проекта..."
+          flutter analyze || echo "Анализ завершился с предупреждениями"
+          
+          # 2. Сборка только Android части
+          echo "2. Сборка Android проекта..."
+          cd android
+          
+          echo "Очистка предыдущих сборок..."
+          ./gradlew clean
+          
+          echo "Проверка доступности зависимостей..."
+          ./gradlew --dry-run assembleRelease || true
+          
+          echo "Сборка в режиме debug для проверки..."
+          if ./gradlew assembleDebug; then
+            echo "✅ Debug сборка успешна"
             
-            # Проверяем доступность GitHub
-            echo "Проверка доступности GitHub..."
-            if timeout 15 curl -s -I https://github.com | grep -q "HTTP/2 200"; then
-              echo "✓ GitHub доступен"
-            else
-              echo "⚠ Проблемы с доступом к GitHub"
-              echo "8.8.8.8" | sudo tee /etc/resolv.conf > /dev/null 2>&1 || true
-            fi
-            
-            # Запускаем сборку с таймаутом
-            echo "Запуск сборки APK..."
-            if timeout 600 flutter build apk --release --no-android-gradle-daemon --verbose 2>&1 | tee "build_log_$i.txt"; then
-              echo "✓ Сборка успешна!"
-              
-              if [ -d ~/.gradle/wrapper/dists ]; then
-                echo "Сохранение информации о Gradle кэше..."
-                find ~/.gradle/wrapper/dists -name "*.zip.ok" -o -name "*.lock" | head -5
-              fi
-              
-              # Проверяем создание APK
-              echo "Проверяем наличие APK файлов..."
-              find . -name "*.apk" -type f 2>/dev/null | head -10
-              exit 0
-            fi
-            
-            # Анализируем ошибку
-            if grep -q "HTTP response code: 503\|SocketException\|Unexpected end of file" "build_log_$i.txt"; then
-              echo "⚠ Сетевая ошибка, попробуем ещё раз..."
-            else
-              echo "✗ Другая ошибка, прекращаем попытки"
-              cat "build_log_$i.txt" | tail -50
-              exit 1
-            fi
-            
-            if [ $i -lt $MAX_ATTEMPTS ]; then
-              WAIT_TIME=$((ATTEMPT_DELAY * i))
-              echo "Ожидание $WAIT_TIME секунд перед следующей попыткой..."
-              sleep $WAIT_TIME
-            fi
-          done
-          
-          echo "✗ Все $MAX_ATTEMPTS попыток завершились ошибкой"
-          echo "Последние ошибки:"
-          tail -100 build_log_*.txt || true
-          exit 1
-      
-      - name: Find and Prepare APK
-        id: find-apk
-        run: |
-          echo "Поиск созданного APK файла..."
-          
-          # Возможные пути к APK файлам
-          APK_PATHS=(
-            "build/app/outputs/flutter-apk/app-release.apk"
-            "build/app/outputs/flutter-apk/app.apk"
-            "build/app/outputs/apk/release/app-release.apk"
-            "android/app/build/outputs/apk/release/app-release.apk"
-          )
-          
-          FOUND_APK=""
-          for path in "${APK_PATHS[@]}"; do
-            if [ -f "$path" ]; then
-              FOUND_APK="$path"
-              echo "✅ Найден APK: $path"
-              echo "Размер файла: $(du -h "$path" | cut -f1)"
-              break
-            fi
-          done
-          
-          if [ -z "$FOUND_APK" ]; then
-            echo "❌ APK не найден по стандартным путям. Ищем везде..."
-            find . -name "*.apk" -type f 2>/dev/null || echo "APK файлы не найдены"
-            echo "Содержимое build/ директории:"
-            ls -la build/ 2>/dev/null || echo "Директория build/ не существует"
+            # Проверяем созданные файлы
+            echo "Созданные файлы:"
+            find . -name "*.apk" -type f 2>/dev/null || echo "APK не найдены"
+            find . -name "*.aab" -type f 2>/dev/null || echo "AAB не найдены"
+          else
+            echo "❌ Debug сборка провалилась"
             exit 1
           fi
           
-          # Копируем APK в предсказуемое место
-          mkdir -p dist/
-          cp "$FOUND_APK" "dist/app-release.apk"
-          echo "APK скопирован в dist/app-release.apk"
+          echo "3. Сборка в режиме release..."
+          if ./gradlew assembleRelease; then
+            echo "✅ Release сборка успешна"
+            
+            # Проверяем release файлы
+            echo "Release APK файлы:"
+            find . -name "*release*.apk" -type f 2>/dev/null | head -10
+            
+            # Копируем найденный APK
+            RELEASE_APK=$(find . -name "*release*.apk" -type f 2>/dev/null | head -1)
+            if [ -n "$RELEASE_APK" ]; then
+              echo "Найден Release APK: $RELEASE_APK"
+              mkdir -p ../dist
+              cp "$RELEASE_APK" "../dist/app-release.apk"
+              echo "apk_path=dist/app-release.apk" >> $GITHUB_OUTPUT
+            else
+              echo "Release APK не найден, проверяем App Bundle..."
+              find . -name "*.aab" -type f 2>/dev/null || echo "AAB также не найден"
+            fi
+          else
+            echo "❌ Release сборка провалилась"
+            exit 1
+          fi
           
-          # Сохраняем путь для следующего шага
-          echo "apk_path=dist/app-release.apk" >> $GITHUB_OUTPUT
+          cd ..
       
       - name: Upload APK Artifact
+        if: steps.build-apk.outputs.apk_path != ''
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: ${{ steps.find-apk.outputs.apk_path }}
+          path: ${{ steps.build-apk.outputs.apk_path }}
           retention-days: 7
+      
+      - name: Upload Build Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            android/**/build/reports/**
+            android/**/*.log
+          retention-days: 3
