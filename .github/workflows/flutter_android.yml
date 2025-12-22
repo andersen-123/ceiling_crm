@@ -14,7 +14,7 @@ jobs:
       
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
-        with: 
+        with:
           flutter-version: '3.22.3'
       
       - name: Pre-download Gradle
@@ -50,7 +50,7 @@ jobs:
       
       - name: Build APK with improved retry
         run: |
-          MAX_ATTEMPTS=5
+          MAX_ATTEMPTS=3
           ATTEMPT_DELAY=30
           
           for i in $(seq 1 $MAX_ATTEMPTS); do
@@ -67,7 +67,8 @@ jobs:
             fi
             
             # Запускаем сборку с таймаутом
-            if timeout 300 flutter build apk --release --no-android-gradle-daemon --verbose 2>&1 | tee "build_log_$i.txt"; then
+            echo "Запуск сборки APK..."
+            if timeout 600 flutter build apk --release --no-android-gradle-daemon --verbose 2>&1 | tee "build_log_$i.txt"; then
               echo "✓ Сборка успешна!"
               
               if [ -d ~/.gradle/wrapper/dists ]; then
@@ -75,6 +76,9 @@ jobs:
                 find ~/.gradle/wrapper/dists -name "*.zip.ok" -o -name "*.lock" | head -5
               fi
               
+              # Проверяем создание APK
+              echo "Проверяем наличие APK файлов..."
+              find . -name "*.apk" -type f 2>/dev/null | head -10
               exit 0
             fi
             
@@ -99,8 +103,48 @@ jobs:
           tail -100 build_log_*.txt || true
           exit 1
       
-      - name: Upload APK
+      - name: Find and Prepare APK
+        id: find-apk
+        run: |
+          echo "Поиск созданного APK файла..."
+          
+          # Возможные пути к APK файлам
+          APK_PATHS=(
+            "build/app/outputs/flutter-apk/app-release.apk"
+            "build/app/outputs/flutter-apk/app.apk"
+            "build/app/outputs/apk/release/app-release.apk"
+            "android/app/build/outputs/apk/release/app-release.apk"
+          )
+          
+          FOUND_APK=""
+          for path in "${APK_PATHS[@]}"; do
+            if [ -f "$path" ]; then
+              FOUND_APK="$path"
+              echo "✅ Найден APK: $path"
+              echo "Размер файла: $(du -h "$path" | cut -f1)"
+              break
+            fi
+          done
+          
+          if [ -z "$FOUND_APK" ]; then
+            echo "❌ APK не найден по стандартным путям. Ищем везде..."
+            find . -name "*.apk" -type f 2>/dev/null || echo "APK файлы не найдены"
+            echo "Содержимое build/ директории:"
+            ls -la build/ 2>/dev/null || echo "Директория build/ не существует"
+            exit 1
+          fi
+          
+          # Копируем APK в предсказуемое место
+          mkdir -p dist/
+          cp "$FOUND_APK" "dist/app-release.apk"
+          echo "APK скопирован в dist/app-release.apk"
+          
+          # Сохраняем путь для следующего шага
+          echo "apk_path=dist/app-release.apk" >> $GITHUB_OUTPUT
+      
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: ${{ steps.find-apk.outputs.apk_path }}
+          retention-days: 7
