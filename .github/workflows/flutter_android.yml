@@ -43,12 +43,12 @@ jobs:
         echo "=== ШАГ 5: Фиксим конфигурацию Gradle ==="
         # Обновляем Gradle до 8.13
         cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
-        distributionBase=GRADLE_USER_HOME
-        distributionPath=wrapper/dists
-        distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip
-        zipStoreBase=GRADLE_USER_HOME
-        zipStorePath=wrapper/dists
-        EOF
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+EOF
         
         # Обновляем AGP в build.gradle
         sed -i "s/classpath 'com.android.tools.build:gradle:.*'/classpath 'com.android.tools.build:gradle:8.7.2'/g" android/build.gradle
@@ -76,69 +76,7 @@ jobs:
         flutter pub get
     
     - name: Build APK
-      run: |
-        # Строим без оптимизаций для первого раза
-        flutter build apk --release --no-tree-shake-icons
-    
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-release
-        path: build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 7name: Flutter Android Build
-
-on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Force Update Gradle to 8.13
-      run: |
-        # Обновляем Gradle wrapper
-        cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
-        distributionBase=GRADLE_USER_HOME
-        distributionPath=wrapper/dists
-        distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip
-        zipStoreBase=GRADLE_USER_HOME
-        zipStorePath=wrapper/dists
-        EOF
-        
-        # Обновляем Android Gradle Plugin
-        sed -i "s/classpath 'com.android.tools.build:gradle:.*'/classpath 'com.android.tools.build:gradle:8.7.2'/g" android/build.gradle
-        
-        # Убираем проблемные оптимизации
-        sed -i "s/minifyEnabled true/minifyEnabled false/g" android/app/build.gradle
-        sed -i "s/shrinkResources true/shrinkResources false/g" android/app/build.gradle
-    
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-    
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.22.0'
-        channel: 'stable'
-    
-    - name: Clean and Install
-      run: |
-        # Полная очистка
-        flutter clean
-        rm -rf ~/.gradle/caches/
-        # Установка зависимостей
-        flutter pub get
-    
-    - name: Build APK
-      run: flutter build apk --release --no-android-gradle-daemon
+      run: flutter build apk --release --no-tree-shake-icons
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
