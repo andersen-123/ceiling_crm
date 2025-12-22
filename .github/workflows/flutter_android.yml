@@ -12,6 +12,18 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.22.0'
+        channel: 'stable'
+    
     - name: COMPLETELY RECREATE ANDROID PROJECT
       run: |
         echo "=== ШАГ 1: Сохраняем ВЕСЬ наш код ==="
@@ -57,18 +69,6 @@ jobs:
         ls -la android/
         echo "---"
         ls -la android/app/src/main/kotlin/com/example/ceiling_crm/
-    
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-    
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.22.0'
-        channel: 'stable'
     
     - name: Install Dependencies
       run: |
