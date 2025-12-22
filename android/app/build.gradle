@@ -18,17 +18,15 @@ apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 android {
     compileSdkVersion 34
     ndkVersion "26.1.10909125"
-    // ⬇⬇⬇ ДОБАВЬТЕ ЭТУ СТРОКУ ⬇⬇⬇
-    namespace 'com.example.ceiling_crm'
-    // ⬆⬆⬆ ДОБАВЬТЕ ЭТУ СТРОКУ ⬆⬆⬆
+    namespace 'com.example.ceiling_crm'  // ✅ Уже есть
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17  // Обновлено: 1.8 → 17
+        targetCompatibility JavaVersion.VERSION_17  // Обновлено: 1.8 → 17
     }
 
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'  // Обновлено: 1.8 → 17
     }
 
     sourceSets {
@@ -46,6 +44,9 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            // Дополнительно можно добавить для уменьшения размера APK:
+            // minifyEnabled true
+            // proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -55,5 +56,5 @@ flutter {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"  // Обновлено: jdk7 → jdk8
 }
