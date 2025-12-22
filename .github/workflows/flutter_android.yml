@@ -37,20 +37,18 @@ jobs:
           EOF
           echo "✅ Создан lib/core/routing.dart"
           
-          # 2. Исправляем database_helper.dart
+          # 2. Исправляем другие файлы
           if [ -f "lib/database/database_helper.dart" ]; then
             sed -i "s/getDatabasesPath()/getDatabasesPath/g" lib/database/database_helper.dart 2>/dev/null || true
             sed -i "s/.fromMap/.fromMap/g" lib/database/database_helper.dart 2>/dev/null || true
             echo "✅ Исправлен database_helper.dart"
           fi
           
-          # 3. Исправляем main.dart - заменяем CardThemeData на CardTheme
           if [ -f "lib/main.dart" ]; then
             sed -i "s/CardThemeData/CardTheme/g" lib/main.dart 2>/dev/null || true
             echo "✅ Исправлен main.dart"
           fi
           
-          # 4. Удаляем неиспользуемый импорт
           if [ -f "lib/screens/calculator_screen.dart" ]; then
             sed -i "/import.*estimate\.dart/d" lib/screens/calculator_screen.dart 2>/dev/null || true
             echo "✅ Удалён неиспользуемый импорт"
@@ -59,16 +57,100 @@ jobs:
           echo "Проверка исправлений..."
           flutter analyze 2>&1 | head -20 || true
       
-      - name: Generate Gradle Wrapper
+      - name: Download and Setup Gradle
         run: |
-          echo "=== Создание Gradle Wrapper ==="
+          echo "=== Загрузка и настройка Gradle ==="
           
+          # 1. Создаём директории
+          mkdir -p ~/.gradle/wrapper/dists
+          mkdir -p ~/gradle-dist
+          
+          # 2. Скачиваем Gradle 8.5
+          echo "Скачиваем Gradle 8.5..."
+          for url in \
+            "https://services.gradle.org/distributions/gradle-8.5-all.zip" \
+            "https://github.com/gradle/gradle-distributions/releases/download/v8.5.0/gradle-8.5-all.zip" \
+            "https://downloads.gradle-dn.com/distributions/gradle-8.5-all.zip"
+          do
+            echo "Попытка: $url"
+            if curl -L --retry 3 --max-time 300 -o ~/gradle-dist/gradle-8.5-all.zip "$url"; then
+              echo "✅ Gradle скачан"
+              break
+            fi
+          done
+          
+          # 3. Распаковываем в правильное место
+          echo "Распаковываем Gradle..."
+          unzip -q ~/gradle-dist/gradle-8.5-all.zip -d ~/.gradle/wrapper/dists/
+          
+          # 4. Находим распакованную директорию
+          GRADLE_DIR=$(find ~/.gradle/wrapper/dists -name "gradle-8.5" -type d | head -1)
+          if [ -z "$GRADLE_DIR" ]; then
+            # Создаём ожидаемую структуру
+            RANDOM_DIR=$(ls ~/.gradle/wrapper/dists/gradle-8.5-all/ 2>/dev/null | head -1)
+            if [ -n "$RANDOM_DIR" ]; then
+              GRADLE_DIR="~/.gradle/wrapper/dists/gradle-8.5-all/$RANDOM_DIR/gradle-8.5"
+              mkdir -p "$(dirname "$GRADLE_DIR")"
+              mv ~/.gradle/wrapper/dists/gradle-8.5-all/*/* ~/.gradle/wrapper/dists/gradle-8.5-all/*/gradle-8.5 2>/dev/null || true
+            fi
+          fi
+          
+          echo "Gradle установлен в: $GRADLE_DIR"
+          
+          # 5. Создаём правильный gradlew скрипт
           cd android
+          cat > gradlew << 'EOF'
+          #!/bin/bash
+          # Полный gradlew wrapper
+          set -e
           
-          # Создаём структуру папок
+          # Ищем Gradle в стандартных местах
+          find_gradle() {
+            # 1. В кэше GitHub Actions runner
+            if [ -x "/opt/hostedtoolcache/gradle/8.5"*/bin/gradle ]; then
+              echo "/opt/hostedtoolcache/gradle/8.5"*/bin/gradle
+              return 0
+            fi
+            # 2. В домашней директории
+            if [ -x "$HOME/.gradle/wrapper/dists/gradle-8.5-all/"*"/gradle-8.5/bin/gradle" ]; then
+              echo "$HOME/.gradle/wrapper/dists/gradle-8.5-all/"*"/gradle-8.5/bin/gradle"
+              return 0
+            fi
+            # 3. В распакованном архиве
+            if [ -x "$HOME/.gradle/wrapper/dists/gradle-8.5/bin/gradle" ]; then
+              echo "$HOME/.gradle/wrapper/dists/gradle-8.5/bin/gradle"
+              return 0
+            fi
+            return 1
+          }
+          
+          GRADLE_CMD=$(find_gradle)
+          
+          if [ -z "$GRADLE_CMD" ]; then
+            echo "ERROR: Gradle not found!"
+            echo "Trying to download Gradle on the fly..."
+            
+            # Пытаемся скачать Gradle
+            mkdir -p "$HOME/.gradle/wrapper/dists"
+            TEMP_ZIP=$(mktemp)
+            curl -L https://services.gradle.org/distributions/gradle-8.5-bin.zip -o "$TEMP_ZIP"
+            unzip -q "$TEMP_ZIP" -d "$HOME/.gradle/wrapper/dists/"
+            GRADLE_CMD="$HOME/.gradle/wrapper/dists/gradle-8.5/bin/gradle"
+            
+            if [ ! -x "$GRADLE_CMD" ]; then
+              echo "ERROR: Failed to download Gradle"
+              exit 1
+            fi
+          fi
+          
+          echo "Using Gradle: $GRADLE_CMD"
+          exec "$GRADLE_CMD" "$@"
+          EOF
+          
+          chmod +x gradlew
+          
+          # Создаём gradle/wrapper если нужно
           mkdir -p gradle/wrapper
-          
-          # Создаём файл gradle/wrapper/gradle-wrapper.properties
           cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
@@ -77,63 +159,74 @@ jobs:
           zipStorePath=wrapper/dists
           EOF
           
-          # Создаём минимальный gradlew скрипт
-          cat > gradlew << 'EOF'
-          #!/bin/bash
-          # Minimal gradlew wrapper
-          GRADLE_HOME=~/.gradle/wrapper/dists/gradle-8.5-all/$(ls ~/.gradle/wrapper/dists/gradle-8.5-all/ | head -1)/gradle-8.5
-          if [ -x "$GRADLE_HOME/bin/gradle" ]; then
-            exec "$GRADLE_HOME/bin/gradle" "$@"
-          else
-            echo "Error: Gradle not found at $GRADLE_HOME"
-            exit 1
-          fi
-          EOF
-          
-          chmod +x gradlew
-          
-          echo "✅ Gradle Wrapper создан"
+          echo "✅ Gradle настроен"
           cd ..
       
-      - name: Install dependencies
+      - name: Build with Direct Gradle
+        id: build-apk
         run: |
-          echo "=== Установка зависимостей ==="
+          echo "=== Прямая сборка через Gradle ==="
+          
+          # 1. Установка зависимостей Flutter
           flutter clean
           flutter pub get
-      
-      - name: Build APK
-        run: |
-          echo "=== Сборка APK ==="
           
-          # Собираем APK напрямую через Flutter
-          echo "Запуск сборки..."
-          if flutter build apk --release --no-android-gradle-daemon --verbose 2>&1 | tee build_log.txt; then
-            echo "✅ Сборка успешна!"
+          # 2. Генерация файлов Android
+          echo "Генерация Android файлов..."
+          flutter packages pub run build_runner build --delete-conflicting-outputs 2>/dev/null || true
+          
+          # 3. Сборка через прямой вызов Gradle
+          echo "Запуск Gradle сборки..."
+          cd android
+          
+          # Проверяем доступность Gradle
+          ./gradlew --version || echo "Gradle проверка не удалась, но продолжаем..."
+          
+          # Собираем debug версию для проверки
+          echo "Сборка debug версии..."
+          if ./gradlew assembleDebug; then
+            echo "✅ Debug сборка успешна"
             
-            # Ищем созданный APK
-            echo "Поиск APK файла..."
-            APK_FILES=$(find . -name "*.apk" -type f 2>/dev/null | head -5)
+            # Проверяем debug APK
+            DEBUG_APK=$(find . -name "*debug*.apk" -type f 2>/dev/null | head -1)
+            if [ -n "$DEBUG_APK" ]; then
+              echo "Debug APK найден: $DEBUG_APK"
+            fi
             
-            if [ -n "$APK_FILES" ]; then
-              echo "Найдены APK файлы:"
-              echo "$APK_FILES"
+            # Собираем release версию
+            echo "Сборка release версии..."
+            if ./gradlew assembleRelease; then
+              echo "✅ Release сборка успешна"
               
-              # Копируем первый найденный APK
-              FIRST_APK=$(echo "$APK_FILES" | head -1)
-              mkdir -p dist
-              cp "$FIRST_APK" "dist/app-release.apk"
-              echo "APK скопирован в dist/app-release.apk"
-              echo "apk_path=dist/app-release.apk" >> $GITHUB_OUTPUT
+              # Ищем release APK
+              RELEASE_APK=$(find . -name "*release*.apk" -type f 2>/dev/null | head -1)
+              if [ -n "$RELEASE_APK" ]; then
+                echo "Release APK найден: $RELEASE_APK"
+                mkdir -p ../dist
+                cp "$RELEASE_APK" "../dist/app-release.apk"
+                echo "apk_path=dist/app-release.apk" >> $GITHUB_OUTPUT
+                exit 0
+              else
+                echo "Release APK не найден, ищем App Bundle..."
+                AAB_FILE=$(find . -name "*.aab" -type f 2>/dev/null | head -1)
+                if [ -n "$AAB_FILE" ]; then
+                  echo "App Bundle найден: $AAB_FILE"
+                  mkdir -p ../dist
+                  cp "$AAB_FILE" "../dist/app-release.aab"
+                  echo "apk_path=dist/app-release.aab" >> $GITHUB_OUTPUT
+                  exit 0
+                fi
+              fi
             else
-              echo "⚠ APK файлы не найдены, проверяем структуру..."
-              find . -name "build" -type d | head -5 | xargs -I {} ls -la {} 2>/dev/null || true
+              echo "❌ Release сборка провалилась"
+              exit 1
             fi
           else
-            echo "❌ Сборка провалилась"
-            echo "Последние 50 строк лога:"
-            tail -50 build_log.txt || true
+            echo "❌ Debug сборка провалилась"
             exit 1
           fi
+          
+          cd ..
       
       - name: Upload APK Artifact
         if: steps.build-apk.outputs.apk_path != ''
@@ -143,10 +236,32 @@ jobs:
           path: ${{ steps.build-apk.outputs.apk_path }}
           retention-days: 7
       
-      - name: Upload Build Log
+      - name: Upload Debug APK as Fallback
+        if: always()
+        run: |
+          echo "=== Проверка наличия debug APK ==="
+          DEBUG_APK=$(find . -name "*debug*.apk" -type f 2>/dev/null | head -1)
+          if [ -n "$DEBUG_APK" ]; then
+            echo "Debug APK найден: $DEBUG_APK"
+            mkdir -p dist-fallback
+            cp "$DEBUG_APK" "dist-fallback/app-debug.apk"
+            echo "debug_apk_path=dist-fallback/app-debug.apk" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Upload Fallback Artifact
+        if: steps.upload-debug.outputs.debug_apk_path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-fallback
+          path: ${{ steps.upload-debug.outputs.debug_apk_path }}
+          retention-days: 3
+      
+      - name: Upload Build Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: build_log.txt
+          name: build-logs
+          path: |
+            **/*.log
+            android/**/build/reports/**
           retention-days: 3
