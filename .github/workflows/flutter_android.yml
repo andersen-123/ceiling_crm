@@ -1,33 +1,48 @@
-
-name: Build APK
-
-on:
-  workflow_dispatch:
-
+name: Flutter Android Build
+on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: 📥 Get code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
-    - name: ⚙️ Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.22.3'
-        
-    - name: 📦 Install packages
-      run: flutter pub get
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
       
-    - name: 🔨 Build APK
-      run: |
-        flutter clean
-        flutter build apk --release --no-tree-shake-icons
-        echo "✅ APK собран!"
-        
-    - name: ⬆️ Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: MyApp-APK
-        path: build/app/outputs/flutter-apk/app-release.apk
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.3'
+      
+      - name: Install dependencies
+        run: |
+          # Очистка кеша Gradle перед скачиванием
+          rm -rf ~/.gradle/wrapper/dists/gradle-*
+          flutter clean
+          flutter pub get
+      
+      - name: Build APK with retry
+        run: |
+          # Пробуем собрать несколько раз при сетевых ошибках
+          for i in {1..3}; do
+            echo "Попытка сборки #$i..."
+            if flutter build apk --release --no-android-gradle-daemon; then
+              echo "Сборка успешна!"
+              exit 0
+            fi
+            if [ $i -lt 3 ]; then
+              echo "Ошибка, ждем 10 секунд перед повторной попыткой..."
+              sleep 10
+            fi
+          done
+          echo "Все попытки сборки завершились ошибкой"
+          exit 1
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: build/app/outputs/flutter-apk/app-release.apk
