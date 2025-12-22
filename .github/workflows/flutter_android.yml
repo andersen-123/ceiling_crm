@@ -1,81 +1,33 @@
-name: Flutter Android Build
+
+name: Build APK
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
-    - uses: actions/checkout@v4
-
-    # 1. Устанавливаем Java
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    # 2. Устанавливаем Flutter (ОБЯЗАТЕЛЬНО ДО СОЗДАНИЯ ПРОЕКТА)
-    - name: Setup Flutter
+    - name: 📥 Get code
+      uses: actions/checkout@v4
+      
+    - name: ⚙️ Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.22.0'
-        channel: 'stable'
-
-    # 3. Теперь можно запускать команды `flutter`
-    - name: COMPLETELY RECREATE ANDROID PROJECT
-      run: |
-        echo "=== ШАГ 1: Сохраняем ВЕСЬ наш код ==="
-        mkdir -p /tmp/ceiling_crm_backup
-        cp -r lib /tmp/ceiling_crm_backup/
-        cp -r assets /tmp/ceiling_crm_backup/
-        cp pubspec.yaml /tmp/ceiling_crm_backup/
-        cp .gitignore /tmp/ceiling_crm_backup/
-
-        echo "=== ШАГ 2: Удаляем старую Android часть ==="
-        rm -rf android/
-
-        echo "=== ШАГ 3: Создаём НОВЫЙ Flutter проект ==="
-        cd /home/runner/work/ceiling_crm/ceiling_crm
-        flutter create -t app --project-name ceiling_crm --org com.example --platforms android .
-
-        echo "=== ШАГ 4: Восстанавливаем наш код ==="
-        rm -rf lib/
-        cp -r /tmp/ceiling_crm_backup/lib .
-        cp -r /tmp/ceiling_crm_backup/assets .
-        cp /tmp/ceiling_crm_backup/pubspec.yaml .
-        cp /tmp/ceiling_crm_backup/.gitignore .
-
-        echo "=== ШАГ 5: Фиксим конфигурацию Gradle ==="
-        cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
-        distributionBase=GRADLE_USER_HOME
-        distributionPath=wrapper/dists
-        distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip
-        zipStoreBase=GRADLE_USER_HOME
-        zipStorePath=wrapper/dists
-        EOF
-
-        sed -i "s/classpath 'com.android.tools.build:gradle:.*'/classpath 'com.android.tools.build:gradle:8.7.2'/g" android/build.gradle
-
-        echo "=== ШАГ 6: Проверяем структуру ==="
-        ls -la android/
-
-    # 4. Стандартные шаги сборки Flutter
-    - name: Install Dependencies
+        flutter-version: '3.16.9'
+        
+    - name: 📦 Install packages
+      run: flutter pub get
+      
+    - name: 🔨 Build APK
       run: |
         flutter clean
-        flutter pub get
-
-    - name: Build APK
-      run: flutter build apk --release --no-tree-shake-icons
-
-    - name: Upload APK
+        flutter build apk --release --no-tree-shake-icons
+        echo "✅ APK собран!"
+        
+    - name: ⬆️ Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-release
+        name: MyApp-APK
         path: build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 7
