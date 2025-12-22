@@ -1,9 +1,8 @@
-
 class Client {
-  int? id; // Будет null, пока не сохранен в БД
+  int? id;
   final String name;
   final String phone;
-  final String? objectAddress; // Адрес объекта (например, "Нежинская 1к2")
+  final String? objectAddress;
   final String? notes;
   final DateTime createdAt;
 
@@ -16,7 +15,6 @@ class Client {
     required this.createdAt,
   });
 
-  // Преобразование в Map для сохранения в базу данных (sqflite)
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -28,7 +26,6 @@ class Client {
     };
   }
 
-  // Создание объекта Client из Map (при чтении из базы данных)
   factory Client.fromMap(Map<String, dynamic> map) {
     return Client(
       id: map['id'],
@@ -37,6 +34,24 @@ class Client {
       objectAddress: map['object_address'],
       notes: map['notes'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']),
+    );
+  }
+
+  Client copyWith({
+    int? id,
+    String? name,
+    String? phone,
+    String? objectAddress,
+    String? notes,
+    DateTime? createdAt,
+  }) {
+    return Client(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      objectAddress: objectAddress ?? this.objectAddress,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }
