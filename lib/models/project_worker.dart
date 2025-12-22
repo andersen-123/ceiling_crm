@@ -1,10 +1,9 @@
-
 class ProjectWorker {
   int? id;
-  final int projectId; // ID проекта, к которому привязан
-  final String name; // "Лёша", "Я"
-  final bool hasCar; // true - у работника есть автомобиль
-  double salaryCalculated; // Рассчитанная зарплата (будет обновляться)
+  final int projectId;
+  final String name;
+  final bool hasCar;
+  double salaryCalculated;
 
   ProjectWorker({
     this.id,
@@ -30,7 +29,25 @@ class ProjectWorker {
       projectId: map['project_id'],
       name: map['name'],
       hasCar: map['has_car'] == 1,
-      salaryCalculated: map['salary_calculated'],
+      salaryCalculated: map['salary_calculated'] is int
+          ? (map['salary_calculated'] as int).toDouble()
+          : map['salary_calculated'],
+    );
+  }
+
+  ProjectWorker copyWith({
+    int? id,
+    int? projectId,
+    String? name,
+    bool? hasCar,
+    double? salaryCalculated,
+  }) {
+    return ProjectWorker(
+      id: id ?? this.id,
+      projectId: projectId ?? this.projectId,
+      name: name ?? this.name,
+      hasCar: hasCar ?? this.hasCar,
+      salaryCalculated: salaryCalculated ?? this.salaryCalculated,
     );
   }
 }
