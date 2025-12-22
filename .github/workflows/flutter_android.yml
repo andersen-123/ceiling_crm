@@ -12,6 +12,93 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: COMPLETELY RECREATE ANDROID PROJECT
+      run: |
+        echo "=== ШАГ 1: Сохраняем ВЕСЬ наш код ==="
+        mkdir -p /tmp/ceiling_crm_backup
+        cp -r lib /tmp/ceiling_crm_backup/
+        cp -r assets /tmp/ceiling_crm_backup/
+        cp pubspec.yaml /tmp/ceiling_crm_backup/
+        cp .gitignore /tmp/ceiling_crm_backup/
+        
+        echo "=== ШАГ 2: Удаляем старую Android часть ==="
+        rm -rf android/
+        
+        echo "=== ШАГ 3: Создаём НОВЫЙ Flutter проект ==="
+        cd /home/runner/work/ceiling_crm/ceiling_crm
+        
+        # Создаём временный чистый проект
+        flutter create -t app --project-name ceiling_crm --org com.example --platforms android .
+        
+        echo "=== ШАГ 4: Восстанавливаем наш код ==="
+        # Удаляем стандартные Dart файлы
+        rm -rf lib/
+        
+        # Восстанавливаем наш код
+        cp -r /tmp/ceiling_crm_backup/lib .
+        cp -r /tmp/ceiling_crm_backup/assets .
+        cp /tmp/ceiling_crm_backup/pubspec.yaml .
+        cp /tmp/ceiling_crm_backup/.gitignore .
+        
+        echo "=== ШАГ 5: Фиксим конфигурацию Gradle ==="
+        # Обновляем Gradle до 8.13
+        cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
+        distributionBase=GRADLE_USER_HOME
+        distributionPath=wrapper/dists
+        distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip
+        zipStoreBase=GRADLE_USER_HOME
+        zipStorePath=wrapper/dists
+        EOF
+        
+        # Обновляем AGP в build.gradle
+        sed -i "s/classpath 'com.android.tools.build:gradle:.*'/classpath 'com.android.tools.build:gradle:8.7.2'/g" android/build.gradle
+        
+        echo "=== ШАГ 6: Проверяем структуру ==="
+        ls -la android/
+        echo "---"
+        ls -la android/app/src/main/kotlin/com/example/ceiling_crm/
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.22.0'
+        channel: 'stable'
+    
+    - name: Install Dependencies
+      run: |
+        flutter clean
+        flutter pub get
+    
+    - name: Build APK
+      run: |
+        # Строим без оптимизаций для первого раза
+        flutter build apk --release --no-tree-shake-icons
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release
+        path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 7name: Flutter Android Build
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
     - name: Force Update Gradle to 8.13
       run: |
         # Обновляем Gradle wrapper
