@@ -1,13 +1,12 @@
 buildscript {
-    ext.kotlin_version = '1.9.22'  // Обновлено с 1.9.0 до 1.9.22
+    ext.kotlin_version = '1.9.22'  // Обновлено: 1.9.0 → 1.9.22
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        // Рекомендуемая версия для Flutter 3.22.3 и Kotlin 1.9.22
-        classpath 'com.android.tools.build:gradle:8.2.2'  // Обновлено с 8.1.0
+        classpath 'com.android.tools.build:gradle:8.2.2'  // Обновлено: 8.1.0 → 8.2.2
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
