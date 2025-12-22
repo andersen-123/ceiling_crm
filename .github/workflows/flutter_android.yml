@@ -13,6 +13,28 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        # КРИТИЧЕСКИ ВАЖНО: Отключаем кеширование при загрузке
+        fetch-depth: 0
+    
+    - name: Force Correct Gradle Wrapper
+      run: |
+        # УБЕДИТЕЛЬНО удаляем старый файл
+        rm -f android/gradle/wrapper/gradle-wrapper.properties
+        
+        # Создаём новый с правильным содержимым
+        cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOF'
+        distributionBase=GRADLE_USER_HOME
+        distributionPath=wrapper/dists
+        distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-all.zip
+        zipStoreBase=GRADLE_USER_HOME
+        zipStorePath=wrapper/dists
+        EOF
+        
+        # Проверяем содержимое
+        echo "=== Проверка файла ==="
+        cat android/gradle/wrapper/gradle-wrapper.properties
+        echo "=== Конец файла ==="
     
     - name: Setup Java
       uses: actions/setup-java@v4
@@ -23,25 +45,14 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.22.0' # Актуальная версия Flutter
+        flutter-version: '3.22.0'
         channel: 'stable'
     
     - name: Install dependencies
-      run: flutter pub get
-    
-    - name: Fix Kotlin version
       run: |
-        # Обновляем версию Kotlin в build.gradle
-        sed -i "s/ext.kotlin_version = '.*'/ext.kotlin_version = '2.1.10'/g" android/build.gradle
-        
-        # Удаляем устаревший плагин
-        sed -i "/apply plugin: 'kotlin-android-extensions'/d" android/app/build.gradle
-        
-        # Обновляем compileSdkVersion
-        sed -i "s/compileSdkVersion .*/compileSdkVersion 34/g" android/app/build.gradle
-        
-        # Обновляем Gradle версию
-        sed -i "s/gradle-.*-all.zip/gradle-8.9-all.zip/g" android/gradle/wrapper/gradle-wrapper.properties
+        flutter pub get
+        # Чистим кеш Gradle
+        rm -rf ~/.gradle/caches/
     
     - name: Build APK
       run: flutter build apk --release --no-android-gradle-daemon
