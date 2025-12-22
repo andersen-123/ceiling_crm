@@ -1,4 +1,4 @@
-package com.example.tensionceilingapp
+package com.example.ceiling_crm
 
 import io.flutter.embedding.android.FlutterActivity
 
