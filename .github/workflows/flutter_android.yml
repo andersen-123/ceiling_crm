@@ -1,47 +1,54 @@
-name: Build Android APK
+name: Flutter Android Build
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
-      # Клонируем репозиторий
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Устанавливаем Flutter (стабильная версия)
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      # Кэшируем pub packages для ускорения сборки
-      - name: Cache Flutter dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.pub-cache
-            **/pubspec.lock
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
-
-      # Получаем зависимости
-      - name: Install dependencies
-        run: flutter pub get
-
-      # Сборка APK в режиме release
-      - name: Build Android APK
-        run: flutter build apk --release --no-android-gradle-daemon
-      # Сохраняем артефакт APK
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release.apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+    - uses: actions/checkout@v4
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.22.0' # Актуальная версия Flutter
+        channel: 'stable'
+    
+    - name: Install dependencies
+      run: flutter pub get
+    
+    - name: Fix Kotlin version
+      run: |
+        # Обновляем версию Kotlin в build.gradle
+        sed -i "s/ext.kotlin_version = '.*'/ext.kotlin_version = '2.1.10'/g" android/build.gradle
+        
+        # Удаляем устаревший плагин
+        sed -i "/apply plugin: 'kotlin-android-extensions'/d" android/app/build.gradle
+        
+        # Обновляем compileSdkVersion
+        sed -i "s/compileSdkVersion .*/compileSdkVersion 34/g" android/app/build.gradle
+        
+        # Обновляем Gradle версию
+        sed -i "s/gradle-.*-all.zip/gradle-8.9-all.zip/g" android/gradle/wrapper/gradle-wrapper.properties
+    
+    - name: Build APK
+      run: flutter build apk --release --no-android-gradle-daemon
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release
+        path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 7
