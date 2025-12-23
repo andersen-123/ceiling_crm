@@ -23,9 +23,13 @@ class DatabaseHelper {
   }
 
   Future<sqflite.Database> _initDatabase() async {
-    // Используем getDatabasesPath() как глобальную функцию
-    final databasesPath = await getDatabasesPath();
+    // ДОЛЖНО БЫТЬ ТАК (ПРАВИЛЬНО):
+    // 1. Получаем путь к папке баз данных
+    final appDir = await getApplicationDocumentsDirectory();
+    final databasesPath = appDir.path;
+    // 2. Создаём полный путь к файлу БД
     String path = join(databasesPath, 'ceiling_crm.db');
+  
     return await sqflite.openDatabase(
       path,
       version: 1,
