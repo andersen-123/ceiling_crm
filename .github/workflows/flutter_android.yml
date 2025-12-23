@@ -106,9 +106,9 @@ jobs:
           --no-pub \
           --no-obfuscate  # 👈 Отключаем обфускацию для скорости
     
-    # 12. Загрузка артефактов
+        # 12. Загрузка артефактов
     - name: Upload build artifacts
-      - uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4 # <-- Дефиса перед 'uses' НЕТ
       with:
         name: flutter-builds
         path: |
