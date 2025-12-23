@@ -22,22 +22,21 @@ jobs:
           flutter clean
           flutter pub get
       
-      - name: Build APK (Debug for CI Test)
+      - name: Build APK (Debug for CI Test) - FIND PATH
         run: |
           echo "=== Сборка ОТЛАДОЧНОГО APK для проверки CI ==="
           flutter build apk --debug --verbose 2>&1 | tee build.log
-          if [ $? -ne 0 ]; then
-            echo "❌ Ошибка сборки! Смотрите лог выше"
-            exit 1
-          fi
-          echo "✅ Debug APK успешно собран (CI проверен)"
+          echo "=== Поиск созданных APK файлов ==="
+          find build -name "*.apk" 2>/dev/null || echo "APK файлы не найдены"
+          ls -la build/app/outputs/ || echo "Папка outputs не найдена"
+          ls -la build/app/outputs/flutter-apk/ 2>/dev/null || echo "Папка flutter-apk не найдена"
       
-      - name: Upload Debug APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+     # - name: Upload Debug APK
+     #   if: success()
+     #   uses: actions/upload-artifact@v4
+     #   with:
+      #    name: app-debug-apk
+       #   path: build/app/outputs/flutter-apk/app-debug.apk
       
       - name: Upload build log
         if: failure()
