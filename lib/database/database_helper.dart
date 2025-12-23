@@ -23,11 +23,11 @@ class DatabaseHelper {
   }
 
   Future<sqflite.Database> _initDatabase() async {
-    // ДОЛЖНО БЫТЬ ТАК (ПРАВИЛЬНО):
     // 1. Получаем путь к папке баз данных
     final appDir = await getApplicationDocumentsDirectory();
-    final databasesPath = appDir.path;
-    // 2. Создаём полный путь к файлу БД
+    // 2. Получаем путь к директории как строку
+    final databasesPath = appDir.path; // <-- ВАЖНО: добавляем эту строку
+    // 3. Создаём полный путь к файлу БД
     String path = join(databasesPath, 'ceiling_crm.db');
   
     return await sqflite.openDatabase(
@@ -36,7 +36,6 @@ class DatabaseHelper {
       onCreate: _onCreate,
     );
   }
-
   Future<void> _onCreate(sqflite.Database db, int version) async {
     await db.execute('''
       CREATE TABLE clients(
