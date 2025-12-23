@@ -43,7 +43,7 @@ class CeilingCRMApp extends StatelessWidget {
           fontWeight: FontWeight.bold,
         ),
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -91,7 +91,7 @@ class CeilingCRMApp extends StatelessWidget {
         backgroundColor: Colors.grey.shade900,
         elevation: 2,
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
