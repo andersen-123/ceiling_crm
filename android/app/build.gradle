@@ -16,17 +16,16 @@ apply plugin: 'kotlin-android'
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
-    compileSdkVersion 34
-    ndkVersion "26.1.10909125"
-    namespace 'com.example.ceiling_crm'  // ✅ Уже есть
+    compileSdkVersion flutter.compileSdkVersion
+    ndkVersion flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17  // Обновлено: 1.8 → 17
-        targetCompatibility JavaVersion.VERSION_17  // Обновлено: 1.8 → 17
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = '17'  // Обновлено: 1.8 → 17
+        jvmTarget = '1.8'
     }
 
     sourceSets {
@@ -35,18 +34,15 @@ android {
 
     defaultConfig {
         applicationId "com.example.ceiling_crm"
-        minSdkVersion 21
-        targetSdkVersion 34
-        versionCode 1
-        versionName "1.0.0"
+        minSdkVersion flutter.minSdkVersion
+        targetSdkVersion flutter.targetSdkVersion
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
     }
 
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            // Дополнительно можно добавить для уменьшения размера APK:
-            // minifyEnabled true
-            // proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
