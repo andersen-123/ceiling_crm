@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:path/path.dart';
 import '../models/client.dart';
 import '../models/estimate.dart';
-import '../models/estimate_item.dart' as custom_estimate_item;
+import '../models/estimate_item.dart';
 import '../models/project.dart';
 import '../models/project_worker.dart';
 import '../models/transaction.dart' as custom_transaction;
@@ -24,7 +24,9 @@ class DatabaseHelper {
   }
 
   Future<sqflite.Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'ceiling_crm.db');
+    // Используем getDatabasesPath() как глобальную функцию
+    final databasesPath = await getDatabasesPath();
+    String path = join(databasesPath, 'ceiling_crm.db');
     return await sqflite.openDatabase(
       path,
       version: 1,
@@ -185,9 +187,10 @@ class DatabaseHelper {
       orderBy: 'position_number ASC',
     );
     
-    final items = itemMaps.map((map) => custom_estimate_item.EstimateItem.fromMap(map)).toList();
+    // Используем правильный класс EstimateItem с методом fromMap
+    final items = itemMaps.map((map) => EstimateItem.fromMap(map)).toList();
     
-    return estimate.copyWith(items: items);
+    return estimate.copyWith(items: items as List<EstimateItem>);
   }
 
   Future<List<Estimate>> getEstimates() async {
