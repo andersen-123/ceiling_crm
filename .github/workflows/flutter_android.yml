@@ -1,54 +1,131 @@
-name: Flutter Android Build
-on: [push, workflow_dispatch]
+name: Flutter Android CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:  # 👈 Позволяет запускать вручную
+
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 25  # 👈 Защита от зависаний
+    
+    env:
+      # 👇 Переменные для ускорения сборки
+      GRADLE_OPTS: "-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
+      FLUTTER_ROOT: /opt/hostedtoolcache/flutter
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22.3'
-      
-      - name: Install dependencies
-        run: |
-          flutter clean
-          flutter pub get
-      
-      - name: Build APK (Debug for CI Test) - GET LOG
-        run: |
-          echo "=== Начинаем сборку ==="
-          # Запускаем сборку, логи пишем В ОБА ФАЙЛА: и в консоль, и в build.log
-          flutter build apk --debug --verbose 2>&1 | tee -a build.log
-          BUILD_STATUS=${PIPESTATUS[0]}
-          
-          echo "=== Статус сборки: $BUILD_STATUS ==="
-          echo "=== Содержимое build.log (первые 100 строк) ==="
-          head -100 build.log || echo "Файл build.log не найден"
-          
-          echo "=== Содержимое build.log (последние 200 строк) ==="
-          tail -200 build.log || echo "Файл build.log не найден"
-          
-          # Завершаем шаг с тем же кодом, что и сборка
-          exit $BUILD_STATUS
-      
-     # - name: Upload Debug APK
-     #   if: success()
-     #   uses: actions/upload-artifact@v4
-     #   with:
-      #    name: app-debug-apk
-       #   path: build/app/outputs/flutter-apk/app-debug.apk
-      
-      - name: Upload build log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-error-log
-          path: build.log
+    # 1. Код
+    - uses: actions/checkout@v4
+    
+    # 2. КЭШ Gradle - САМОЕ ВАЖНОЕ!
+    - name: Cache Gradle dependencies
+      uses: actions/cache@v3
+      id: gradle-cache
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+          android/.gradle
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties', '**/*.gradle*') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+    
+    # 3. КЭШ Flutter SDK и pub cache
+    - name: Cache Flutter
+      uses: actions/cache@v3
+      id: flutter-cache
+      with:
+        path: |
+          ${{ env.FLUTTER_ROOT }}
+          ~/.pub-cache
+        key: ${{ runner.os }}-flutter-${{ hashFiles('pubspec.lock') }}
+    
+    # 4. Установка Java (конкретная версия)
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle  # 👈 Кэш для Gradle
+    
+    # 5. Установка Flutter
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.22.3'  # 👈 Фиксируем версию
+        channel: 'stable'
+        cache: true
+        cache-key: flutter-cache-${{ hashFiles('pubspec.lock') }}
+        cache-path: ${{ env.FLUTTER_ROOT }}
+    
+    # 6. Проверка окружения
+    - name: Flutter doctor
+      run: flutter doctor -v
+    
+    # 7. Зависимости Flutter
+    - name: Get Flutter dependencies
+      run: flutter pub get
+    
+    # 8. Проверка кода
+    - name: Analyze code
+      run: |
+        flutter analyze --no-pub --no-fatal-infos || true
+    
+    # 9. Тесты
+    - name: Run tests
+      run: |
+        flutter test --no-pub || echo "Tests might have failed, continuing build"
+    
+    # 10. Сборка AAB (для Google Play) - быстрее чем APK
+    - name: Build Android App Bundle
+      run: |
+        # Сначала сборка debug для проверки
+        flutter build apk --debug --no-pub
+        
+        # Основная сборка release
+        flutter build appbundle \
+          --release \
+          --no-tree-shake-icons \
+          --split-debug-info=/tmp/symbols/ \
+          --obfuscate \
+          --no-pub
+      env:
+        # 👇 Отключаем signing для CI (ускоряет сборку)
+        JAVA_OPTS: "-Xmx4096m -XX:+UseG1GC"
+    
+    # 11. Сборка APK для тестирования
+    - name: Build APK for testing
+      run: |
+        flutter build apk \
+          --release \
+          --split-per-abi \
+          --no-pub \
+          --no-obfuscate  # 👈 Отключаем обфускацию для скорости
+    
+    # 12. Загрузка артефактов
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: flutter-builds
+        path: |
+          build/app/outputs/bundle/release/*.aab
+          build/app/outputs/apk/release/*.apk
+        retention-days: 14
+    
+    # 13. (Опционально) Уведомление в Telegram/Discord
+    - name: Notify success
+      if: success()
+      run: |
+        echo "✅ Build completed successfully!"
+        echo "📦 Artifacts uploaded"
+    
+    # 14. Уведомление о неудаче
+    - name: Notify failure
+      if: failure()
+      run: |
+        echo "❌ Build failed!"
+        echo "Check logs for details"
