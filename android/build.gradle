@@ -1,12 +1,17 @@
 buildscript {
-    ext.kotlin_version = '1.9.22'  // Обновлено: 1.9.0 → 1.9.22
+    ext.kotlin_version = '1.9.22'  // 👈 Фиксированная версия Kotlin
+    
     repositories {
         google()
         mavenCentral()
+        
+        // 👇 Зеркало для Китая/медленного интернета
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
     }
-
+    
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.2'  // Обновлено: 8.1.0 → 8.2.2
+        classpath 'com.android.tools.build:gradle:8.2.2'  // 👈 Конкретная версия
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -15,17 +20,13 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        
+        // 👇 Зеркало для Китая/медленного интернета
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
     }
 }
 
-rootProject.buildDir = '../build'
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(':app')
-}
-
-tasks.register("clean", Delete) {
+task clean(type: Delete) {
     delete rootProject.buildDir
 }
