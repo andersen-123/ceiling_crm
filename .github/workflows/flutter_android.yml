@@ -22,15 +22,15 @@ jobs:
           flutter clean
           flutter pub get
       
-      - name: Build APK
+      - name: Build APK (Debug for CI Test)
         run: |
-          echo "=== Начинаем сборку APK ==="
-          flutter build apk --release --verbose 2>&1 | tee build.log
+          echo "=== Сборка ОТЛАДОЧНОГО APK для проверки CI ==="
+          flutter build apk --debug --verbose 2>&1 | tee build.log
           if [ $? -ne 0 ]; then
             echo "❌ Ошибка сборки! Смотрите лог выше"
             exit 1
           fi
-          echo "✅ APK успешно собран"
+          echo "✅ Debug APK успешно собран (CI проверен)"
       
       - name: Upload APK
         if: success()
