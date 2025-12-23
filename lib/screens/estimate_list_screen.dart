@@ -41,7 +41,7 @@ class _EstimateListScreenState extends State<EstimateListScreen> {
         itemBuilder: (context, index) {
           final estimate = _estimates[index];
           return ListTile(
-            title: Text(estimate.name),
+            title: Text(estimate.name ?? '${estimate.clientName} - ${estimate.createdDate.toString().substring(0, 10)}'),
             subtitle: Text('Итого: ${estimate.total} ₽'),
             onTap: () => context.go('/estimate_edit', extra: estimate),
             trailing: IconButton(
