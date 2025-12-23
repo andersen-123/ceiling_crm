@@ -17,249 +17,31 @@ jobs:
         with:
           flutter-version: '3.22.3'
       
-      - name: Fix Critical Dart Compilation Errors
+      - name: Install dependencies
         run: |
-          echo "=== Исправление критических ошибок компиляции ==="
-          
-          # 1. Создаём отсутствующий файл routing.dart (если нужно)
-          if [ ! -f "lib/core/routing.dart" ]; then
-            mkdir -p lib/core
-            cat > lib/core/routing.dart << 'EOF'
-          import 'package:flutter/material.dart';
-          
-          class AppRouter {
-            static Route<dynamic> generateRoute(RouteSettings settings) {
-              return MaterialPageRoute(builder: (_) => Container());
-            }
-          }
-          
-          final router = AppRouter();
-          EOF
-            echo "✅ Создан lib/core/routing.dart"
-          fi
-          
-          # 2. Исправляем database_helper.dart - КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ
-          if [ -f "lib/database/database_helper.dart" ]; then
-            echo "Исправляем database_helper.dart..."
-            
-            # 2.1. Добавляем импорт path_provider если его нет
-            if ! grep -q "import 'package:path_provider" "lib/database/database_helper.dart"; then
-              sed -i "1i import 'package:path_provider/path_provider.dart';" "lib/database/database_helper.dart"
-            fi
-            
-            # 2.2. Исправляем getDatabasesPath() на getDatabasesPath()
-            sed -i "s/await getDatabasesPath/await getDatabasesPath()/g" "lib/database/database_helper.dart"
-            
-            # 2.3. Исправляем EstimateItem.fromMap - нужно увидеть исходный код
-            # Сначала посмотрим, что есть в файле
-            echo "Проверяем строку 186:"
-            sed -n '186p' "lib/database/database_helper.dart"
-            
-            # Временное исправление - закомментируем проблемные строки
-            sed -i '185,190s/^/\/\/ /' "lib/database/database_helper.dart" 2>/dev/null || true
-            
-            echo "✅ Временно закомментированы проблемные строки в database_helper.dart"
-          fi
-          
-          # 3. Исправляем main.dart
-          if [ -f "lib/main.dart" ]; then
-            sed -i "s/CardThemeData/CardTheme/g" "lib/main.dart"
-            echo "✅ Исправлен main.dart"
-          fi
-          
-          # 4. Создаём недостающие методы в EstimateItem
-          if [ -f "lib/models/estimate.dart" ]; then
-            echo "Добавляем недостающие методы в EstimateItem..."
-            
-            # Проверяем, есть ли уже fromMap метод
-            if ! grep -q "factory EstimateItem.fromMap" "lib/models/estimate.dart"; then
-              # Добавляем factory метод
-              TEMP_FILE=$(mktemp)
-              cat > "$TEMP_FILE" << 'EOF'
-          factory EstimateItem.fromMap(Map<String, dynamic> map) {
-            return EstimateItem(
-              id: map['id'] as int?,
-              estimateId: map['estimateId'] as int,
-              name: map['name'] as String,
-              quantity: (map['quantity'] as num).toDouble(),
-              price: (map['price'] as num).toDouble(),
-              unit: map['unit'] as String,
-            );
-          }
-          
-          Map<String, dynamic> toMap() {
-            return {
-              'id': id,
-              'estimateId': estimateId,
-              'name': name,
-              'quantity': quantity,
-              'price': price,
-              'unit': unit,
-            };
-          }
-          EOF
-              
-              # Вставляем после класса EstimateItem
-              sed -i "/class EstimateItem {/r $TEMP_FILE" "lib/models/estimate.dart"
-              rm "$TEMP_FILE"
-              echo "✅ Добавлены fromMap и toMap в EstimateItem"
-            fi
-          fi
-          
-          # 5. Исправляем остальные файлы
-          for file in "lib/screens/calculator_screen.dart" "lib/screens/estimate_list_screen.dart"; do
-            if [ -f "$file" ]; then
-              # Удаляем неиспользуемые импорты
-              sed -i "/import.*estimate\.dart/d" "$file" 2>/dev/null || true
-              
-              # Исправляем getter 'name'
-              sed -i "s/\.name/\.title/g" "$file" 2>/dev/null || true
-              echo "✅ Исправлен $file"
-            fi
-          done
-          
-          # 6. Проверяем исправления
-          echo "=== Проверка исправлений ==="
-          flutter analyze 2>&1 | grep -A5 -B5 "error\|warning" || echo "Анализ завершён"
-      
-      - name: Install Dependencies
-        run: |
-          echo "=== Установка зависимостей ==="
           flutter clean
           flutter pub get
-          
-          # Обновляем path_provider если нужно
-          if ! grep -q "path_provider:" "pubspec.yaml"; then
-            echo "Добавляем path_provider в pubspec.yaml..."
-            sed -i "/dependencies:/a \  path_provider: ^2.1.5" "pubspec.yaml"
-            flutter pub get
-          fi
       
-      - name: Build APK Directly
-        id: build-apk
+      - name: Build APK
         run: |
-          echo "=== Прямая сборка APK ==="
-          
-          # 1. Проверяем структуру проекта
-          echo "Структура проекта:"
-          find lib -name "*.dart" | head -10
-          
-          # 2. Пробуем собрать APK напрямую
-          echo "Запуск сборки APK..."
-          if flutter build apk --release --no-android-gradle-daemon --verbose 2>&1 | tee build_output.txt; then
-            echo "✅ Сборка успешна!"
-            
-            # 3. Ищем созданный APK
-            echo "Поиск APK файлов..."
-            APK_FILES=$(find build -name "*.apk" -type f 2>/dev/null)
-            
-            if [ -n "$APK_FILES" ]; then
-              echo "Найдены APK:"
-              echo "$APK_FILES"
-              
-              # Берём первый найденный release APK
-              RELEASE_APK=$(echo "$APK_FILES" | grep -i release | head -1)
-              if [ -z "$RELEASE_APK" ]; then
-                RELEASE_APK=$(echo "$APK_FILES" | head -1)
-              fi
-              
-              mkdir -p dist
-              cp "$RELEASE_APK" "dist/app-release.apk"
-              echo "APK скопирован: dist/app-release.apk"
-              echo "apk_path=dist/app-release.apk" >> $GITHUB_OUTPUT
-            else
-              echo "⚠ APK не найдены. Содержимое build/:"
-              find build -type f -name "*.apk" -o -name "*.aab" 2>/dev/null || true
-            fi
-          else
-            echo "❌ Сборка провалилась"
-            
-            # Анализируем ошибку
-            echo "=== Анализ ошибок ==="
-            grep -A10 -B5 "error\|Error\|FAILED" build_output.txt | head -50 || true
-            
-            # Показываем конкретные Dart ошибки
-            echo "=== Dart ошибки компиляции ==="
-            grep -A3 -B3 "isn't defined\|Member not found" build_output.txt || true
-            
+          echo "=== Начинаем сборку APK ==="
+          flutter build apk --release --verbose 2>&1 | tee build.log
+          if [ $? -ne 0 ]; then
+            echo "❌ Ошибка сборки! Смотрите лог выше"
             exit 1
           fi
+          echo "✅ APK успешно собран"
       
-      - name: Upload APK Artifact
-        if: steps.build-apk.outputs.apk_path != ''
+      - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: ${{ steps.build-apk.outputs.apk_path }}
-          retention-days: 7
+          path: build/app/outputs/flutter-apk/app-release.apk
       
-      - name: Upload Build Log
-        if: always()
+      - name: Upload build log
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: build_output.txt
-          retention-days: 3
-      
-      - name: Create Minimal APK if Build Fails
-        if: failure()
-        run: |
-          echo "=== Создание минимального рабочего APK ==="
-          
-          # Создаём минимальный рабочий проект
-          mkdir -p temp_build
-          cd temp_build
-          
-          cat > pubspec.yaml << 'EOF'
-          name: ceiling_crm_minimal
-          description: Minimal build
-          version: 1.0.0+1
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
-          dependencies:
-            flutter:
-              sdk: flutter
-          dev_dependencies:
-            flutter_test:
-              sdk: flutter
-          flutter:
-            uses-material-design: true
-          EOF
-          
-          mkdir -p lib
-          cat > lib/main.dart << 'EOF'
-          import 'package:flutter/material.dart';
-          
-          void main() => runApp(const MyApp());
-          
-          class MyApp extends StatelessWidget {
-            const MyApp({super.key});
-          
-            @override
-            Widget build(BuildContext context) {
-              return MaterialApp(
-                title: 'Ceiling CRM',
-                theme: ThemeData(primarySwatch: Colors.blue),
-                home: const Scaffold(
-                  body: Center(child: Text('Minimal Build Success!')),
-                ),
-              );
-            }
-          }
-          EOF
-          
-          # Копируем Android конфигурацию
-          cp -r ../android .
-          
-          # Собираем APK
-          flutter clean
-          flutter pub get
-          
-          if flutter build apk --release; then
-            echo "✅ Минимальный APK создан"
-            cp build/app/outputs/flutter-apk/app-release.apk ../dist/minimal-release.apk
-          else
-            echo "❌ Даже минимальный APK не собрался"
-          fi
-          
-          cd ..
+          name: build-error-log
+          path: build.log
