@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'core/routing.dart';
-import 'core/theme.dart';
+import 'screens/home_screen.dart';
 
-class CeilingCRMApp extends StatelessWidget {
-  const CeilingCRMApp({super.key});
-
+class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
+    return MaterialApp(
       title: 'Ceiling CRM',
-      theme: buildTheme(),
-      routerConfig: router,
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      initialRoute: '/',
+      onGenerateRoute: AppRouter.generateRoute,
+      home: HomeScreen(),
     );
   }
 }
