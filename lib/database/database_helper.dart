@@ -7,7 +7,7 @@ import '../models/estimate.dart';
 import '../models/project.dart';
 import '../models/project_worker.dart';
 import '../models/transaction.dart' as custom_transaction;
-
+import 'package:ceiling_crm/models/estimate_item.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -45,6 +45,20 @@ class DatabaseHelper {
         object_address TEXT,
         notes TEXT,
         created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE estimate_items(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        estimate_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        price REAL NOT NULL,
+        description TEXT,
+        FOREIGN KEY (estimate_id) REFERENCES estimates (id) ON DELETE CASCADE
       )
     ''');
 
