@@ -117,7 +117,7 @@ class _EstimateEditScreenState extends State<EstimateEditScreen> {
       final provider = Provider.of<EstimateProvider>(context, listen: false);
       
       if (widget.estimate == null) {
-        await provider.addEstimate(updatedEstimate);
+        await provider.updateEstimate(updatedEstimate);
       } else {
         await provider.updateEstimate(updatedEstimate);
       }
