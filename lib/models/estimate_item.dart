@@ -1,84 +1,89 @@
 class EstimateItem {
   final int? id;
-  final int? estimateId; // Связь с родительской сметой (Estimate)
+  final int? estimateId;
   final String name;
   final String category;
-  final double price;
-  final String unit; // Например: 'шт.', 'м.п.', 'м²'
   final double quantity;
-  final double total;
+  final String unit;
+  final double price;
+  final String? description;
 
   EstimateItem({
     this.id,
     this.estimateId,
     required this.name,
     required this.category,
-    required this.price,
-    required this.unit,
     required this.quantity,
-  }) : total = price * quantity;
+    required this.unit,
+    required this.price,
+    this.description,
+  });
 
-  // Именованный конструктор для создания элементов из шаблонов
+  // Конструктор для создания шаблона
   factory EstimateItem.template({
     required String name,
     required String category,
-    required double price,
     required String unit,
+    required double price,
+    String? description,
   }) {
     return EstimateItem(
       name: name,
       category: category,
-      price: price,
+      quantity: 1.0,
       unit: unit,
-      quantity: 1.0, // Количество по умолчанию
+      price: price,
+      description: description,
     );
   }
 
-  // Преобразование в Map для базы данных
+  double get total => quantity * price;
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'estimate_id': estimateId,
       'name': name,
       'category': category,
-      'price': price,
-      'unit': unit,
       'quantity': quantity,
-      'total': total,
+      'unit': unit,
+      'price': price,
+      'description': description,
     };
   }
 
-  // Создание из Map (из базы данных)
   factory EstimateItem.fromMap(Map<String, dynamic> map) {
     return EstimateItem(
-      id: map['id'],
-      estimateId: map['estimate_id'],
-      name: map['name'],
-      category: map['category'],
-      price: map['price'].toDouble(),
-      unit: map['unit'],
-      quantity: map['quantity'].toDouble(),
+      id: map['id'] as int?,
+      estimateId: map['estimate_id'] as int?,
+      name: map['name'] as String,
+      category: map['category'] as String,
+      quantity: (map['quantity'] as num).toDouble(),
+      unit: map['unit'] as String,
+      price: (map['price'] as num).toDouble(),
+      description: map['description'] as String?,
     );
   }
 
-  // Создание копии с изменениями
   EstimateItem copyWith({
     int? id,
     int? estimateId,
     String? name,
     String? category,
-    double? price,
-    String? unit,
     double? quantity,
+    String? unit,
+    double? price,
+    String? description,
   }) {
     return EstimateItem(
       id: id ?? this.id,
       estimateId: estimateId ?? this.estimateId,
       name: name ?? this.name,
       category: category ?? this.category,
-      price: price ?? this.price,
-      unit: unit ?? this.unit,
       quantity: quantity ?? this.quantity,
+      unit: unit ?? this.unit,
+      price: price ?? this.price,
+      description: description ?? this.description,
     );
   }
 }
