@@ -1,53 +1,79 @@
-import 'package:path_provider/path_provider.dart';
-import 'dart:async';
-import 'package:sqflite/sqflite.dart' as sqflite;
+import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../models/client.dart';
-import '../models/estimate.dart';
-import '../models/project.dart';
-import '../models/project_worker.dart';
-import '../models/transaction.dart' as custom_transaction;
+import 'package:ceiling_crm/models/estimate.dart';
 import 'package:ceiling_crm/models/estimate_item.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
+  static Database? _database;
+
   factory DatabaseHelper() => _instance;
+
   DatabaseHelper._internal();
 
-  static sqflite.Database? _database;
-
-  Future<sqflite.Database> get database async {
+  Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
-  Future<sqflite.Database> _initDatabase() async {
-    // 1. Получаем путь к папке баз данных
-    final appDir = await getApplicationDocumentsDirectory();
-    // 2. Получаем путь к директории как строку
-    final databasesPath = appDir.path; // <-- ВАЖНО: добавляем эту строку
-    // 3. Создаём полный путь к файлу БД
-    String path = join(databasesPath, 'ceiling_crm.db');
-  
-    return await sqflite.openDatabase(
+  Future<Database> _initDatabase() async {
+    final databasePath = await getDatabasesPath();
+    final path = join(databasePath, 'ceiling_crm.db');
+
+    return await openDatabase(
       path,
       version: 1,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
-  Future<void> _onCreate(sqflite.Database db, int version) async {
+
+  Future<void> _onCreate(Database db, int version) async {
+    // Таблица клиентов
     await db.execute('''
       CREATE TABLE clients(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        object_address TEXT,
+        phone TEXT,
+        email TEXT,
+        address TEXT,
         notes TEXT,
-        created_at INTEGER NOT NULL
+        created_at TEXT NOT NULL
       )
     ''');
 
+    // Таблица проектов
+    await db.execute('''
+      CREATE TABLE projects(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER,
+        title TEXT NOT NULL,
+        address TEXT,
+        status TEXT NOT NULL,
+        start_date TEXT,
+        end_date TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE SET NULL
+      )
+    ''');
+
+    // Таблица смет
+    await db.execute('''
+      CREATE TABLE estimates(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_name TEXT NOT NULL,
+        address TEXT NOT NULL,
+        area REAL NOT NULL,
+        perimeter REAL NOT NULL,
+        price_per_meter REAL NOT NULL,
+        total_price REAL NOT NULL,
+        created_date TEXT NOT NULL
+      )
+    ''');
+
+    // Таблица элементов сметы
     await db.execute('''
       CREATE TABLE estimate_items(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,184 +87,73 @@ class DatabaseHelper {
         FOREIGN KEY (estimate_id) REFERENCES estimates (id) ON DELETE CASCADE
       )
     ''');
-
-    await db.execute('''
-      CREATE TABLE estimates(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        client_id INTEGER,
-        title TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE SET NULL
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE estimate_items(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        estimate_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        category TEXT NOT NULL,
-        quantity REAL NOT NULL,
-        unit TEXT NOT NULL,
-        price REAL NOT NULL,
-        is_custom INTEGER NOT NULL DEFAULT 0,
-        notes TEXT,
-        position_number INTEGER,
-        FOREIGN KEY (estimate_id) REFERENCES estimates (id) ON DELETE CASCADE
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE projects(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        client_id INTEGER,
-        contract_sum REAL NOT NULL DEFAULT 0,
-        prepayment_received REAL NOT NULL DEFAULT 0,
-        status TEXT NOT NULL DEFAULT 'plan',
-        created_at INTEGER NOT NULL,
-        deadline INTEGER,
-        FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE SET NULL
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE project_workers(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        has_car INTEGER NOT NULL DEFAULT 0,
-        salary_calculated REAL NOT NULL DEFAULT 0,
-        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE transactions(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER NOT NULL,
-        type TEXT NOT NULL,
-        category TEXT NOT NULL,
-        amount REAL NOT NULL,
-        comment TEXT,
-        date INTEGER NOT NULL,
-        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
-      )
-    ''');
   }
 
-  // =============== CRUD для Client ===============
-  Future<int> insertClient(Client client) async {
-    final db = await database;
-    return await db.insert('clients', client.toMap());
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Миграции базы данных при обновлении версии
   }
 
-  Future<List<Client>> getAllClients() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('clients');
-    return List.generate(maps.length, (i) => Client.fromMap(maps[i]));
-  }
+  // ============ МЕТОДЫ ДЛЯ РАБОТЫ С ESTIMATES ============
 
-  Future<Client?> getClientById(int id) async {
-    final db = await database;
-    final maps = await db.query(
-      'clients',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (maps.isEmpty) return null;
-    return Client.fromMap(maps.first);
-  }
-
-  Future<int> updateClient(Client client) async {
-    final db = await database;
-    return await db.update(
-      'clients',
-      client.toMap(),
-      where: 'id = ?',
-      whereArgs: [client.id],
-    );
-  }
-
-  Future<int> deleteClient(int id) async {
-    final db = await database;
-    return await db.delete(
-      'clients',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  // =============== CRUD для Estimate ===============
   Future<int> insertEstimate(Estimate estimate) async {
     final db = await database;
-    final estimateId = await db.insert('estimates', estimate.toMap());
-    
-    for (var item in estimate.items) {
-      await db.insert('estimate_items', {
-        ...item.toMap(),
-        'estimate_id': estimateId,
-      });
-    }
-    
-    return estimateId;
+    return await db.insert('estimates', estimate.toMap());
   }
 
-  Future<Estimate?> getEstimateById(int id) async {
+  Future<List<Estimate>> getAllEstimates() async {
     final db = await database;
-    
-    final estimateMaps = await db.query(
+    final maps = await db.query('estimates', orderBy: 'created_date DESC');
+    return maps.map((map) => Estimate.fromMap(map)).toList();
+  }
+
+  Future<Estimate?> getEstimate(int id) async {
+    final db = await database;
+    final maps = await db.query(
       'estimates',
       where: 'id = ?',
       whereArgs: [id],
     );
-    if (estimateMaps.isEmpty) return null;
+    
+    if (maps.isEmpty) return null;
+    return Estimate.fromMap(maps.first);
+  }
+
+  Future<Estimate> getEstimateWithItems(int estimateId) async {
+    final db = await database;
+    
+    // Получаем саму смету
+    final estimateMaps = await db.query(
+      'estimates',
+      where: 'id = ?',
+      whereArgs: [estimateId],
+    );
+    
+    if (estimateMaps.isEmpty) {
+      throw Exception('Estimate not found');
+    }
     
     final estimate = Estimate.fromMap(estimateMaps.first);
     
+    // Получаем элементы сметы
     final itemMaps = await db.query(
       'estimate_items',
       where: 'estimate_id = ?',
-      whereArgs: [id],
-      orderBy: 'position_number ASC',
+      whereArgs: [estimateId],
     );
     
-    // Используем правильный класс EstimateItem с методом fromMap
     final items = itemMaps.map((map) => EstimateItem.fromMap(map)).toList();
     
-    return estimate.copyWith(items: items as List<EstimateItem>);
-  }
-
-  Future<List<Estimate>> getEstimates() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('estimates');
-    return List.generate(maps.length, (i) => Estimate.fromMap(maps[i]));
+    return estimate.copyWith(items: items);
   }
 
   Future<int> updateEstimate(Estimate estimate) async {
     final db = await database;
-    
-    await db.update(
+    return await db.update(
       'estimates',
       estimate.toMap(),
       where: 'id = ?',
       whereArgs: [estimate.id],
     );
-    
-    await db.delete(
-      'estimate_items',
-      where: 'estimate_id = ?',
-      whereArgs: [estimate.id],
-    );
-    
-    for (var item in estimate.items) {
-      await db.insert('estimate_items', {
-        ...item.toMap(),
-        'estimate_id': estimate.id,
-      });
-    }
-    
-    return estimate.id!;
   }
 
   Future<int> deleteEstimate(int id) async {
@@ -250,153 +165,102 @@ class DatabaseHelper {
     );
   }
 
-  // =============== CRUD для Project ===============
-  Future<int> insertProject(Project project) async {
+  // ============ МЕТОДЫ ДЛЯ РАБОТЫ С ESTIMATE_ITEMS ============
+
+  Future<int> insertEstimateItem(EstimateItem item) async {
     final db = await database;
-    final projectId = await db.insert('projects', project.toMap());
-    
-    for (var worker in project.workers) {
-      await db.insert('project_workers', {
-        ...worker.toMap(),
-        'project_id': projectId,
-      });
-    }
-    
-    return projectId;
+    return await db.insert('estimate_items', item.toMap());
   }
 
-  Future<Project?> getProjectById(int id) async {
-    final db = await database;
-    
-    final projectMaps = await db.query(
-      'projects',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (projectMaps.isEmpty) return null;
-    
-    final project = Project.fromMap(projectMaps.first);
-    
-    final workerMaps = await db.query(
-      'project_workers',
-      where: 'project_id = ?',
-      whereArgs: [id],
-    );
-    
-    final workers = workerMaps.map((map) => ProjectWorker.fromMap(map)).toList();
-    
-    return project.copyWith(workers: workers);
-  }
-
-  Future<List<Project>> getAllProjects() async {
-    final db = await database;
-    final projectMaps = await db.query('projects', orderBy: 'created_at DESC');
-    
-    final projects = <Project>[];
-    for (var map in projectMaps) {
-      final project = await getProjectById(map['id'] as int);
-      if (project != null) projects.add(project);
-    }
-    
-    return projects;
-  }
-
-  Future<int> updateProject(Project project) async {
-    final db = await database;
-    
-    await db.update(
-      'projects',
-      project.toMap(),
-      where: 'id = ?',
-      whereArgs: [project.id],
-    );
-    
-    await db.delete(
-      'project_workers',
-      where: 'project_id = ?',
-      whereArgs: [project.id],
-    );
-    
-    for (var worker in project.workers) {
-      await db.insert('project_workers', {
-        ...worker.toMap(),
-        'project_id': project.id,
-      });
-    }
-    
-    return project.id!;
-  }
-
-  // =============== CRUD для Transaction ===============
-  Future<int> insertTransaction(custom_transaction.Transaction transaction) async {
-    final db = await database;
-    return await db.insert('transactions', transaction.toMap());
-  }
-
-  Future<List<custom_transaction.Transaction>> getProjectTransactions(int projectId) async {
+  Future<List<EstimateItem>> getEstimateItems(int estimateId) async {
     final db = await database;
     final maps = await db.query(
-      'transactions',
-      where: 'project_id = ?',
-      whereArgs: [projectId],
-      orderBy: 'date DESC',
+      'estimate_items',
+      where: 'estimate_id = ?',
+      whereArgs: [estimateId],
     );
-    
-    return List.generate(maps.length, (i) => custom_transaction.Transaction.fromMap(maps[i]));
+    return maps.map((map) => EstimateItem.fromMap(map)).toList();
   }
 
-  Future<Map<String, double>> getProjectExpensesByCategory(int projectId) async {
+  Future<int> updateEstimateItem(EstimateItem item) async {
     final db = await database;
-    final maps = await db.rawQuery('''
-      SELECT category, SUM(amount) as total
-      FROM transactions
-      WHERE project_id = ? AND type = 'expense'
-      GROUP BY category
-    ''', [projectId]);
-    
-    final result = <String, double>{};
-    for (final map in maps) {
-      result[map['category'] as String] = map['total'] as double;
-    }
-    
-    return result;
+    return await db.update(
+      'estimate_items',
+      item.toMap(),
+      where: 'id = ?',
+      whereArgs: [item.id],
+    );
   }
 
-  Future<double> getProjectTotalExpenses(int projectId) async {
+  Future<int> deleteEstimateItem(int id) async {
     final db = await database;
-    final result = await db.rawQuery('''
-      SELECT SUM(amount) as total
-      FROM transactions
-      WHERE project_id = ? AND type = 'expense'
-    ''', [projectId]);
-    
-    return result.first['total'] as double? ?? 0.0;
+    return await db.delete(
+      'estimate_items',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
-  Future<double> getProjectTotalIncome(int projectId) async {
+  Future<void> deleteAllEstimateItems(int estimateId) async {
     final db = await database;
-    final result = await db.rawQuery('''
-      SELECT SUM(amount) as total
-      FROM transactions
-      WHERE project_id = ? AND type = 'income'
-    ''', [projectId]);
-    
-    return result.first['total'] as double? ?? 0.0;
+    await db.delete(
+      'estimate_items',
+      where: 'estimate_id = ?',
+      whereArgs: [estimateId],
+    );
   }
 
-  // =============== Вспомогательные методы ===============
+  // ============ СОХРАНЕНИЕ СМЕТЫ С ЭЛЕМЕНТАМИ ============
+
+  Future<int> saveEstimateWithItems(Estimate estimate) async {
+    final db = await database;
+    
+    // Начинаем транзакцию
+    return await db.transaction((txn) async {
+      int estimateId;
+      
+      // Сохраняем или обновляем смету
+      if (estimate.id == null) {
+        estimateId = await txn.insert('estimates', estimate.toMap());
+      } else {
+        await txn.update(
+          'estimates',
+          estimate.toMap(),
+          where: 'id = ?',
+          whereArgs: [estimate.id],
+        );
+        estimateId = estimate.id!;
+        
+        // Удаляем старые элементы
+        await txn.delete(
+          'estimate_items',
+          where: 'estimate_id = ?',
+          whereArgs: [estimateId],
+        );
+      }
+      
+      // Сохраняем элементы сметы
+      for (var item in estimate.items) {
+        final itemMap = item.toMap();
+        itemMap['estimate_id'] = estimateId;
+        await txn.insert('estimate_items', itemMap);
+      }
+      
+      return estimateId;
+    });
+  }
+
+  // ============ ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ============
+
   Future<void> close() async {
     final db = await database;
     await db.close();
   }
 
-  Future<void> clearDatabase() async {
-    final db = await database;
-    await db.delete('transactions');
-    await db.delete('project_workers');
-    await db.delete('projects');
-    await db.delete('estimate_items');
-    await db.delete('estimates');
-    await db.delete('clients');
+  Future<void> deleteDatabase() async {
+    final databasePath = await getDatabasesPath();
+    final path = join(databasePath, 'ceiling_crm.db');
+    await databaseFactory.deleteDatabase(path);
+    _database = null;
   }
 }
