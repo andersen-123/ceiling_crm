@@ -172,7 +172,7 @@ class DatabaseHelper {
       whereArgs: [projectId],
       orderBy: 'date DESC',
     );
-    return maps.map((map) => Transaction.fromMap(map)).toList();
+    return maps.map((map) => LocalTransaction.Transaction.fromMap(map)).toList();
   }
 
   Future<List<Transaction>> getAllTransactions() async {
