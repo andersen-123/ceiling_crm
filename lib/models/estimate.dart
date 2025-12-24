@@ -1,7 +1,9 @@
 import 'package:ceiling_crm/models/estimate_item.dart';
 
+// Убедитесь, что класс Estimate имеет эти поля:
 class Estimate {
   final int? id;
+  final String? name; // ← ДОЛЖНО БЫТЬ
   final String clientName;
   final String address;
   final double area;
@@ -9,10 +11,12 @@ class Estimate {
   final double pricePerMeter;
   final double totalPrice;
   final DateTime createdDate;
+  final String? notes; // ← ДОЛЖНО БЫТЬ
   final List<EstimateItem> items;
 
   Estimate({
     this.id,
+    this.name, // ← ДОЛЖЕН БЫТЬ В КОНСТРУКТОРЕ
     required this.clientName,
     required this.address,
     required this.area,
@@ -20,8 +24,14 @@ class Estimate {
     required this.pricePerMeter,
     required this.totalPrice,
     required this.createdDate,
+    this.notes, // ← ДОЛЖЕН БЫТЬ В КОНСТРУКТОРЕ
     this.items = const [],
   });
+  
+  // Добавьте геттеры для name и notes:
+  String? get name => _name;
+  String? get notes => _notes;
+}
 
   double get total => items.fold(0, (sum, item) => sum + item.total);
 
