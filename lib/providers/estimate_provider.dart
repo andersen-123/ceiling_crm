@@ -12,7 +12,7 @@ class EstimateProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  final DatabaseHelper _dbHelper = DatabaseHelper(); // ← Исправлено
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
   EstimateProvider() {
     _loadEstimates();
