@@ -3,7 +3,7 @@ import 'package:path/path.dart';
 import 'package:ceiling_crm/models/estimate.dart';
 import 'package:ceiling_crm/models/estimate_item.dart';
 import 'package:ceiling_crm/models/project.dart';
-import 'package:ceiling_crm/models/transaction.dart';
+import 'package:ceiling_crm/models/transaction.dart' as LocalTransaction;
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
