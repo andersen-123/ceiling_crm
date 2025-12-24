@@ -67,14 +67,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   }
 
   void _navigateToEstimate() {
-    // ============ ВОТ ИСПРАВЛЕННАЯ ЧАСТЬ ============
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => EstimateEditScreen(
           estimate: _estimate ?? Estimate(
-            clientName: _project.clientName ?? 'Клиент',
-            address: _project.address ?? '',
+            clientName: _project.title,  // Используем title вместо clientName
+            address: '',  // Пустая строка если нет address в Project
             area: 0.0,
             perimeter: 0.0,
             pricePerMeter: 0.0,
@@ -85,7 +84,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         ),
       ),
     );
-    // ============ КОНЕЦ ИСПРАВЛЕНИЯ ============
   }
 
   void _navigateToTransactions() {
