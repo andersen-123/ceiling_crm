@@ -12,13 +12,12 @@ class EstimateProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  final DatabaseHelper _dbHelper = DatabaseHelper()
+  final DatabaseHelper _dbHelper = DatabaseHelper(); // ← Исправлено
 
   EstimateProvider() {
     _loadEstimates();
   }
 
-  // Загрузка всех смет
   Future<void> _loadEstimates() async {
     _isLoading = true;
     notifyListeners();
@@ -28,16 +27,13 @@ class EstimateProvider with ChangeNotifier {
       _error = null;
     } catch (e) {
       _error = 'Ошибка загрузки смет: $e';
-      if (kDebugMode) {
-        print('EstimateProvider load error: $e');
-      }
+      if (kDebugMode) print('EstimateProvider load error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Создание новой сметы
   Future<Estimate> createEstimate({
     required String clientName,
     required String address,
@@ -55,7 +51,7 @@ class EstimateProvider with ChangeNotifier {
       pricePerMeter: pricePerMeter,
       totalPrice: area * pricePerMeter,
       createdDate: DateTime.now(),
-      name: name,
+      name: name, // ← Убедитесь, что параметр name есть в конструкторе Estimate
       notes: notes,
       items: [],
     );
@@ -69,7 +65,6 @@ class EstimateProvider with ChangeNotifier {
     return createdEstimate;
   }
 
-  // Обновление сметы
   Future<void> updateEstimate(Estimate estimate) async {
     try {
       await _dbHelper.updateEstimate(estimate);
@@ -86,7 +81,6 @@ class EstimateProvider with ChangeNotifier {
     }
   }
 
-  // Удаление сметы
   Future<void> deleteEstimate(int id) async {
     try {
       await _dbHelper.deleteEstimate(id);
@@ -99,10 +93,13 @@ class EstimateProvider with ChangeNotifier {
     }
   }
 
-  // Получение сметы по ID
   Future<Estimate> getEstimate(int id) async {
     try {
-      return await _dbHelper.getEstimate(id);
+      final estimate = await _dbHelper.getEstimate(id);
+      if (estimate == null) {
+        throw Exception('Смета с ID $id не найдена');
+      }
+      return estimate;
     } catch (e) {
       _error = 'Ошибка получения сметы: $e';
       notifyListeners();
@@ -110,17 +107,15 @@ class EstimateProvider with ChangeNotifier {
     }
   }
 
-  // Добавление элемента в смету
   Future<Estimate> addItemToEstimate({
     required int estimateId,
     required EstimateItem item,
   }) async {
     try {
-      final estimate = await _dbHelper.getEstimate(estimateId);
+      final estimate = await getEstimate(estimateId);
       final updatedEstimate = estimate.copyWith(
         items: [...estimate.items, item],
       );
-      
       await updateEstimate(updatedEstimate);
       return updatedEstimate;
     } catch (e) {
@@ -130,14 +125,13 @@ class EstimateProvider with ChangeNotifier {
     }
   }
 
-  // Обновление элемента в смете
   Future<Estimate> updateEstimateItem({
     required int estimateId,
     required int itemIndex,
     required EstimateItem updatedItem,
   }) async {
     try {
-      final estimate = await _dbHelper.getEstimate(estimateId);
+      final estimate = await getEstimate(estimateId);
       final newItems = List<EstimateItem>.from(estimate.items);
       
       if (itemIndex >= 0 && itemIndex < newItems.length) {
@@ -154,13 +148,12 @@ class EstimateProvider with ChangeNotifier {
     }
   }
 
-  // Удаление элемента из сметы
   Future<Estimate> removeItemFromEstimate({
     required int estimateId,
     required int itemIndex,
   }) async {
     try {
-      final estimate = await _dbHelper.getEstimate(estimateId);
+      final estimate = await getEstimate(estimateId);
       final newItems = List<EstimateItem>.from(estimate.items);
       
       if (itemIndex >= 0 && itemIndex < newItems.length) {
@@ -177,7 +170,6 @@ class EstimateProvider with ChangeNotifier {
     }
   }
 
-  // Поиск смет
   List<Estimate> searchEstimates(String query) {
     if (query.isEmpty) return _estimates;
     
@@ -190,12 +182,10 @@ class EstimateProvider with ChangeNotifier {
     }).toList();
   }
 
-  // Обновление данных (например, после изменения в БД)
   Future<void> refresh() async {
     await _loadEstimates();
   }
 
-  // Очистка ошибок
   void clearError() {
     _error = null;
     notifyListeners();
