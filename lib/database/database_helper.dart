@@ -2,6 +2,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:ceiling_crm/models/estimate.dart';
 import 'package:ceiling_crm/models/estimate_item.dart';
+import 'package:ceiling_crm/models/project.dart';
+import 'package:ceiling_crm/models/transaction.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -55,7 +57,25 @@ class DatabaseHelper {
         end_date TEXT,
         notes TEXT,
         created_at TEXT NOT NULL,
+        contract_sum REAL DEFAULT 0,
+        prepayment_received REAL DEFAULT 0,
+        total_expenses REAL DEFAULT 0,
+        balance REAL DEFAULT 0,
         FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE SET NULL
+      )
+    ''');
+
+    // Таблица транзакций
+    await db.execute('''
+      CREATE TABLE transactions(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        description TEXT,
+        date TEXT NOT NULL,
+        is_income INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
       )
     ''');
 
@@ -91,6 +111,93 @@ class DatabaseHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // Миграции базы данных при обновлении версии
+  }
+
+  // ============ МЕТОДЫ ДЛЯ РАБОТЫ С PROJECTS ============
+
+  Future<int> insertProject(Project project) async {
+    final db = await database;
+    return await db.insert('projects', project.toMap());
+  }
+
+  Future<List<Project>> getAllProjects() async {
+    final db = await database;
+    final maps = await db.query('projects', orderBy: 'created_at DESC');
+    return maps.map((map) => Project.fromMap(map)).toList();
+  }
+
+  Future<Project?> getProject(int id) async {
+    final db = await database;
+    final maps = await db.query(
+      'projects',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    
+    if (maps.isEmpty) return null;
+    return Project.fromMap(maps.first);
+  }
+
+  Future<int> updateProject(Project project) async {
+    final db = await database;
+    return await db.update(
+      'projects',
+      project.toMap(),
+      where: 'id = ?',
+      whereArgs: [project.id],
+    );
+  }
+
+  Future<int> deleteProject(int id) async {
+    final db = await database;
+    return await db.delete(
+      'projects',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // ============ МЕТОДЫ ДЛЯ РАБОТЫ С TRANSACTIONS ============
+
+  Future<int> insertTransaction(Transaction transaction) async {
+    final db = await database;
+    return await db.insert('transactions', transaction.toMap());
+  }
+
+  Future<List<Transaction>> getProjectTransactions(int projectId) async {
+    final db = await database;
+    final maps = await db.query(
+      'transactions',
+      where: 'project_id = ?',
+      whereArgs: [projectId],
+      orderBy: 'date DESC',
+    );
+    return maps.map((map) => Transaction.fromMap(map)).toList();
+  }
+
+  Future<List<Transaction>> getAllTransactions() async {
+    final db = await database;
+    final maps = await db.query('transactions', orderBy: 'date DESC');
+    return maps.map((map) => Transaction.fromMap(map)).toList();
+  }
+
+  Future<int> updateTransaction(Transaction transaction) async {
+    final db = await database;
+    return await db.update(
+      'transactions',
+      transaction.toMap(),
+      where: 'id = ?',
+      whereArgs: [transaction.id],
+    );
+  }
+
+  Future<int> deleteTransaction(int id) async {
+    final db = await database;
+    return await db.delete(
+      'transactions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ============ МЕТОДЫ ДЛЯ РАБОТЫ С ESTIMATES ============
