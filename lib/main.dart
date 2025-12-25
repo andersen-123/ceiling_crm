@@ -1,103 +1,184 @@
+// lib/main.dart - ВЕСЬ ПРОЕКТ В ОДНОМ ФАЙЛЕ
 import 'package:flutter/material.dart';
-import 'package:ceiling_crm/screens/home_screen.dart';
-import 'package:ceiling_crm/database/database_helper.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Инициализируем базу данных
-  final dbHelper = DatabaseHelper();
-  await dbHelper.database; // Создаём таблицы при первом запуске
-  
-  // Запускаем приложение
-  runApp(const CeilingCRMApp());
-}
+void main() => runApp(CeilingCRMApp());
 
 class CeilingCRMApp extends StatelessWidget {
-  const CeilingCRMApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ceiling CRM',
-      theme: _buildAppTheme(),
-      darkTheme: _buildDarkTheme(),
-      themeMode: ThemeMode.light,
-      home: const HomeScreen(),
-      debugShowCheckedModeBanner: false,
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: HomeScreen(),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  List<Map<String, dynamic>> _estimates = [
+    {'client': 'Иванов Иван', 'area': 25.5, 'price': 7650, 'address': 'ул. Ленина, 123'},
+    {'client': 'Петров Петр', 'area': 18.0, 'price': 5400, 'address': 'ул. Советская, 45'},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Ceiling CRM ✅')),
+      body: Column(
+        children: [
+          // Статистика
+          Card(
+            margin: EdgeInsets.all(16),
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Column(children: [
+                    Text('${_estimates.length}', style: TextStyle(fontSize: 24)),
+                    Text('Смет'),
+                  ]),
+                  Column(children: [
+                    Text('${_estimates.fold(0, (sum, e) => sum + e['price'])} руб.', style: TextStyle(fontSize: 24)),
+                    Text('Общая сумма'),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+          
+          // Список смет
+          Expanded(
+            child: ListView.builder(
+              itemCount: _estimates.length,
+              itemBuilder: (context, index) {
+                final estimate = _estimates[index];
+                return Card(
+                  margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: ListTile(
+                    leading: Icon(Icons.assignment, color: Colors.blue),
+                    title: Text(estimate['client']),
+                    subtitle: Text('${estimate['area']} м² • ${estimate['address']}'),
+                    trailing: Text('${estimate['price']} руб.'),
+                    onTap: () => _showEstimateDetails(estimate),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      
+      // Калькулятор
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showCalculator,
+        icon: Icon(Icons.calculate),
+        label: Text('Рассчитать'),
+      ),
     );
   }
 
-  ThemeData _buildAppTheme() {
-    return ThemeData(
-      primaryColor: Colors.blue.shade800,
-      primarySwatch: Colors.blue,
-      scaffoldBackgroundColor: Colors.grey.shade50,
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.blue.shade800,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        centerTitle: true,
-        titleTextStyle: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
+  void _showCalculator() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Калькулятор потолка'),
+        content: CalculatorDialog(),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Отмена')),
+          ElevatedButton(onPressed: () => _addEstimate(), child: Text('Сохранить')),
+        ],
       ),
-      cardTheme: CardTheme(
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue.shade800,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade400),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade400),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.blue.shade800, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-      ),
-      useMaterial3: true,
     );
   }
 
-  ThemeData _buildDarkTheme() {
-    return ThemeData.dark().copyWith(
-      primaryColor: Colors.blue.shade300,
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.grey.shade900,
-        elevation: 2,
-      ),
-      cardTheme: CardTheme(
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+  void _addEstimate() {
+    setState(() {
+      _estimates.add({
+        'client': 'Новый клиент ${_estimates.length + 1}',
+        'area': 20.0,
+        'price': 6000,
+        'address': 'Новый адрес',
+      });
+    });
+    Navigator.pop(context);
+  }
+
+  void _showEstimateDetails(Map<String, dynamic> estimate) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Смета: ${estimate['client']}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(title: Text('Площадь'), trailing: Text('${estimate['area']} м²')),
+            ListTile(title: Text('Адрес'), trailing: Text(estimate['address'])),
+            ListTile(title: Text('Сумма'), trailing: Text('${estimate['price']} руб.', style: TextStyle(fontWeight: FontWeight.bold))),
+          ],
         ),
-        color: Colors.grey.shade800,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Закрыть')),
+        ],
       ),
+    );
+  }
+}
+
+class CalculatorDialog extends StatefulWidget {
+  @override
+  _CalculatorDialogState createState() => _CalculatorDialogState();
+}
+
+class _CalculatorDialogState extends State<CalculatorDialog> {
+  double _area = 20.0;
+  double _pricePerMeter = 300.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Площадь: ${_area.toStringAsFixed(1)} м²'),
+        Slider(
+          value: _area,
+          min: 5,
+          max: 100,
+          divisions: 95,
+          onChanged: (value) => setState(() => _area = value),
+        ),
+        
+        SizedBox(height: 20),
+        
+        Text('Цена за м²: ${_pricePerMeter.toInt()} руб.'),
+        Slider(
+          value: _pricePerMeter,
+          min: 100,
+          max: 1000,
+          divisions: 18,
+          onChanged: (value) => setState(() => _pricePerMeter = value),
+        ),
+        
+        SizedBox(height: 20),
+        
+        Card(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Text('ИТОГО:', style: TextStyle(fontSize: 18)),
+                Text('${(_area * _pricePerMeter).toStringAsFixed(0)} руб.', 
+                     style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue)),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
