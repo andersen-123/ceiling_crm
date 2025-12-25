@@ -180,21 +180,17 @@ class MainAppScreenState extends State<MainAppScreen> {
   final List<Widget> _screens = [];
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Инициализируем экраны после того, как контекст доступен
-    if (_screens.isEmpty) {
-      _screens.addAll([
-        const QuoteListScreen(), // Реальный экран списка КП
-        const QuoteEditScreen(quote: null), // Реальный экран создания КП
-        _buildComingSoonScreen(
-          title: 'Настройки',
-          icon: Icons.settings,
-          description: 'Настройки компании и приложения\nбудут доступны в следующем обновлении',
-        ),
-      ]);
-    }
+void didChangeDependencies() {
+  super.didChangeDependencies();
+  if (_screens.isEmpty) {
+    _screens.addAll([
+      const QuoteListScreen(),
+      const QuoteEditScreen(quote: null),
+      const StatsScreen(), // Новый экран статистики
+      const SettingsScreen(),
+    ]);
   }
+}
 
   // Навигация по нижней панели
   void _onItemTapped(int index) {
@@ -257,26 +253,28 @@ class MainAppScreenState extends State<MainAppScreen> {
         children: _screens,
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list_alt),
-            label: 'КП',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            label: 'Создать',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Настройки',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue.shade800,
-        onTap: _onItemTapped,
-      ),
-    );
-  }
+  items: const <BottomNavigationBarItem>[
+    BottomNavigationBarItem(
+      icon: Icon(Icons.list_alt),
+      label: 'КП',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.add_circle_outline),
+      label: 'Создать',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.analytics),
+      label: 'Статистика',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.settings),
+      label: 'Настройки',
+    ),
+  ],
+  currentIndex: _selectedIndex,
+  selectedItemColor: Colors.blue.shade800,
+  onTap: _onItemTapped,
+),
 
   // Экран "скоро будет" для недоступных функций
   Widget _buildComingSoonScreen({
