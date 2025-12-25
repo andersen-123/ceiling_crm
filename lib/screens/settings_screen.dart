@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/company_profile.dart';
 import '../data/database_helper.dart';
 import '../services/template_service.dart';
-import 'dart:io';
+import '../services/backup_service.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:developer' as developer;
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,6 +17,7 @@ class SettingsScreen extends StatefulWidget {
 class SettingsScreenState extends State<SettingsScreen> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final TemplateService _templateService = TemplateService();
+  final BackupService _backupService = BackupService();
   final ImagePicker _imagePicker = ImagePicker();
   final GlobalKey<FormState> _companyFormKey = GlobalKey<FormState>();
 
@@ -38,6 +41,11 @@ class SettingsScreenState extends State<SettingsScreen> {
   List<Map<String, dynamic>> _workTemplates = [];
   List<Map<String, dynamic>> _installationTemplates = [];
   List<Map<String, dynamic>> _noteTemplates = [];
+
+  // Данные резервного копирования
+  List<File> _backupFiles = [];
+  Map<String, dynamic> _databaseStats = {};
+  bool _isLoadingBackups = false;
 
   @override
   void initState() {
@@ -69,9 +77,25 @@ class SettingsScreenState extends State<SettingsScreen> {
       _installationTemplates = await _templateService.getTemplatesByType(TemplateService.typeInstallation);
       _noteTemplates = await _templateService.getTemplatesByType(TemplateService.typeNote);
     } catch (error) {
-      _showErrorSnackbar('Ошибка загрузки данных: $error');
+      developer.log('Ошибка загрузки данных: $error');
+      _showErrorSnackbar('Ошибка загрузки данных');
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  // Загрузка данных для вкладки резервного копирования
+  Future<void> _loadBackupData() async {
+    if (_settingsTabIndex != 2) return;
+    
+    setState(() => _isLoadingBackups = true);
+    try {
+      _backupFiles = await _backupService.getBackupFiles();
+      _databaseStats = await _backupService.getDatabaseStats();
+    } catch (error) {
+      developer.log('Ошибка загрузки резервных копий: $error');
+    } finally {
+      setState(() => _isLoadingBackups = false);
     }
   }
 
@@ -94,7 +118,8 @@ class SettingsScreenState extends State<SettingsScreen> {
         await _dbHelper.insertCompany(company);
         _showSuccessSnackbar('Настройки компании сохранены');
       } catch (error) {
-        _showErrorSnackbar('Ошибка сохранения: $error');
+        developer.log('Ошибка сохранения: $error');
+        _showErrorSnackbar('Ошибка сохранения');
       } finally {
         setState(() => _isSaving = false);
       }
@@ -116,7 +141,8 @@ class SettingsScreenState extends State<SettingsScreen> {
         });
       }
     } catch (error) {
-      _showErrorSnackbar('Ошибка выбора изображения: $error');
+      developer.log('Ошибка выбора изображения: $error');
+      _showErrorSnackbar('Ошибка выбора изображения');
     }
   }
 
@@ -201,7 +227,7 @@ class SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // Вкладка настроек компании
+  // ==================== ВКЛАДКА НАСТРОЕК КОМПАНИИ ====================
   Widget _buildCompanySettingsTab() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -306,7 +332,7 @@ class SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton.icon(
             onPressed: _isSaving ? null : _saveCompanySettings,
             icon: _isSaving
-                ? const CircularProgressIndicator.adaptive()
+                ? const CircularProgressIndicator()
                 : const Icon(Icons.save),
             label: Text(_isSaving ? 'Сохранение...' : 'Сохранить настройки'),
             style: ElevatedButton.styleFrom(
@@ -318,57 +344,60 @@ class SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // Вкладка шаблонов
+  // ==================== ВКЛАДКА ШАБЛОНОВ ====================
   Widget _buildTemplatesTab() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Шаблоны условий оплаты
-        _buildTemplateSection(
-          title: 'Шаблоны условий оплаты',
-          templates: _paymentTemplates,
-          icon: Icons.payment,
-          type: TemplateService.typePayment,
-        ),
-
-        // Шаблоны условий монтажа
-        _buildTemplateSection(
-          title: 'Шаблоны условий монтажа',
-          templates: _installationTemplates,
-          icon: Icons.build,
-          type: TemplateService.typeInstallation,
-        ),
-
-        // Шаблоны работ
-        _buildTemplateSection(
-          title: 'Шаблоны работ',
-          templates: _workTemplates,
-          icon: Icons.handyman,
-          type: TemplateService.typeWork,
-        ),
-
-        // Шаблоны примечаний
-        _buildTemplateSection(
-          title: 'Шаблоны примечаний',
-          templates: _noteTemplates,
-          icon: Icons.note,
-          type: TemplateService.typeNote,
-        ),
-
-        const SizedBox(height: 32),
-        ElevatedButton.icon(
-          onPressed: _addNewTemplate,
-          icon: const Icon(Icons.add),
-          label: const Text('Добавить новый шаблон'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Шаблоны условий оплаты
+          _buildTemplateSection(
+            title: 'Шаблоны условий оплаты',
+            templates: _paymentTemplates,
+            icon: Icons.payment,
+            type: TemplateService.typePayment,
           ),
-        ),
-      ],
+
+          // Шаблоны условий монтажа
+          _buildTemplateSection(
+            title: 'Шаблоны условий монтажа',
+            templates: _installationTemplates,
+            icon: Icons.build,
+            type: TemplateService.typeInstallation,
+          ),
+
+          // Шаблоны работ
+          _buildTemplateSection(
+            title: 'Шаблоны работ',
+            templates: _workTemplates,
+            icon: Icons.handyman,
+            type: TemplateService.typeWork,
+          ),
+
+          // Шаблоны примечаний
+          _buildTemplateSection(
+            title: 'Шаблоны примечаний',
+            templates: _noteTemplates,
+            icon: Icons.note,
+            type: TemplateService.typeNote,
+          ),
+
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: _addNewTemplate,
+            icon: const Icon(Icons.add),
+            label: const Text('Добавить новый шаблон'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -473,9 +502,10 @@ class SettingsScreenState extends State<SettingsScreen> {
           content: result['content'] as String,
         );
         _showSuccessSnackbar('Шаблон добавлен');
-        await _loadData(); // Перезагружаем данные
+        await _loadData();
       } catch (error) {
-        _showErrorSnackbar('Ошибка добавления: $error');
+        developer.log('Ошибка добавления шаблона: $error');
+        _showErrorSnackbar('Ошибка добавления шаблона');
       }
     }
   }
@@ -499,9 +529,10 @@ class SettingsScreenState extends State<SettingsScreen> {
           content: result['content'] as String,
         );
         _showSuccessSnackbar('Шаблон обновлен');
-        await _loadData(); // Перезагружаем данные
+        await _loadData();
       } catch (error) {
-        _showErrorSnackbar('Ошибка обновления: $error');
+        developer.log('Ошибка обновления шаблона: $error');
+        _showErrorSnackbar('Ошибка обновления шаблона');
       }
     }
   }
@@ -530,18 +561,288 @@ class SettingsScreenState extends State<SettingsScreen> {
       try {
         await _templateService.deleteTemplate(id);
         _showSuccessSnackbar('Шаблон удален');
-        await _loadData(); // Перезагружаем данные
+        await _loadData();
       } catch (error) {
-        _showErrorSnackbar('Ошибка удаления: $error');
+        developer.log('Ошибка удаления шаблона: $error');
+        _showErrorSnackbar('Ошибка удаления шаблона');
       }
     }
+  }
+
+  // ==================== ВКЛАДКА РЕЗЕРВНОГО КОПИРОВАНИЯ ====================
+  Widget _buildBackupTab() {
+    return RefreshIndicator(
+      onRefresh: _loadBackupData,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildSectionHeader('Статистика базы данных'),
+          _buildDatabaseStats(),
+
+          _buildSectionHeader('Управление резервными копиями'),
+          _buildBackupActions(),
+
+          _buildSectionHeader('Список резервных копий'),
+          _buildBackupList(),
+        ],
+      ),
+    );
+  }
+
+  // Статистика базы данных
+  Widget _buildDatabaseStats() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            if (_databaseStats['error'] != null)
+              Text(
+                _databaseStats['error'] as String,
+                style: const TextStyle(color: Colors.red),
+              )
+            else ...[
+              _buildStatRow('КП в базе:', '${_databaseStats['quotesCount'] ?? 0}'),
+              _buildStatRow('Позиций работ:', '${_databaseStats['lineItemsCount'] ?? 0}'),
+              _buildStatRow('Шаблонов:', '${_databaseStats['templatesCount'] ?? 0}'),
+              if (_databaseStats['databaseSize'] != null)
+                _buildStatRow('Размер базы:', _databaseStats['databaseSize'] as String),
+              if (_databaseStats['lastBackup'] != null)
+                _buildStatRow('Последняя копия:', _databaseStats['lastBackup'] as String),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey.shade600)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  // Кнопки управления резервными копиями
+  Widget _buildBackupActions() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _createBackup,
+                icon: const Icon(Icons.save_alt),
+                label: const Text('Создать резервную копию'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _restoreBackup,
+                icon: const Icon(Icons.restore),
+                label: const Text('Восстановить'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade50,
+                  foregroundColor: Colors.orange,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Резервные копии сохраняются в папке загрузок устройства',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  // Список резервных копий
+  Widget _buildBackupList() {
+    if (_isLoadingBackups) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_backupFiles.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'Нет резервных копий. Создайте первую копию, нажав на кнопку выше.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return Column(
+      children: _backupFiles.map((file) => _buildBackupItem(file)).toList(),
+    );
+  }
+
+  // Элемент списка резервных копий
+  Widget _buildBackupItem(File file) {
+    final info = _backupService.getFileInfo(file);
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: const Icon(Icons.backup, color: Colors.blue),
+        title: Text(info['name'] as String),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Размер: ${info['size']}'),
+            Text('Создана: ${info['formattedDate']}'),
+          ],
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) => _handleBackupAction(value, file),
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'restore', child: Text('Восстановить')),
+            const PopupMenuItem(value: 'delete', child: Text('Удалить')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Обработка действий с резервной копией
+  void _handleBackupAction(String action, File file) {
+    switch (action) {
+      case 'restore':
+        _confirmRestore(file);
+        break;
+      case 'delete':
+        _confirmDelete(file);
+        break;
+    }
+  }
+
+  // Создание резервной копии
+  Future<void> _createBackup() async {
+    try {
+      final backupFile = await _backupService.exportDatabase();
+      final info = _backupService.getFileInfo(backupFile);
+      
+      _showSuccessSnackbar('Резервная копия создана: ${info['name']}');
+      await _loadBackupData();
+    } catch (error) {
+      developer.log('Ошибка создания резервной копии: $error');
+      _showErrorSnackbar('Ошибка создания резервной копии');
+    }
+  }
+
+  // Подтверждение восстановления
+  Future<void> _confirmRestore(File file) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Восстановить из резервной копии?'),
+        content: const Text('Текущие данные будут заменены данными из резервной копии. Это действие нельзя отменить.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Восстановить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _restoreFromFile(file);
+    }
+  }
+
+  // Восстановление из файла
+  Future<void> _restoreFromFile(File file) async {
+    try {
+      await _backupService.importDatabase(file);
+      _showSuccessSnackbar('База данных успешно восстановлена');
+      
+      // Перезагружаем все данные
+      await _loadData();
+      await _loadBackupData();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Перезапустите приложение для применения изменений'),
+          backgroundColor: Colors.blue,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (error) {
+      developer.log('Ошибка восстановления: $error');
+      _showErrorSnackbar('Ошибка восстановления: $error');
+    }
+  }
+
+  // Подтверждение удаления
+  Future<void> _confirmDelete(File file) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить резервную копию?'),
+        content: const Text('Резервная копия будет удалена безвозвратно.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteBackup(file);
+    }
+  }
+
+  // Удаление резервной копии
+  Future<void> _deleteBackup(File file) async {
+    try {
+      await _backupService.deleteBackup(file);
+      _showSuccessSnackbar('Резервная копия удалена');
+      await _loadBackupData();
+    } catch (error) {
+      developer.log('Ошибка удаления: $error');
+      _showErrorSnackbar('Ошибка удаления');
+    }
+  }
+
+  // Общий вызов восстановления
+  Future<void> _restoreBackup() async {
+    if (_backupFiles.isEmpty) {
+      _showInfoSnackbar('Сначала создайте резервную копию');
+      return;
+    }
+
+    _confirmRestore(_backupFiles.first);
   }
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
-      initialIndex: _settingsTabIndex,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Настройки'),
@@ -549,6 +850,7 @@ class SettingsScreenState extends State<SettingsScreen> {
             tabs: [
               Tab(icon: Icon(Icons.business), text: 'Компания'),
               Tab(icon: Icon(Icons.format_quote), text: 'Шаблоны'),
+              Tab(icon: Icon(Icons.backup), text: 'Резервные копии'),
             ],
           ),
         ),
@@ -556,6 +858,7 @@ class SettingsScreenState extends State<SettingsScreen> {
           children: [
             _buildCompanySettingsTab(),
             _buildTemplatesTab(),
+            _buildBackupTab(),
           ],
         ),
       ),
