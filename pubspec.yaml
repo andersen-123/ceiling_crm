@@ -20,13 +20,16 @@ dependencies:
   # Пакеты для экспорта
   pdf: ^3.10.2
   printing: ^5.11.1
-  excel: ^2.0.0  # Убедитесь, что эта строка есть
+  excel: ^2.0.0
   
   # Удобство UI
   intl: ^0.18.1
   
   # Для работы с файлами
   path_provider: ^2.1.0
+  
+  # Для графиков и статистики (новый пакет)
+  charts_flutter: ^0.12.0
 
 flutter:
   uses-material-design: true
