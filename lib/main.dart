@@ -1,10 +1,12 @@
-// Главный файл приложения Ceiling CRM
-// Инициализирует базу данных и запускает приложение с реальным экраном списка КП
+// Обновляем main.dart для использования реального экрана создания КП
+
+// ЗАМЕНИТЕ ВСЁ СОДЕРЖИМОЕ ФАЙЛА НА ЭТОТ КОД:
 
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'data/database_helper.dart';
-import 'screens/quote_list_screen.dart'; // Импортируем реальный экран
+import 'screens/quote_list_screen.dart';
+import 'screens/quote_edit_screen.dart'; // Импортируем экран редактирования
 
 void main() {
   runApp(const CeilingCRMApp());
@@ -136,7 +138,7 @@ class SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 10),
             const Text(
-              'Версия 1.0.0',
+              'Версия 1.1.0',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.white70,
@@ -174,7 +176,7 @@ class MainAppScreenState extends State<MainAppScreen> {
     _quoteCount = widget.initialQuoteCount;
   }
 
-  // Экраны для навигации
+  // Экраны для навигации (теперь реальные)
   final List<Widget> _screens = [];
 
   @override
@@ -184,11 +186,7 @@ class MainAppScreenState extends State<MainAppScreen> {
     if (_screens.isEmpty) {
       _screens.addAll([
         const QuoteListScreen(), // Реальный экран списка КП
-        _buildComingSoonScreen(
-          title: 'Создание КП',
-          icon: Icons.add_circle_outline,
-          description: 'Конструктор коммерческих предложений\nбудет доступен в следующем обновлении',
-        ),
+        const QuoteEditScreen(quote: null), // Реальный экран создания КП
         _buildComingSoonScreen(
           title: 'Настройки',
           icon: Icons.settings,
@@ -220,7 +218,7 @@ class MainAppScreenState extends State<MainAppScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Ceiling CRM v1.0.0'),
+                      const Text('Ceiling CRM v1.1.0'),
                       const SizedBox(height: 8),
                       Text('Компания: ${widget.companyName}'),
                       const SizedBox(height: 8),
@@ -230,14 +228,16 @@ class MainAppScreenState extends State<MainAppScreen> {
                       const SizedBox(height: 4),
                       const Text('• Локальная база данных SQLite'),
                       const Text('• Список коммерческих предложений'),
+                      const Text('• Создание и редактирование КП'),
+                      const Text('• Работы и оборудование с автоматическим расчетом'),
                       const Text('• Поиск и фильтрация по статусу'),
                       const Text('• Свайп-жесты для удаления'),
                       const SizedBox(height: 8),
                       const Text('В разработке:'),
                       const SizedBox(height: 4),
-                      const Text('• Создание и редактирование КП'),
                       const Text('• Экспорт в PDF и Excel'),
                       const Text('• Настройки компании'),
+                      const Text('• Резервное копирование'),
                     ],
                   ),
                   actions: [
@@ -252,7 +252,10 @@ class MainAppScreenState extends State<MainAppScreen> {
           ),
         ],
       ),
-      body: _screens.elementAt(_selectedIndex),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
