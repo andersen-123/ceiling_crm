@@ -7,6 +7,7 @@ import '../models/quote.dart';
 import '../models/line_item.dart';
 import '../data/database_helper.dart';
 import '../services/pdf_service.dart';
+import '../services/excel_service.dart';
 import '../services/template_service.dart';
 
 class QuoteEditScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class QuoteEditScreen extends StatefulWidget {
 class QuoteEditScreenState extends State<QuoteEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final PdfService _pdfService = PdfService();
+  final ExcelService _excelService = ExcelService();
   final TemplateService _templateService = TemplateService();
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
@@ -313,9 +315,9 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // Метод для экспорта в PDF
+  // ==================== PDF ЭКСПОРТ ====================
+
   Future<void> _exportToPdf() async {
-    // Проверяем, сохранено ли КП
     if (widget.quote == null || widget.quote!.id == null) {
       final shouldSave = await showDialog<bool>(
         context: context,
@@ -346,7 +348,6 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // Метод для выполнения экспорта в PDF
   Future<void> _performPdfExport() async {
     try {
       showDialog(
@@ -363,8 +364,7 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
         ),
       );
 
-      final dbHelper = DatabaseHelper();
-      final quote = await dbHelper.getQuoteById(widget.quote!.id!);
+      final quote = await _dbHelper.getQuoteById(widget.quote!.id!);
       
       if (quote == null) {
         Navigator.pop(context);
@@ -380,40 +380,7 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
       final pdfBytes = await _pdfService.generateQuotePdf(quote);
       Navigator.pop(context);
 
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('PDF готов'),
-          content: const Text('Выберите действие с документом:'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Отмена'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _previewPdf(pdfBytes);
-              },
-              child: const Text('Предпросмотр'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _sharePdf(pdfBytes, quote);
-              },
-              child: const Text('Поделиться'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _savePdfToFile(pdfBytes, quote);
-              },
-              child: const Text('Сохранить в файл'),
-            ),
-          ],
-        ),
-      );
+      await _showExportDialog('PDF готов', pdfBytes, quote, true);
     } catch (error) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -425,7 +392,138 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // Метод для предпросмотра PDF
+  // ==================== EXCEL ЭКСПОРТ ====================
+
+  Future<void> _exportToExcel() async {
+    if (widget.quote == null || widget.quote!.id == null) {
+      final shouldSave = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Сначала сохраните КП'),
+          content: const Text('Для экспорта в Excel необходимо сначала сохранить коммерческое предложение.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Сохранить и экспортировать'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldSave == true) {
+        await _saveQuote();
+        if (widget.quote?.id != null) {
+          _performExcelExport();
+        }
+      }
+    } else {
+      _performExcelExport();
+    }
+  }
+
+  Future<void> _performExcelExport() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Генерация Excel...'),
+            ],
+          ),
+        ),
+      );
+
+      final quote = await _dbHelper.getQuoteById(widget.quote!.id!);
+      
+      if (quote == null) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Не удалось найти КП для экспорта'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final excelFile = await _excelService.generateQuoteExcel(quote);
+      Navigator.pop(context);
+
+      await _showExportDialog('Excel файл готов', null, quote, false, excelFile: excelFile);
+    } catch (error) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка генерации Excel: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Общий диалог для экспорта
+  Future<void> _showExportDialog(
+    String title, 
+    Uint8List? fileBytes, 
+    Quote quote, 
+    bool isPdf, {
+    File? excelFile,
+  }) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: const Text('Выберите действие с файлом:'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              if (isPdf && fileBytes != null) {
+                _previewPdf(fileBytes);
+              }
+            },
+            child: Text(isPdf ? 'Предпросмотр' : 'Открыть'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              if (isPdf && fileBytes != null) {
+                _shareFile(fileBytes, quote, isPdf);
+              } else if (!isPdf && excelFile != null) {
+                _shareFile(null, quote, isPdf, excelFile: excelFile);
+              }
+            },
+            child: const Text('Поделиться'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              if (isPdf && fileBytes != null) {
+                _saveFileToStorage(fileBytes, quote, isPdf);
+              } else if (!isPdf && excelFile != null) {
+                _saveFileToStorage(null, quote, isPdf, excelFile: excelFile);
+              }
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Предпросмотр PDF
   Future<void> _previewPdf(Uint8List pdfBytes) async {
     try {
       await _pdfService.previewPdf(context, widget.quote!);
@@ -439,12 +537,20 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // Метод для шаринга PDF
-  Future<void> _sharePdf(Uint8List pdfBytes, Quote quote) async {
+  // Шаринг файла
+  Future<void> _shareFile(Uint8List? fileBytes, Quote quote, bool isPdf, {File? excelFile}) async {
     try {
-      final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/КП_${quote.id}_${quote.customerName}.pdf');
-      await file.writeAsBytes(pdfBytes);
+      File file;
+      
+      if (isPdf && fileBytes != null) {
+        final directory = await getTemporaryDirectory();
+        file = File('${directory.path}/КП_${quote.id}_${quote.customerName}.pdf');
+        await file.writeAsBytes(fileBytes);
+      } else if (!isPdf && excelFile != null) {
+        file = excelFile;
+      } else {
+        throw Exception('Файл не найден');
+      }
 
       final uri = Uri(
         scheme: 'file',
@@ -465,22 +571,37 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // Метод для сохранения PDF в файл
-  Future<void> _savePdfToFile(Uint8List pdfBytes, Quote quote) async {
+  // Сохранение файла в хранилище
+  Future<void> _saveFileToStorage(Uint8List? fileBytes, Quote quote, bool isPdf, {File? excelFile}) async {
     try {
       final directory = await getDownloadsDirectory() ?? await getTemporaryDirectory();
-      final fileName = 'КП_${quote.id}_${quote.customerName}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-      final file = File('${directory.path}/$fileName');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
       
-      await file.writeAsBytes(pdfBytes);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('PDF сохранен: ${file.path}'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      if (isPdf && fileBytes != null) {
+        final fileName = 'КП_${quote.id}_${quote.customerName}_$timestamp.pdf';
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsBytes(fileBytes);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF сохранен: ${file.path}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else if (!isPdf && excelFile != null) {
+        final fileName = 'КП_${quote.id}_${quote.customerName}_$timestamp.xlsx';
+        final newFile = File('${directory.path}/$fileName');
+        await excelFile.copy(newFile.path);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Excel сохранен: ${newFile.path}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -957,12 +1078,18 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
       appBar: AppBar(
         title: Text(widget.quote == null ? 'Создание КП' : 'Редактирование КП'),
         actions: [
-          if (widget.quote != null && widget.quote!.id != null)
+          if (widget.quote != null && widget.quote!.id != null) ...[
             IconButton(
               icon: const Icon(Icons.picture_as_pdf),
               onPressed: _exportToPdf,
               tooltip: 'Экспорт в PDF',
             ),
+            IconButton(
+              icon: const Icon(Icons.table_chart),
+              onPressed: _exportToExcel,
+              tooltip: 'Экспорт в Excel',
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveQuote,
