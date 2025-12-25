@@ -1,7 +1,13 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/quote.dart';
 import '../models/line_item.dart';
 import '../data/database_helper.dart';
+import '../services/pdf_service.dart';
+import '../services/template_service.dart';
 
 class QuoteEditScreen extends StatefulWidget {
   final Quote? quote;
@@ -14,6 +20,9 @@ class QuoteEditScreen extends StatefulWidget {
 
 class QuoteEditScreenState extends State<QuoteEditScreen> {
   final _formKey = GlobalKey<FormState>();
+  final PdfService _pdfService = PdfService();
+  final TemplateService _templateService = TemplateService();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
   // Контроллеры для полей ввода
   final TextEditingController _customerNameController = TextEditingController();
@@ -49,6 +58,10 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     {'description': 'Установка карниза', 'unit': 'м.п.', 'price': 0.0},
   ];
 
+  // Данные шаблонов
+  List<Map<String, dynamic>> _paymentTemplates = [];
+  List<Map<String, dynamic>> _workTemplateList = [];
+
   @override
   void initState() {
     super.initState();
@@ -78,6 +91,9 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
         _loadLineItems();
       }
     }
+    
+    // Загружаем шаблоны
+    _loadTemplates();
   }
 
   // Загрузка позиций из базы данных
@@ -85,8 +101,7 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     if (widget.quote == null || widget.quote!.id == null) return;
     
     try {
-      final dbHelper = DatabaseHelper();
-      final items = await dbHelper.getLineItemsForQuote(widget.quote!.id!);
+      final items = await _dbHelper.getLineItemsForQuote(widget.quote!.id!);
       
       setState(() {
         _workItems = items.where((item) => item.section == 'work').toList();
@@ -100,12 +115,134 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
+  // Загрузка шаблонов
+  Future<void> _loadTemplates() async {
+    try {
+      await _templateService.initializeTemplates();
+      _paymentTemplates = await _templateService.getTemplatesByType(TemplateService.typePayment);
+      _workTemplateList = await _templateService.getTemplatesByType(TemplateService.typeWork);
+    } catch (error) {
+      // Не критично, можно работать без шаблонов
+      print('Ошибка загрузки шаблонов: $error');
+    }
+  }
+
+  // Метод для выбора шаблона условий оплаты
+  Future<void> _selectPaymentTemplate() async {
+    if (_paymentTemplates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Нет доступных шаблонов условий оплаты'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final selectedTemplate = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выберите шаблон условий оплаты'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: ListView.builder(
+            itemCount: _paymentTemplates.length,
+            itemBuilder: (context, index) {
+              final template = _paymentTemplates[index];
+              return ListTile(
+                title: Text(template['title'] as String),
+                subtitle: Text(
+                  (template['content'] as String).length > 50
+                      ? '${(template['content'] as String).substring(0, 50)}...'
+                      : template['content'] as String,
+                ),
+                onTap: () => Navigator.pop(context, template),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedTemplate != null) {
+      setState(() {
+        _paymentTermsController.text = selectedTemplate['content'] as String;
+      });
+    }
+  }
+
+  // Метод для быстрого добавления работы из шаблона
+  Future<void> _addWorkFromTemplate() async {
+    if (_workTemplateList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Нет доступных шаблонов работ'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final selectedTemplate = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выберите шаблон работы'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: ListView.builder(
+            itemCount: _workTemplateList.length,
+            itemBuilder: (context, index) {
+              final template = _workTemplateList[index];
+              return ListTile(
+                title: Text(template['title'] as String),
+                subtitle: Text(
+                  template['content'] as String,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => Navigator.pop(context, template),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedTemplate != null) {
+      setState(() {
+        final newItem = LineItem(
+          quoteId: widget.quote?.id ?? 0,
+          position: _workItems.length + 1,
+          section: 'work',
+          description: selectedTemplate['content'] as String,
+          unit: 'шт.',
+          quantity: 1,
+          price: 0,
+        );
+        _workItems.add(newItem);
+        _recalculateTotals();
+      });
+    }
+  }
+
   // Обновляем метод _saveQuote для сохранения позиций
   Future<void> _saveQuote() async {
     if (_formKey.currentState!.validate()) {
       try {
-        final dbHelper = DatabaseHelper();
-        
         // Создаем или обновляем Quote
         final quote = Quote(
           id: widget.quote?.id,
@@ -130,29 +267,29 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
 
         int quoteId;
         if (quote.id == null) {
-          quoteId = await dbHelper.insertQuote(quote);
+          quoteId = await _dbHelper.insertQuote(quote);
         } else {
-          await dbHelper.updateQuote(quote);
+          await _dbHelper.updateQuote(quote);
           quoteId = quote.id!;
           
           // Удаляем старые позиции перед сохранением новых
-          final oldItems = await dbHelper.getLineItemsForQuote(quoteId);
+          final oldItems = await _dbHelper.getLineItemsForQuote(quoteId);
           for (final item in oldItems) {
-            await dbHelper.deleteLineItem(item.id!);
+            await _dbHelper.deleteLineItem(item.id!);
           }
         }
 
         // Сохраняем все позиции
         int position = 1;
         for (final item in _workItems) {
-          await dbHelper.insertLineItem(item.copyWith(
+          await _dbHelper.insertLineItem(item.copyWith(
             quoteId: quoteId,
             position: position++,
           ));
         }
         
         for (final item in _equipmentItems) {
-          await dbHelper.insertLineItem(item.copyWith(
+          await _dbHelper.insertLineItem(item.copyWith(
             quoteId: quoteId,
             position: position++,
           ));
@@ -173,6 +310,184 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
           SnackBar(content: Text('Ошибка сохранения: $error'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  // Метод для экспорта в PDF
+  Future<void> _exportToPdf() async {
+    // Проверяем, сохранено ли КП
+    if (widget.quote == null || widget.quote!.id == null) {
+      final shouldSave = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Сначала сохраните КП'),
+          content: const Text('Для экспорта в PDF необходимо сначала сохранить коммерческое предложение.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Сохранить и экспортировать'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldSave == true) {
+        await _saveQuote();
+        if (widget.quote?.id != null) {
+          _performPdfExport();
+        }
+      }
+    } else {
+      _performPdfExport();
+    }
+  }
+
+  // Метод для выполнения экспорта в PDF
+  Future<void> _performPdfExport() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Генерация PDF...'),
+            ],
+          ),
+        ),
+      );
+
+      final dbHelper = DatabaseHelper();
+      final quote = await dbHelper.getQuoteById(widget.quote!.id!);
+      
+      if (quote == null) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Не удалось найти КП для экспорта'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final pdfBytes = await _pdfService.generateQuotePdf(quote);
+      Navigator.pop(context);
+
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('PDF готов'),
+          content: const Text('Выберите действие с документом:'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _previewPdf(pdfBytes);
+              },
+              child: const Text('Предпросмотр'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _sharePdf(pdfBytes, quote);
+              },
+              child: const Text('Поделиться'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _savePdfToFile(pdfBytes, quote);
+              },
+              child: const Text('Сохранить в файл'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка генерации PDF: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Метод для предпросмотра PDF
+  Future<void> _previewPdf(Uint8List pdfBytes) async {
+    try {
+      await _pdfService.previewPdf(context, widget.quote!);
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка предпросмотра: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Метод для шаринга PDF
+  Future<void> _sharePdf(Uint8List pdfBytes, Quote quote) async {
+    try {
+      final directory = await getTemporaryDirectory();
+      final file = File('${directory.path}/КП_${quote.id}_${quote.customerName}.pdf');
+      await file.writeAsBytes(pdfBytes);
+
+      final uri = Uri(
+        scheme: 'file',
+        path: file.path,
+      );
+
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка шаринга: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Метод для сохранения PDF в файл
+  Future<void> _savePdfToFile(Uint8List pdfBytes, Quote quote) async {
+    try {
+      final directory = await getDownloadsDirectory() ?? await getTemporaryDirectory();
+      final fileName = 'КП_${quote.id}_${quote.customerName}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final file = File('${directory.path}/$fileName');
+      
+      await file.writeAsBytes(pdfBytes);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('PDF сохранен: ${file.path}'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка сохранения: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -202,13 +517,11 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     setState(() {
       if (section == 'work') {
         _workItems.removeAt(index);
-        // Обновляем позиции
         for (int i = 0; i < _workItems.length; i++) {
           _workItems[i] = _workItems[i].copyWith(position: i + 1);
         }
       } else {
         _equipmentItems.removeAt(index);
-        // Обновляем позиции
         for (int i = 0; i < _equipmentItems.length; i++) {
           _equipmentItems[i] = _equipmentItems[i].copyWith(position: i + 1);
         }
@@ -279,6 +592,7 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
     bool isRequired = false,
+    Widget? suffixIcon,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -288,6 +602,7 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
           labelText: labelText,
           hintText: hintText,
           border: const OutlineInputBorder(),
+          suffixIcon: suffixIcon,
         ),
         keyboardType: keyboardType,
         maxLines: maxLines,
@@ -298,6 +613,35 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
           return null;
         },
       ),
+    );
+  }
+
+  // Поле условий оплаты с выбором шаблона
+  Widget _buildPaymentTermsField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTextFormField(
+          controller: _paymentTermsController,
+          labelText: 'Условия оплаты',
+          maxLines: 3,
+          suffixIcon: _paymentTemplates.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.format_quote),
+                  onPressed: _selectPaymentTemplate,
+                  tooltip: 'Выбрать из шаблонов',
+                )
+              : null,
+        ),
+        if (_paymentTemplates.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 12),
+            child: Text(
+              'Доступно шаблонов: ${_paymentTemplates.length}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
+      ],
     );
   }
 
@@ -534,18 +878,16 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
           
           const SizedBox(width: 8),
           
-          // Кнопка быстрого добавления из шаблона (только для работ)
+          // Кнопка быстрого добавления из шаблонов (только для работ)
           if (section == 'work')
-            PopupMenuButton<Map<String, dynamic>>(
-              icon: const Icon(Icons.bolt),
-              tooltip: 'Быстрое добавление',
-              onSelected: (template) => _addFromTemplate(template, section),
-              itemBuilder: (context) => _workTemplates.map((template) {
-                return PopupMenuItem(
-                  value: template,
-                  child: Text(template['description']),
-                );
-              }).toList(),
+            ElevatedButton.icon(
+              onPressed: _addWorkFromTemplate,
+              icon: const Icon(Icons.format_quote),
+              label: const Text('Из шаблона'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.shade50,
+                foregroundColor: Colors.purple,
+              ),
             ),
         ],
       ),
@@ -615,6 +957,12 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
       appBar: AppBar(
         title: Text(widget.quote == null ? 'Создание КП' : 'Редактирование КП'),
         actions: [
+          if (widget.quote != null && widget.quote!.id != null)
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf),
+              onPressed: _exportToPdf,
+              tooltip: 'Экспорт в PDF',
+            ),
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveQuote,
@@ -696,11 +1044,7 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
 
             // Блок: Условия и примечания
             _buildSectionHeader('Условия и примечания'),
-            _buildTextFormField(
-              controller: _paymentTermsController,
-              labelText: 'Условия оплаты',
-              maxLines: 3,
-            ),
+            _buildPaymentTermsField(),
             _buildTextFormField(
               controller: _installationTermsController,
               labelText: 'Условия и даты монтажа',
