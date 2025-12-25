@@ -1,10 +1,13 @@
-// Главный экран приложения - список коммерческих предложений.
-// Отображает все КП из базы данных с возможностью поиска, фильтрации и действий.
+// Обновляем QuoteListScreen для интеграции с экраном редактирования
+// Добавляем навигацию и обновление данных
+
+// ЗАМЕНИТЕ ВСЁ СОДЕРЖИМОЕ ФАЙЛА НА ЭТОТ КОД:
 
 import 'package:flutter/material.dart';
 import '../data/database_helper.dart';
 import '../models/quote.dart';
 import '../widgets/quote_list_tile.dart';
+import 'quote_edit_screen.dart'; // Добавляем импорт
 
 class QuoteListScreen extends StatefulWidget {
   const QuoteListScreen({super.key});
@@ -79,6 +82,21 @@ class QuoteListScreenState extends State<QuoteListScreen> {
     setState(() => _filteredQuotes = result);
   }
 
+  // Открытие экрана редактирования
+  void _openEditScreen({Quote? quote}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuoteEditScreen(quote: quote),
+      ),
+    ).then((result) {
+      // Если вернулись с результатом (сохранено), обновляем список
+      if (result == true) {
+        _loadQuotes();
+      }
+    });
+  }
+
   // Удаление КП (мягкое)
   Future<void> _deleteQuote(int id) async {
     final confirmed = await showDialog<bool>(
@@ -110,12 +128,6 @@ class QuoteListScreenState extends State<QuoteListScreen> {
     }
   }
 
-  // Создание нового КП
-  void _createNewQuote() {
-    // TODO: Переход на экран создания (будет в Этапе 3)
-    _showInfoSnackbar('Функция создания КП будет доступна в следующем обновлении');
-  }
-
   // Дублирование КП
   Future<void> _duplicateQuote(Quote quote) async {
     try {
@@ -128,7 +140,17 @@ class QuoteListScreenState extends State<QuoteListScreen> {
         deletedAt: null,
       );
       
-      await _dbHelper.insertQuote(newQuote);
+      final newId = await _dbHelper.insertQuote(newQuote);
+      
+      // Также дублируем позиции
+      final items = await _dbHelper.getLineItemsForQuote(quote.id!);
+      for (final item in items) {
+        await _dbHelper.insertLineItem(item.copyWith(
+          id: null,
+          quoteId: newId,
+        ));
+      }
+      
       _showSuccessSnackbar('КП успешно скопировано');
       _loadQuotes();
     } catch (error) {
@@ -151,15 +173,6 @@ class QuoteListScreenState extends State<QuoteListScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
-      ),
-    );
-  }
-
-  void _showInfoSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.blue,
       ),
     );
   }
@@ -227,11 +240,7 @@ class QuoteListScreenState extends State<QuoteListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createNewQuote,
-        tooltip: 'Создать КП',
-        child: const Icon(Icons.add),
-      ),
+      // Убрали FAB, так как создание будет через отдельную вкладку
     );
   }
 
@@ -369,13 +378,23 @@ class QuoteListScreenState extends State<QuoteListScreen> {
           Text(
             _searchQuery.isNotEmpty || _selectedStatus != 'all'
                 ? 'Попробуйте изменить фильтры'
-                : 'Создайте первое КП, нажав на кнопку ниже',
+                : 'Создайте первое КП, перейдя на вкладку "Создать"',
             style: TextStyle(color: Colors.grey.shade600),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: _createNewQuote,
+            onPressed: () {
+              // Переключаем на вкладку создания
+              // Для этого нужен доступ к BottomNavigationBar
+              // Покажем уведомление
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Перейдите на вкладку "Создать" для создания нового КП'),
+                  backgroundColor: Colors.blue,
+                ),
+              );
+            },
             icon: const Icon(Icons.add),
             label: const Text('Создать КП'),
           ),
@@ -396,10 +415,7 @@ class QuoteListScreenState extends State<QuoteListScreen> {
           final quote = _filteredQuotes[index];
           return QuoteListTile(
             quote: quote,
-            onTap: () {
-              // TODO: Переход на экран редактирования (Этап 3)
-              _showInfoSnackbar('Редактирование КП #${quote.id}');
-            },
+            onTap: () => _openEditScreen(quote: quote),
             onDelete: () => _deleteQuote(quote.id!),
             onDuplicate: () => _duplicateQuote(quote),
           );
