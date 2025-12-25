@@ -1,16 +1,33 @@
-// Часть 2: Добавляем динамические списки работ и оборудования
-// Вставьте этот код в класс QuoteEditScreenState вместо комментария TODO
-
 import 'package:flutter/material.dart';
 import '../models/quote.dart';
 import '../models/line_item.dart';
 import '../data/database_helper.dart';
 
-// Обновляем класс QuoteEditScreenState
+class QuoteEditScreen extends StatefulWidget {
+  final Quote? quote;
 
-// Добавляем новые переменные в класс
+  const QuoteEditScreen({super.key, this.quote});
+
+  @override
+  QuoteEditScreenState createState() => QuoteEditScreenState();
+}
+
 class QuoteEditScreenState extends State<QuoteEditScreen> {
-  // ... существующие контроллеры и переменные ...
+  final _formKey = GlobalKey<FormState>();
+
+  // Контроллеры для полей ввода
+  final TextEditingController _customerNameController = TextEditingController();
+  final TextEditingController _customerPhoneController = TextEditingController();
+  final TextEditingController _customerEmailController = TextEditingController();
+  final TextEditingController _objectNameController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _areaSController = TextEditingController();
+  final TextEditingController _perimeterPController = TextEditingController();
+  final TextEditingController _heightHController = TextEditingController();
+  final TextEditingController _ceilingSystemController = TextEditingController();
+  final TextEditingController _paymentTermsController = TextEditingController();
+  final TextEditingController _installationTermsController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
 
   // Списки позиций работ и оборудования
   List<LineItem> _workItems = [];
@@ -35,14 +52,31 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
   @override
   void initState() {
     super.initState();
-    // ... существующий код инициализации ...
     
-    // Загружаем позиции если редактируем существующее КП
-    if (widget.quote != null && widget.quote!.id != null) {
-      _loadLineItems();
-      _subtotalWork = widget.quote!.subtotalWork;
-      _subtotalEquipment = widget.quote!.subtotalEquipment;
-      _totalAmount = widget.quote!.totalAmount;
+    // Если редактируем существующее КП, заполняем поля
+    if (widget.quote != null) {
+      final quote = widget.quote!;
+      _customerNameController.text = quote.customerName;
+      _customerPhoneController.text = quote.customerPhone ?? '';
+      _customerEmailController.text = quote.customerEmail ?? '';
+      _objectNameController.text = quote.objectName;
+      _addressController.text = quote.address ?? '';
+      _areaSController.text = quote.areaS?.toString() ?? '';
+      _perimeterPController.text = quote.perimeterP?.toString() ?? '';
+      _heightHController.text = quote.heightH?.toString() ?? '';
+      _ceilingSystemController.text = quote.ceilingSystem ?? '';
+      _paymentTermsController.text = quote.paymentTerms ?? '';
+      _installationTermsController.text = quote.installationTerms ?? '';
+      _notesController.text = quote.notes ?? '';
+      
+      _subtotalWork = quote.subtotalWork;
+      _subtotalEquipment = quote.subtotalEquipment;
+      _totalAmount = quote.totalAmount;
+      
+      // Загружаем позиции если редактируем существующее КП
+      if (quote.id != null) {
+        _loadLineItems();
+      }
     }
   }
 
@@ -76,10 +110,22 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
         final quote = Quote(
           id: widget.quote?.id,
           customerName: _customerNameController.text,
-          // ... остальные поля ...
+          customerPhone: _customerPhoneController.text.isNotEmpty ? _customerPhoneController.text : null,
+          customerEmail: _customerEmailController.text.isNotEmpty ? _customerEmailController.text : null,
+          objectName: _objectNameController.text,
+          address: _addressController.text.isNotEmpty ? _addressController.text : null,
+          areaS: double.tryParse(_areaSController.text.replaceAll(',', '.')),
+          perimeterP: double.tryParse(_perimeterPController.text.replaceAll(',', '.')),
+          heightH: double.tryParse(_heightHController.text.replaceAll(',', '.')),
+          ceilingSystem: _ceilingSystemController.text.isNotEmpty ? _ceilingSystemController.text : null,
+          status: widget.quote?.status ?? 'draft',
+          currencyCode: widget.quote?.currencyCode ?? 'RUB',
           subtotalWork: _subtotalWork,
           subtotalEquipment: _subtotalEquipment,
           totalAmount: _totalAmount,
+          paymentTerms: _paymentTermsController.text.isNotEmpty ? _paymentTermsController.text : null,
+          installationTerms: _installationTermsController.text.isNotEmpty ? _installationTermsController.text : null,
+          notes: _notesController.text.isNotEmpty ? _notesController.text : null,
         );
 
         int quoteId;
@@ -225,8 +271,50 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     });
   }
 
-  // Вставляем этот виджет в build() после блока "Условия и примечания"
-  // Замените комментарий TODO на следующие блоки:
+  // Вспомогательный метод для создания текстовых полей
+  Widget _buildTextFormField({
+    required TextEditingController controller,
+    required String labelText,
+    String? hintText,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    bool isRequired = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: labelText,
+          hintText: hintText,
+          border: const OutlineInputBorder(),
+        ),
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        validator: (value) {
+          if (isRequired && (value == null || value.isEmpty)) {
+            return 'Это поле обязательно для заполнения';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  // Вспомогательный метод для создания заголовков секций
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.blue,
+        ),
+      ),
+    );
+  }
 
   Widget _buildLineItemsSection() {
     return Column(
@@ -409,20 +497,19 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
             ),
             
             // Поле для примечания
-            if (item.note != null || true) // Всегда показываем
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: item.note,
-                decoration: const InputDecoration(
-                  labelText: 'Примечание (опционально)',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                ),
-                maxLines: 1,
-                onChanged: (value) {
-                  _updateLineItem(section, index, item.copyWith(note: value.isNotEmpty ? value : null));
-                },
+            const SizedBox(height: 8),
+            TextFormField(
+              initialValue: item.note,
+              decoration: const InputDecoration(
+                labelText: 'Примечание (опционально)',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
+              maxLines: 1,
+              onChanged: (value) {
+                _updateLineItem(section, index, item.copyWith(note: value.isNotEmpty ? value : null));
+              },
+            ),
           ],
         ),
       ),
@@ -522,7 +609,6 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
     );
   }
 
-  // Обновляем метод build() - добавляем вызов _buildLineItemsSection()
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -541,8 +627,73 @@ class QuoteEditScreenState extends State<QuoteEditScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ... существующие блоки (данные клиента, объекта и т.д.) ...
-            
+            // Блок: Данные клиента
+            _buildSectionHeader('Данные клиента'),
+            _buildTextFormField(
+              controller: _customerNameController,
+              labelText: 'ФИО клиента *',
+              isRequired: true,
+            ),
+            _buildTextFormField(
+              controller: _customerPhoneController,
+              labelText: 'Телефон',
+              keyboardType: TextInputType.phone,
+            ),
+            _buildTextFormField(
+              controller: _customerEmailController,
+              labelText: 'Email',
+              keyboardType: TextInputType.emailAddress,
+            ),
+
+            // Блок: Данные объекта
+            _buildSectionHeader('Данные объекта'),
+            _buildTextFormField(
+              controller: _objectNameController,
+              labelText: 'Название объекта *',
+              hintText: 'Квартира, Дом, Офис...',
+              isRequired: true,
+            ),
+            _buildTextFormField(
+              controller: _addressController,
+              labelText: 'Адрес',
+              hintText: 'Город, улица, дом, квартира',
+            ),
+
+            // Блок: Параметры помещения
+            _buildSectionHeader('Параметры помещения'),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextFormField(
+                    controller: _areaSController,
+                    labelText: 'Площадь (м²)',
+                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildTextFormField(
+                    controller: _perimeterPController,
+                    labelText: 'Периметр (м.п.)',
+                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildTextFormField(
+                    controller: _heightHController,
+                    labelText: 'Высота (м)',
+                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+              ],
+            ),
+            _buildTextFormField(
+              controller: _ceilingSystemController,
+              labelText: 'Тип потолочной системы',
+              hintText: 'гарпун, теневой, парящий...',
+            ),
+
             // Блок: Условия и примечания
             _buildSectionHeader('Условия и примечания'),
             _buildTextFormField(
