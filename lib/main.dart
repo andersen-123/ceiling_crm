@@ -1,9 +1,10 @@
 // Главный файл приложения Ceiling CRM
-// Инициализирует базу данных и запускает базовую навигацию
+// Инициализирует базу данных и запускает приложение с реальным экраном списка КП
 
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'data/database_helper.dart';
+import 'screens/quote_list_screen.dart'; // Импортируем реальный экран
 
 void main() {
   runApp(const CeilingCRMApp());
@@ -80,7 +81,7 @@ class SplashScreenState extends State<SplashScreen> {
         MaterialPageRoute(
           builder: (context) => MainAppScreen(
             initialQuoteCount: quotes.length,
-            companyName: company?.name ?? 'Компания',
+            companyName: company?.name ?? 'Моя компания',
           ),
         ),
       );
@@ -148,7 +149,7 @@ class SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// Главный экран приложения (заглушка на время разработки)
+// Главный экран приложения с навигацией
 class MainAppScreen extends StatefulWidget {
   final int initialQuoteCount;
   final String companyName;
@@ -173,35 +174,34 @@ class MainAppScreenState extends State<MainAppScreen> {
     _quoteCount = widget.initialQuoteCount;
   }
 
+  // Экраны для навигации
+  final List<Widget> _screens = [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Инициализируем экраны после того, как контекст доступен
+    if (_screens.isEmpty) {
+      _screens.addAll([
+        const QuoteListScreen(), // Реальный экран списка КП
+        _buildComingSoonScreen(
+          title: 'Создание КП',
+          icon: Icons.add_circle_outline,
+          description: 'Конструктор коммерческих предложений\nбудет доступен в следующем обновлении',
+        ),
+        _buildComingSoonScreen(
+          title: 'Настройки',
+          icon: Icons.settings,
+          description: 'Настройки компании и приложения\nбудут доступны в следующем обновлении',
+        ),
+      ]);
+    }
+  }
+
   // Навигация по нижней панели
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
   }
-
-  // Статические заглушки для экранов (будут заменены в следующих этапах)
-  static final List<Widget> _widgetOptions = <Widget>[
-    _buildPlaceholderScreen(
-      title: 'Список КП',
-      icon: Icons.list_alt,
-      description: 'Здесь будет список коммерческих предложений',
-      actionText: 'Добавить тестовое КП',
-      onAction: () {},
-    ),
-    _buildPlaceholderScreen(
-      title: 'Создать КП',
-      icon: Icons.add_circle_outline,
-      description: 'Здесь будет форма создания нового КП',
-      actionText: 'Открыть конструктор',
-      onAction: () {},
-    ),
-    _buildPlaceholderScreen(
-      title: 'Настройки',
-      icon: Icons.settings,
-      description: 'Здесь будут настройки компании и приложения',
-      actionText: 'Настроить компанию',
-      onAction: () {},
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -226,7 +226,18 @@ class MainAppScreenState extends State<MainAppScreen> {
                       const SizedBox(height: 8),
                       Text('КП в базе: $_quoteCount'),
                       const SizedBox(height: 8),
-                      const Text('Этап разработки: Ядро данных готово'),
+                      const Text('Готовые функции:'),
+                      const SizedBox(height: 4),
+                      const Text('• Локальная база данных SQLite'),
+                      const Text('• Список коммерческих предложений'),
+                      const Text('• Поиск и фильтрация по статусу'),
+                      const Text('• Свайп-жесты для удаления'),
+                      const SizedBox(height: 8),
+                      const Text('В разработке:'),
+                      const SizedBox(height: 4),
+                      const Text('• Создание и редактирование КП'),
+                      const Text('• Экспорт в PDF и Excel'),
+                      const Text('• Настройки компании'),
                     ],
                   ),
                   actions: [
@@ -241,7 +252,7 @@ class MainAppScreenState extends State<MainAppScreen> {
           ),
         ],
       ),
-      body: _widgetOptions.elementAt(_selectedIndex),
+      body: _screens.elementAt(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -264,13 +275,11 @@ class MainAppScreenState extends State<MainAppScreen> {
     );
   }
 
-  // Вспомогательный метод для создания экранов-заглушек
-  static Widget _buildPlaceholderScreen({
+  // Экран "скоро будет" для недоступных функций
+  Widget _buildComingSoonScreen({
     required String title,
     required IconData icon,
     required String description,
-    required String actionText,
-    required VoidCallback onAction,
   }) {
     return Center(
       child: Padding(
@@ -303,9 +312,17 @@ class MainAppScreenState extends State<MainAppScreen> {
             ),
             const SizedBox(height: 30),
             ElevatedButton.icon(
-              onPressed: onAction,
-              icon: const Icon(Icons.arrow_forward),
-              label: Text(actionText),
+              onPressed: () {
+                // Показываем уведомление о том, что функция в разработке
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$title будет доступен в следующем обновлении'),
+                    backgroundColor: Colors.blue,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.notifications),
+              label: const Text('Уведомить о выходе'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
@@ -368,40 +385,6 @@ class ErrorScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-// Простой виджет для отображения статуса базы данных (для тестирования)
-class DatabaseStatusWidget extends StatelessWidget {
-  const DatabaseStatusWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Database>(
-      future: DatabaseHelper().database,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const ListTile(
-            leading: CircularProgressIndicator(),
-            title: Text('Загрузка базы данных...'),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return ListTile(
-            leading: const Icon(Icons.error, color: Colors.red),
-            title: const Text('Ошибка базы данных'),
-            subtitle: Text('${snapshot.error}'),
-          );
-        }
-
-        return const ListTile(
-          leading: Icon(Icons.check_circle, color: Colors.green),
-          title: Text('База данных готова'),
-          subtitle: Text('SQLite инициализирован успешно'),
-        );
-      },
     );
   }
 }
