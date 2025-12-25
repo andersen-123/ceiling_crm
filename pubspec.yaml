@@ -9,18 +9,24 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.6
+  
   # Основные пакеты для ТЗ
-  sqflite: ^2.2.8+4 # Локальная база данных
-  path: ^1.8.3      # Работа с путями файлов для БД
-  shared_preferences: ^2.2.2 # Для настроек компании
-  url_launcher: ^6.2.1       # Для шаринга
-  image_picker: ^1.0.4       # Для логотипа компании
+  sqflite: ^2.2.8+4
+  path: ^1.8.3
+  shared_preferences: ^2.2.2
+  url_launcher: ^6.2.1
+  image_picker: ^1.0.4
+  
   # Пакеты для экспорта (критически важны)
-  pdf: ^3.10.2      # Генерация PDF
-  printing: ^5.11.1 # Предпросмотр и печать PDF
-  excel: ^2.0.0     # Генерация Excel
+  pdf: ^3.10.2
+  printing: ^5.11.1
+  excel: ^2.0.0
+  
   # Удобство UI
-  intl: ^0.18.1     # Форматирование дат и чисел
+  intl: ^0.18.1
+  
+  # Для работы с файлами (новый пакет)
+  path_provider: ^2.1.0
 
 flutter:
   uses-material-design: true
