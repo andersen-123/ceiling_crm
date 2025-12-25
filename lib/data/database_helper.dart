@@ -20,6 +20,8 @@ class DatabaseHelper {
   // Константы для имен таблиц и версии БД
   static const String _dbName = 'ceiling_crm.db';
   static const int _dbVersion = 1;
+  // В разделе констант добавьте:
+  static const String tableTemplates = 'templates';
 
   // Названия таблиц
   static const String tableQuotes = 'quotes';
@@ -122,6 +124,25 @@ class DatabaseHelper {
         setting_key TEXT PRIMARY KEY,
         setting_value TEXT NOT NULL
       )
+    ''');
+
+    // Таблица templates (шаблоны условий оплаты и работ)
+    await db.execute('''
+      CREATE TABLE $tableTemplates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // Индекс для поиска по типу
+    await db.execute('''
+      CREATE INDEX idx_templates_type 
+      ON $tableTemplates(type)
     ''');
 
     // Создаем индексы для ускорения поиска и фильтрации
