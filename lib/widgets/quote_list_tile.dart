@@ -126,11 +126,11 @@ class QuoteListTile extends StatelessWidget {
             content: const Text('Коммерческое предложение будет перемещено в корзину.'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
+                onPressed: () => Navigator.pop(context, false),
                 child: const Text('Отмена'),
               ),
               TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
+                onPressed: () => Navigator.pop(context, true),
                 child: const Text('Удалить', style: TextStyle(color: Colors.red)),
               ),
             ],
@@ -289,9 +289,18 @@ class QuoteListTile extends StatelessWidget {
                 // Кнопка дополнительных действий
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, size: 20),
-                  onSelected: (value) {
+                  onSelected: (value) async {
                     if (value == 'duplicate') {
                       onDuplicate();
+                    } else if (value == 'export') {
+                      // Показываем уведомление, что экспорт будет доступен при открытии КП
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Для экспорта в PDF откройте КП и используйте кнопку в правом верхнем углу'),
+                          backgroundColor: Colors.blue,
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
                     } else if (value == 'delete') {
                       onDelete();
                     }
@@ -307,6 +316,16 @@ class QuoteListTile extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const PopupMenuItem<String>(
+                      value: 'export',
+                      child: Row(
+                        children: [
+                          Icon(Icons.picture_as_pdf, size: 18, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text('Экспорт в PDF', style: TextStyle(color: Colors.blue)),
+                        ],
+                      ),
+    ),
                     const PopupMenuItem<String>(
                       value: 'delete',
                       child: Row(
