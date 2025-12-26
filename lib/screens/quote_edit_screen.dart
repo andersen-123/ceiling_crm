@@ -212,8 +212,17 @@ Future<void> _saveLineItems(int quoteId) async {
   // 11. Удаление позиции
   void _deleteLineItem(int index) {
     setState(() {
+      // УДАЛЕНИЕ КОНТРОЛЛЕРОВ (ДОБАВЬТЕ ЭТИ СТРОКИ):
+      _descriptionControllers[index].dispose();
+      _quantityControllers[index].dispose();
+      _priceControllers[index].dispose();
+    
+      _descriptionControllers.removeAt(index);
+      _quantityControllers.removeAt(index);
+      _priceControllers.removeAt(index);
+    
       _lineItems.removeAt(index);
-      _recalculateQuoteTotal(); // Обновляем итоговую сумму
+      _recalculateQuoteTotal();
     });
   }
 
@@ -582,124 +591,129 @@ Future<void> _saveLineItems(int quoteId) async {
     );
   }
 
-  // 17. Поля редактирования позиции
-  Widget _buildLineItemFields(int index, LineItem item) {
-    return Column(
-      children: [
-        // Раздел
-        DropdownButtonFormField<String>(
-          value: item.section,
-          decoration: const InputDecoration(
-            labelText: 'Раздел',
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          items: const ['Работы', 'Материалы', 'Оборудование', 'Прочее']
-              .map((section) {
-            return DropdownMenuItem(
-              value: section,
-              child: Text(section),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _lineItems[index] = item.copyWith(section: value!);
-            });
-          },
+  // 17. Поля редактирования позиции (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+Widget _buildLineItemFields(int index, LineItem item) {
+  // Используем сохранённые контроллеры вместо создания новых
+  final descriptionController = _descriptionControllers[index];
+  final quantityController = _quantityControllers[index];
+  final priceController = _priceControllers[index];
+  
+  return Column(
+    children: [
+      // Раздел
+      DropdownButtonFormField<String>(
+        value: item.section,
+        decoration: const InputDecoration(
+          labelText: 'Раздел',
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
-        const SizedBox(height: 8),
+        items: const ['Работы', 'Материалы', 'Оборудование', 'Прочее']
+            .map((section) {
+          return DropdownMenuItem(
+            value: section,
+            child: Text(section),
+          );
+        }).toList(),
+        onChanged: (value) {
+          setState(() {
+            _lineItems[index] = item.copyWith(section: value!);
+          });
+        },
+      ),
+      const SizedBox(height: 8),
       
-        // Описание
-        TextField(
-          controller: TextEditingController(text: item.description),
-          decoration: const InputDecoration(
-            labelText: 'Описание',
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          ),
-          maxLines: 2,
-          onChanged: (value) {
-            setState(() {
-              _lineItems[index] = item.copyWith(description: value);
-            });
-          },
+      // Описание
+      TextField(
+        controller: descriptionController, // Используем сохранённый контроллер
+        decoration: const InputDecoration(
+          labelText: 'Описание',
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         ),
-        const SizedBox(height: 8),
+        maxLines: 2,
+        onChanged: (value) {
+          setState(() {
+            _lineItems[index] = item.copyWith(description: value);
+          });
+        },
+      ),
+      const SizedBox(height: 8),
       
-        // Количество, цена и единица измерения
-        Row(
-          children: [
-            // Количество
-            Expanded(
-              child: TextField(
-                controller: TextEditingController(text: item.quantity.toString()),
-                decoration: const InputDecoration(
-                  labelText: 'Кол-во',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  final qty = double.tryParse(value) ?? 0;
-                  setState(() {
-                    _lineItems[index] = item.copyWith(quantity: qty);
-                    _recalculateQuoteTotal();
-                  });
-                },
+      // Количество, цена и единица измерения
+      Row(
+        children: [
+          // Количество
+          Expanded(
+            child: TextField(
+              controller: quantityController, // Используем сохранённый контроллер
+              decoration: const InputDecoration(
+                labelText: 'Кол-во',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               ),
+              keyboardType: TextInputType.number,
+              onChanged: (value) {
+                final qty = double.tryParse(value) ?? 0;
+                setState(() {
+                  _lineItems[index] = item.copyWith(quantity: qty);
+                  _recalculateQuoteTotal();
+                });
+              },
             ),
-            const SizedBox(width: 8),
+          ),
+          const SizedBox(width: 8),
           
-            // Единица измерения
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: item.unit,
-                decoration: const InputDecoration(
-                  labelText: 'Ед.',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                items: const ['шт.', 'м²', 'п.м.', 'компл.', 'час']
-                    .map((unit) {
-                  return DropdownMenuItem(
-                    value: unit,
-                    child: Text(unit),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _lineItems[index] = item.copyWith(unit: value!);
-                  });
-                },
+          // Единица измерения
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: item.unit,
+              decoration: const InputDecoration(
+                labelText: 'Ед.',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
+              items: const ['шт.', 'м²', 'п.м.', 'компл.', 'час']
+                  .map((unit) {
+                return DropdownMenuItem(
+                  value: unit,
+                  child: Text(unit),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _lineItems[index] = item.copyWith(unit: value!);
+                });
+              },
             ),
-            const SizedBox(width: 8),
+          ),
+          const SizedBox(width: 8),
           
-            // Цена за единицу
-            Expanded(
-              child: TextField(
-                controller: TextEditingController(text: item.unitPrice.toStringAsFixed(2)),
-                decoration: const InputDecoration(
-                  labelText: 'Цена',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  prefixText: '₽ ',
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  final price = double.tryParse(value) ?? 0;
-                  setState(() {
-                    _lineItems[index] = item.copyWith(unitPrice: price);
-                    _recalculateQuoteTotal();
-                  });
-                },
+          // Цена за единицу
+          Expanded(
+            child: TextField(
+              controller: priceController, // Используем сохранённый контроллер
+              decoration: const InputDecoration(
+                labelText: 'Цена',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                prefixText: '₽ ',
               ),
+              keyboardType: TextInputType.number,
+              onChanged: (value) {
+                final price = double.tryParse(value) ?? 0;
+                setState(() {
+                  _lineItems[index] = item.copyWith(unitPrice: price);
+                  _recalculateQuoteTotal();
+                });
+              },
             ),
-          ],
-        ),
-      ],
-    );
-  }
+          ),
+        ],
+      ),
+    ],
+  );
+}
   
   // 24. Секция итогов
   Widget _buildTotalsSection() {
@@ -800,6 +814,18 @@ Future<void> _saveLineItems(int quoteId) async {
     _customerPhoneController.dispose();
     _addressController.dispose();
     _notesController.dispose();
+  
+    // ДОБАВЬТЕ ЭТОТ БЛОК:
+    for (final controller in _descriptionControllers) {
+      controller.dispose();
+    }
+    for (final controller in _quantityControllers) {
+      controller.dispose();
+    }
+    for (final controller in _priceControllers) {
+      controller.dispose();
+    }
+  
     super.dispose();
   }
 }
