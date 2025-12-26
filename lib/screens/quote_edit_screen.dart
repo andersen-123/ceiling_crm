@@ -1,1204 +1,414 @@
-import 'dart:io';
-import 'dart:typed_data';
+// lib/screens/quote_edit_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/quote.dart';
 import '../models/line_item.dart';
 import '../data/database_helper.dart';
-import '../services/pdf_service.dart';
-import '../services/excel_service.dart';
-import '../services/template_service.dart';
 
 class QuoteEditScreen extends StatefulWidget {
-  final Quote? quote;
+  final Quote? existingQuote; // Если null — создание нового КП
 
-  const QuoteEditScreen({super.key, this.quote});
+  const QuoteEditScreen({Key? key, this.existingQuote}) : super(key: key);
 
   @override
-  QuoteEditScreenState createState() => QuoteEditScreenState();
+  State<QuoteEditScreen> createState() => _QuoteEditScreenState();
 }
 
-class QuoteEditScreenState extends State<QuoteEditScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final PdfService _pdfService = PdfService();
-  final ExcelService _excelService = ExcelService();
-  final TemplateService _templateService = TemplateService();
-  final DatabaseHelper _dbHelper = DatabaseHelper();
-
-  // Контроллеры для полей ввода
+class _QuoteEditScreenState extends State<QuoteEditScreen> {
+  // 1. Контроллеры для полей формы
   final TextEditingController _customerNameController = TextEditingController();
   final TextEditingController _customerPhoneController = TextEditingController();
-  final TextEditingController _customerEmailController = TextEditingController();
-  final TextEditingController _objectNameController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _areaSController = TextEditingController();
-  final TextEditingController _perimeterPController = TextEditingController();
-  final TextEditingController _heightHController = TextEditingController();
-  final TextEditingController _ceilingSystemController = TextEditingController();
-  final TextEditingController _paymentTermsController = TextEditingController();
-  final TextEditingController _installationTermsController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
-  // Списки позиций работ и оборудования
-  List<LineItem> _workItems = [];
-  List<LineItem> _equipmentItems = [];
-  
-  // Суммы
-  double _subtotalWork = 0.0;
-  double _subtotalEquipment = 0.0;
-  double _totalAmount = 0.0;
-
-  // Единицы измерения для выпадающего списка
-  final List<String> _units = ['m²', 'm.p.', 'шт.', 'пог. м', 'компл.', 'усл.'];
-  
-  // Шаблоны для автозаполнения
-  final List<Map<String, dynamic>> _workTemplates = [
-    {'description': 'Монтаж натяжного потолка', 'unit': 'm²', 'price': 0.0},
-    {'description': 'Обход трубы', 'unit': 'шт.', 'price': 0.0},
-    {'description': 'Установка люстры/светильника', 'unit': 'шт.', 'price': 0.0},
-    {'description': 'Установка карниза', 'unit': 'м.п.', 'price': 0.0},
+  // 2. Значения выпадающих списков
+  String _selectedStatus = 'Черновик';
+  final List<String> _statusOptions = [
+    'Черновик',
+    'Отправлен',
+    'В работе',
+    'Подписан',
+    'Отменён'
   ];
 
-  // Данные шаблонов
-  List<Map<String, dynamic>> _paymentTemplates = [];
-  List<Map<String, dynamic>> _workTemplateList = [];
+  // 3. Данные КП
+  late Quote _currentQuote;
+  final List<LineItem> _lineItems = [];
+  
+  // 4. Состояние загрузки
+  bool _isLoading = true;
+  bool _isSaving = false;
 
+  // 5. Инициализация
   @override
   void initState() {
     super.initState();
-    
-    // Если редактируем существующее КП, заполняем поля
-    if (widget.quote != null) {
-      final quote = widget.quote!;
-      _customerNameController.text = quote.customerName;
-      _customerPhoneController.text = quote.customerPhone ?? '';
-      _customerEmailController.text = quote.customerEmail ?? '';
-      _objectNameController.text = quote.objectName;
-      _addressController.text = quote.address ?? '';
-      _areaSController.text = quote.areaS?.toString() ?? '';
-      _perimeterPController.text = quote.perimeterP?.toString() ?? '';
-      _heightHController.text = quote.heightH?.toString() ?? '';
-      _ceilingSystemController.text = quote.ceilingSystem ?? '';
-      _paymentTermsController.text = quote.paymentTerms ?? '';
-      _installationTermsController.text = quote.installationTerms ?? '';
-      _notesController.text = quote.notes ?? '';
-      
-      _subtotalWork = quote.subtotalWork;
-      _subtotalEquipment = quote.subtotalEquipment;
-      _totalAmount = quote.totalAmount;
-      
-      // Загружаем позиции если редактируем существующее КП
-      if (quote.id != null) {
-        _loadLineItems();
-      }
-    }
-    
-    // Загружаем шаблоны
-    _loadTemplates();
+    _initializeData();
   }
 
-  // Загрузка позиций из базы данных
-  Future<void> _loadLineItems() async {
-    if (widget.quote == null || widget.quote!.id == null) return;
+  // 6. Инициализация данных
+  Future<void> _initializeData() async {
+    setState(() => _isLoading = true);
     
-    try {
-      final items = await _dbHelper.getLineItemsForQuote(widget.quote!.id!);
+    if (widget.existingQuote != null) {
+      // Редактирование существующего КП
+      _currentQuote = widget.existingQuote!;
       
-      setState(() {
-        _workItems = items.where((item) => item.section == 'work').toList();
-        _equipmentItems = items.where((item) => item.section == 'equipment').toList();
-        _recalculateTotals();
-      });
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки позиций: $error'), backgroundColor: Colors.red),
+      // Загружаем позиции из БД
+      final items = await DatabaseHelper().getLineItemsForQuote(_currentQuote.id!);
+      setState(() => _lineItems.addAll(items));
+    } else {
+      // Создание нового КП
+      _currentQuote = Quote(
+        customerName: '',
+        customerPhone: '',
+        address: '',
+        quoteDate: DateTime.now(),
+        totalAmount: 0.0,
+        prepayment: 0.0,
+        status: 'Черновик',
+        notes: '',
       );
     }
+    
+    // Заполняем контроллеры
+    _customerNameController.text = _currentQuote.customerName;
+    _customerPhoneController.text = _currentQuote.customerPhone;
+    _addressController.text = _currentQuote.address;
+    _notesController.text = _currentQuote.notes;
+    _selectedStatus = _currentQuote.status;
+    
+    setState(() => _isLoading = false);
   }
 
-  // Загрузка шаблонов
-  Future<void> _loadTemplates() async {
-    try {
-      await _templateService.initializeTemplates();
-      _paymentTemplates = await _templateService.getTemplatesByType(TemplateService.typePayment);
-      _workTemplateList = await _templateService.getTemplatesByType(TemplateService.typeWork);
-    } catch (error) {
-      // Не критично, можно работать без шаблонов
-      print('Ошибка загрузки шаблонов: $error');
-    }
+  // 7. Рассчитать общую сумму
+  double _calculateTotal() {
+    return _lineItems.fold(0.0, (sum, item) => sum + item.total);
   }
 
-  // Метод для выбора шаблона условий оплаты
-  Future<void> _selectPaymentTemplate() async {
-    if (_paymentTemplates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Нет доступных шаблонов условий оплаты'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    final selectedTemplate = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Выберите шаблон условий оплаты'),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: ListView.builder(
-            itemCount: _paymentTemplates.length,
-            itemBuilder: (context, index) {
-              final template = _paymentTemplates[index];
-              return ListTile(
-                title: Text(template['title'] as String),
-                subtitle: Text(
-                  (template['content'] as String).length > 50
-                      ? '${(template['content'] as String).substring(0, 50)}...'
-                      : template['content'] as String,
-                ),
-                onTap: () => Navigator.pop(context, template),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-        ],
-      ),
-    );
-
-    if (selectedTemplate != null) {
-      setState(() {
-        _paymentTermsController.text = selectedTemplate['content'] as String;
-      });
-    }
-  }
-
-  // Метод для быстрого добавления работы из шаблона
-  Future<void> _addWorkFromTemplate() async {
-    if (_workTemplateList.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Нет доступных шаблонов работ'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    final selectedTemplate = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Выберите шаблон работы'),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 300,
-          child: ListView.builder(
-            itemCount: _workTemplateList.length,
-            itemBuilder: (context, index) {
-              final template = _workTemplateList[index];
-              return ListTile(
-                title: Text(template['title'] as String),
-                subtitle: Text(
-                  template['content'] as String,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onTap: () => Navigator.pop(context, template),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-        ],
-      ),
-    );
-
-    if (selectedTemplate != null) {
-      setState(() {
-        final newItem = LineItem(
-          quoteId: widget.quote?.id ?? 0,
-          position: _workItems.length + 1,
-          section: 'work',
-          description: selectedTemplate['content'] as String,
-          unit: 'шт.',
-          quantity: 1,
-          price: 0,
-        );
-        _workItems.add(newItem);
-        _recalculateTotals();
-      });
-    }
-  }
-
-  // Обновляем метод _saveQuote для сохранения позиций
+  // 8. Сохранение КП
   Future<void> _saveQuote() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        // Создаем или обновляем Quote
-        final quote = Quote(
-          id: widget.quote?.id,
-          customerName: _customerNameController.text,
-          customerPhone: _customerPhoneController.text.isNotEmpty ? _customerPhoneController.text : null,
-          customerEmail: _customerEmailController.text.isNotEmpty ? _customerEmailController.text : null,
-          objectName: _objectNameController.text,
-          address: _addressController.text.isNotEmpty ? _addressController.text : null,
-          areaS: double.tryParse(_areaSController.text.replaceAll(',', '.')),
-          perimeterP: double.tryParse(_perimeterPController.text.replaceAll(',', '.')),
-          heightH: double.tryParse(_heightHController.text.replaceAll(',', '.')),
-          ceilingSystem: _ceilingSystemController.text.isNotEmpty ? _ceilingSystemController.text : null,
-          status: widget.quote?.status ?? 'draft',
-          currencyCode: widget.quote?.currencyCode ?? 'RUB',
-          subtotalWork: _subtotalWork,
-          subtotalEquipment: _subtotalEquipment,
-          totalAmount: _totalAmount,
-          paymentTerms: _paymentTermsController.text.isNotEmpty ? _paymentTermsController.text : null,
-          installationTerms: _installationTermsController.text.isNotEmpty ? _installationTermsController.text : null,
-          notes: _notesController.text.isNotEmpty ? _notesController.text : null,
-        );
-
-        int quoteId;
-        if (quote.id == null) {
-          quoteId = await _dbHelper.insertQuote(quote);
-        } else {
-          await _dbHelper.updateQuote(quote);
-          quoteId = quote.id!;
-          
-          // Удаляем старые позиции перед сохранением новых
-          final oldItems = await _dbHelper.getLineItemsForQuote(quoteId);
-          for (final item in oldItems) {
-            await _dbHelper.deleteLineItem(item.id!);
-          }
-        }
-
-        // Сохраняем все позиции
-        int position = 1;
-        for (final item in _workItems) {
-          await _dbHelper.insertLineItem(item.copyWith(
-            quoteId: quoteId,
-            position: position++,
-          ));
-        }
-        
-        for (final item in _equipmentItems) {
-          await _dbHelper.insertLineItem(item.copyWith(
-            quoteId: quoteId,
-            position: position++,
-          ));
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.quote == null 
-                ? 'КП успешно создано' 
-                : 'КП успешно обновлено'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        Navigator.pop(context, true); // Возвращаем true для обновления списка
-      } catch (error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения: $error'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  // ==================== PDF ЭКСПОРТ ====================
-
-  Future<void> _exportToPdf() async {
-    if (widget.quote == null || widget.quote!.id == null) {
-      final shouldSave = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Сначала сохраните КП'),
-          content: const Text('Для экспорта в PDF необходимо сначала сохранить коммерческое предложение.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Отмена'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Сохранить и экспортировать'),
-            ),
-          ],
-        ),
-      );
-
-      if (shouldSave == true) {
-        await _saveQuote();
-        if (widget.quote?.id != null) {
-          _performPdfExport();
-        }
-      }
-    } else {
-      _performPdfExport();
-    }
-  }
-
-  Future<void> _performPdfExport() async {
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Генерация PDF...'),
-            ],
-          ),
-        ),
-      );
-
-      final quote = await _dbHelper.getQuoteById(widget.quote!.id!);
-      
-      if (quote == null) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Не удалось найти КП для экспорта'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      final pdfBytes = await _pdfService.generateQuotePdf(quote);
-      Navigator.pop(context);
-
-      await _showExportDialog('PDF готов', pdfBytes, quote, true);
-    } catch (error) {
-      Navigator.pop(context);
+    // Валидация
+    if (_customerNameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка генерации PDF: $error'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Введите имя клиента')),
       );
+      return;
     }
-  }
 
-  // ==================== EXCEL ЭКСПОРТ ====================
+    setState(() => _isSaving = true);
 
-  Future<void> _exportToExcel() async {
-    if (widget.quote == null || widget.quote!.id == null) {
-      final shouldSave = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Сначала сохраните КП'),
-          content: const Text('Для экспорта в Excel необходимо сначала сохранить коммерческое предложение.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Отмена'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Сохранить и экспортировать'),
-            ),
-          ],
-        ),
-      );
-
-      if (shouldSave == true) {
-        await _saveQuote();
-        if (widget.quote?.id != null) {
-          _performExcelExport();
-        }
-      }
-    } else {
-      _performExcelExport();
-    }
-  }
-
-  Future<void> _performExcelExport() async {
     try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Генерация Excel...'),
-            ],
-          ),
-        ),
+      // Обновляем данные КП
+      _currentQuote = _currentQuote.copyWith(
+        customerName: _customerNameController.text,
+        customerPhone: _customerPhoneController.text,
+        address: _addressController.text,
+        totalAmount: _calculateTotal(),
+        prepayment: _currentQuote.prepayment,
+        status: _selectedStatus,
+        notes: _notesController.text,
       );
 
-      final quote = await _dbHelper.getQuoteById(widget.quote!.id!);
-      
-      if (quote == null) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Не удалось найти КП для экспорта'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
+      // Сохраняем в БД
+      final dbHelper = DatabaseHelper();
+      int quoteId;
+
+      if (_currentQuote.id == null) {
+        // Новый КП
+        quoteId = await dbHelper.insertQuote(_currentQuote);
+        _currentQuote = _currentQuote.copyWith(id: quoteId);
+      } else {
+        // Обновление существующего
+        await dbHelper.updateQuote(_currentQuote);
+        quoteId = _currentQuote.id!;
       }
 
-      final excelFile = await _excelService.generateQuoteExcel(quote);
-      Navigator.pop(context);
+      // Сохраняем позиции
+      await _saveLineItems(quoteId);
 
-      await _showExportDialog('Excel файл готов', null, quote, false, excelFile: excelFile);
-    } catch (error) {
-      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка генерации Excel: $error'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(_currentQuote.id == null 
+          ? 'КП создан' 
+          : 'КП обновлён')),
       );
-    }
-  }
 
-  // Общий диалог для экспорта
-  Future<void> _showExportDialog(
-    String title, 
-    Uint8List? fileBytes, 
-    Quote quote, 
-    bool isPdf, {
-    File? excelFile,
-  }) async {
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: const Text('Выберите действие с файлом:'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              if (isPdf && fileBytes != null) {
-                _previewPdf(fileBytes);
-              }
-            },
-            child: Text(isPdf ? 'Предпросмотр' : 'Открыть'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              if (isPdf && fileBytes != null) {
-                _shareFile(fileBytes, quote, isPdf);
-              } else if (!isPdf && excelFile != null) {
-                _shareFile(null, quote, isPdf, excelFile: excelFile);
-              }
-            },
-            child: const Text('Поделиться'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              if (isPdf && fileBytes != null) {
-                _saveFileToStorage(fileBytes, quote, isPdf);
-              } else if (!isPdf && excelFile != null) {
-                _saveFileToStorage(null, quote, isPdf, excelFile: excelFile);
-              }
-            },
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
-  }
+      Navigator.pop(context, true); // Возвращаемся с флагом успеха
 
-  // Предпросмотр PDF
-  Future<void> _previewPdf(Uint8List pdfBytes) async {
-    try {
-      await _pdfService.previewPdf(context, widget.quote!);
-    } catch (error) {
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка предпросмотра: $error'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Ошибка сохранения: $e')),
       );
+    } finally {
+      setState(() => _isSaving = false);
     }
   }
 
-  // Шаринг файла
-  Future<void> _shareFile(Uint8List? fileBytes, Quote quote, bool isPdf, {File? excelFile}) async {
-    try {
-      File file;
-      
-      if (isPdf && fileBytes != null) {
-        final directory = await getTemporaryDirectory();
-        file = File('${directory.path}/КП_${quote.id}_${quote.customerName}.pdf');
-        await file.writeAsBytes(fileBytes);
-      } else if (!isPdf && excelFile != null) {
-        file = excelFile;
-      } else {
-        throw Exception('Файл не найден');
-      }
-
-      final uri = Uri(
-        scheme: 'file',
-        path: file.path,
-      );
-
-      await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка шаринга: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+  // 9. Сохранение позиций (пока заглушка)
+  Future<void> _saveLineItems(int quoteId) async {
+    // TODO: Реализовать в следующем задании
   }
 
-  // Сохранение файла в хранилище
-  Future<void> _saveFileToStorage(Uint8List? fileBytes, Quote quote, bool isPdf, {File? excelFile}) async {
-    try {
-      final directory = await getDownloadsDirectory() ?? await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      
-      if (isPdf && fileBytes != null) {
-        final fileName = 'КП_${quote.id}_${quote.customerName}_$timestamp.pdf';
-        final file = File('${directory.path}/$fileName');
-        await file.writeAsBytes(fileBytes);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF сохранен: ${file.path}'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      } else if (!isPdf && excelFile != null) {
-        final fileName = 'КП_${quote.id}_${quote.customerName}_$timestamp.xlsx';
-        final newFile = File('${directory.path}/$fileName');
-        await excelFile.copy(newFile.path);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Excel сохранен: ${newFile.path}'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка сохранения: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+  // 10. Добавление новой позиции (пока заглушка)
+  void _addNewLineItem() {
+    // TODO: Реализовать в следующем задании
   }
 
-  // Добавление новой позиции в раздел
-  void _addLineItem(String section) {
-    setState(() {
-      final newItem = LineItem(
-        quoteId: widget.quote?.id ?? 0,
-        position: section == 'work' ? _workItems.length + 1 : _equipmentItems.length + 1,
-        section: section,
-        description: '',
-        unit: 'm²',
-        quantity: 0,
-        price: 0,
-      );
-      
-      if (section == 'work') {
-        _workItems.add(newItem);
-      } else {
-        _equipmentItems.add(newItem);
-      }
-    });
+  // 11. Удаление позиции (пока заглушка)
+  void _deleteLineItem(int index) {
+    // TODO: Реализовать в следующем задании
   }
 
-  // Удаление позиции
-  void _removeLineItem(String section, int index) {
-    setState(() {
-      if (section == 'work') {
-        _workItems.removeAt(index);
-        for (int i = 0; i < _workItems.length; i++) {
-          _workItems[i] = _workItems[i].copyWith(position: i + 1);
-        }
-      } else {
-        _equipmentItems.removeAt(index);
-        for (int i = 0; i < _equipmentItems.length; i++) {
-          _equipmentItems[i] = _equipmentItems[i].copyWith(position: i + 1);
-        }
-      }
-      _recalculateTotals();
-    });
-  }
-
-  // Обновление позиции
-  void _updateLineItem(String section, int index, LineItem updatedItem) {
-    setState(() {
-      if (section == 'work') {
-        _workItems[index] = updatedItem;
-      } else {
-        _equipmentItems[index] = updatedItem;
-      }
-      _recalculateTotals();
-    });
-  }
-
-  // Пересчет итогов
-  void _recalculateTotals() {
-    double workTotal = 0.0;
-    double equipmentTotal = 0.0;
-    
-    for (final item in _workItems) {
-      workTotal += item.amount;
-    }
-    
-    for (final item in _equipmentItems) {
-      equipmentTotal += item.amount;
-    }
-    
-    setState(() {
-      _subtotalWork = workTotal;
-      _subtotalEquipment = equipmentTotal;
-      _totalAmount = workTotal + equipmentTotal;
-    });
-  }
-
-  // Метод для быстрого добавления из шаблона
-  void _addFromTemplate(Map<String, dynamic> template, String section) {
-    setState(() {
-      final newItem = LineItem(
-        quoteId: widget.quote?.id ?? 0,
-        position: section == 'work' ? _workItems.length + 1 : _equipmentItems.length + 1,
-        section: section,
-        description: template['description'],
-        unit: template['unit'],
-        quantity: 1,
-        price: template['price'],
-      );
-      
-      if (section == 'work') {
-        _workItems.add(newItem);
-      } else {
-        _equipmentItems.add(newItem);
-      }
-      _recalculateTotals();
-    });
-  }
-
-  // Вспомогательный метод для создания текстовых полей
-  Widget _buildTextFormField({
-    required TextEditingController controller,
-    required String labelText,
-    String? hintText,
-    TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-    bool isRequired = false,
-    Widget? suffixIcon,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: labelText,
-          hintText: hintText,
-          border: const OutlineInputBorder(),
-          suffixIcon: suffixIcon,
-        ),
-        keyboardType: keyboardType,
-        maxLines: maxLines,
-        validator: (value) {
-          if (isRequired && (value == null || value.isEmpty)) {
-            return 'Это поле обязательно для заполнения';
-          }
-          return null;
-        },
-      ),
-    );
-  }
-
-  // Поле условий оплаты с выбором шаблона
-  Widget _buildPaymentTermsField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildTextFormField(
-          controller: _paymentTermsController,
-          labelText: 'Условия оплаты',
-          maxLines: 3,
-          suffixIcon: _paymentTemplates.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.format_quote),
-                  onPressed: _selectPaymentTemplate,
-                  tooltip: 'Выбрать из шаблонов',
-                )
-              : null,
-        ),
-        if (_paymentTemplates.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 12),
-            child: Text(
-              'Доступно шаблонов: ${_paymentTemplates.length}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ),
-      ],
-    );
-  }
-
-  // Вспомогательный метод для создания заголовков секций
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.blue,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLineItemsSection() {
-    return Column(
-      children: [
-        // Раздел: Работы
-        _buildSectionHeader('Работы'),
-        _buildLineItemsList('work', _workItems),
-        _buildAddButton('work'),
-        
-        // Итого по работам
-        if (_workItems.isNotEmpty)
-          _buildSubtotalRow('Работы:', _subtotalWork),
-        
-        const SizedBox(height: 16),
-        
-        // Раздел: Оборудование
-        _buildSectionHeader('Оборудование'),
-        _buildLineItemsList('equipment', _equipmentItems),
-        _buildAddButton('equipment'),
-        
-        // Итого по оборудованию
-        if (_equipmentItems.isNotEmpty)
-          _buildSubtotalRow('Оборудование:', _subtotalEquipment),
-        
-        const SizedBox(height: 16),
-        
-        // Общий итог
-        if (_workItems.isNotEmpty || _equipmentItems.isNotEmpty)
-          _buildTotalRow(),
-      ],
-    );
-  }
-
-  // Виджет списка позиций
-  Widget _buildLineItemsList(String section, List<LineItem> items) {
-    if (items.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          section == 'work' ? 'Нет работ' : 'Нет оборудования',
-          style: TextStyle(color: Colors.grey.shade600, fontStyle: FontStyle.italic),
-        ),
-      );
-    }
-    
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        return _buildLineItemCard(section, index, items[index]);
-      },
-    );
-  }
-
-  // Карточка одной позиции
-  Widget _buildLineItemCard(String section, int index, LineItem item) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Text(
-                  '${index + 1}.',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: item.description,
-                    decoration: const InputDecoration(
-                      labelText: 'Описание',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    ),
-                    onChanged: (value) {
-                      _updateLineItem(section, index, item.copyWith(description: value));
-                    },
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 8),
-            
-            Row(
-              children: [
-                // Единица измерения
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: item.unit,
-                    decoration: const InputDecoration(
-                      labelText: 'Ед. изм.',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    items: _units.map((unit) {
-                      return DropdownMenuItem(
-                        value: unit,
-                        child: Text(unit),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      _updateLineItem(section, index, item.copyWith(unit: value!));
-                    },
-                  ),
-                ),
-                
-                const SizedBox(width: 8),
-                
-                // Количество
-                Expanded(
-                  child: TextFormField(
-                    initialValue: item.quantity.toStringAsFixed(2),
-                    decoration: const InputDecoration(
-                      labelText: 'Кол-во',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (value) {
-                      final quantity = double.tryParse(value.replaceAll(',', '.')) ?? 0;
-                      _updateLineItem(section, index, item.copyWith(quantity: quantity));
-                    },
-                  ),
-                ),
-                
-                const SizedBox(width: 8),
-                
-                // Цена
-                Expanded(
-                  child: TextFormField(
-                    initialValue: item.price.toStringAsFixed(2),
-                    decoration: const InputDecoration(
-                      labelText: 'Цена',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (value) {
-                      final price = double.tryParse(value.replaceAll(',', '.')) ?? 0;
-                      _updateLineItem(section, index, item.copyWith(price: price));
-                    },
-                  ),
-                ),
-                
-                const SizedBox(width: 8),
-                
-                // Сумма (только для отображения)
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '${item.amount.toStringAsFixed(2)} ₽',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(width: 8),
-                
-                // Кнопка удаления
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _removeLineItem(section, index),
-                  tooltip: 'Удалить позицию',
-                ),
-              ],
-            ),
-            
-            // Поле для примечания
-            const SizedBox(height: 8),
-            TextFormField(
-              initialValue: item.note,
-              decoration: const InputDecoration(
-                labelText: 'Примечание (опционально)',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              ),
-              maxLines: 1,
-              onChanged: (value) {
-                _updateLineItem(section, index, item.copyWith(note: value.isNotEmpty ? value : null));
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Кнопка добавления новой позиции
-  Widget _buildAddButton(String section) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          ElevatedButton.icon(
-            onPressed: () => _addLineItem(section),
-            icon: const Icon(Icons.add),
-            label: Text('Добавить ${section == 'work' ? 'работу' : 'оборудование'}'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: section == 'work' ? Colors.blue.shade50 : Colors.green.shade50,
-              foregroundColor: section == 'work' ? Colors.blue : Colors.green,
-            ),
-          ),
-          
-          const SizedBox(width: 8),
-          
-          // Кнопка быстрого добавления из шаблонов (только для работ)
-          if (section == 'work')
-            ElevatedButton.icon(
-              onPressed: _addWorkFromTemplate,
-              icon: const Icon(Icons.format_quote),
-              label: const Text('Из шаблона'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.shade50,
-                foregroundColor: Colors.purple,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // Строка с промежуточным итогом
-  Widget _buildSubtotalRow(String label, double amount) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          ),
-          Text(
-            '${amount.toStringAsFixed(2)} ₽',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Строка с общим итогом
-  Widget _buildTotalRow() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade100),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            'ИТОГО:',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
-          ),
-          Text(
-            '${_totalAmount.toStringAsFixed(2)} ₽',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  // 12. Построение UI
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.quote == null ? 'Создание КП' : 'Редактирование КП'),
+        title: Text(widget.existingQuote == null 
+          ? 'Новое КП' 
+          : 'Редактирование КП'),
         actions: [
-          if (widget.quote != null && widget.quote!.id != null) ...[
-            IconButton(
-              icon: const Icon(Icons.picture_as_pdf),
-              onPressed: _exportToPdf,
-              tooltip: 'Экспорт в PDF',
-            ),
-            IconButton(
-              icon: const Icon(Icons.table_chart),
-              onPressed: _exportToExcel,
-              tooltip: 'Экспорт в Excel',
-            ),
-          ],
           IconButton(
             icon: const Icon(Icons.save),
-            onPressed: _saveQuote,
+            onPressed: _isSaving ? null : _saveQuote,
             tooltip: 'Сохранить',
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+      body: _buildContent(),
+    );
+  }
+
+  // 13. Основное содержимое
+  Widget _buildContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Блок информации о клиенте
+          _buildClientInfoSection(),
+          const SizedBox(height: 24),
+          
+          // Блок позиций КП
+          _buildLineItemsSection(),
+          const SizedBox(height: 24),
+          
+          // Блок итогов
+          _buildTotalsSection(),
+          const SizedBox(height: 24),
+          
+          // Блок примечаний
+          _buildNotesSection(),
+        ],
+      ),
+    );
+  }
+
+  // 14. Секция информации о клиенте
+  Widget _buildClientInfoSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Информация о клиенте',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _customerNameController,
+          decoration: const InputDecoration(
+            labelText: 'Имя клиента *',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.person),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _customerPhoneController,
+          decoration: const InputDecoration(
+            labelText: 'Телефон',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.phone),
+          ),
+          keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _addressController,
+          decoration: const InputDecoration(
+            labelText: 'Адрес',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.location_on),
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _selectedStatus,
+          decoration: const InputDecoration(
+            labelText: 'Статус',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.status),
+          ),
+          items: _statusOptions.map((status) {
+            return DropdownMenuItem(
+              value: status,
+              child: Text(status),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() => _selectedStatus = value!);
+          },
+        ),
+      ],
+    );
+  }
+
+  // 15. Секция позиций КП (пока заглушка)
+  Widget _buildLineItemsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Блок: Данные клиента
-            _buildSectionHeader('Данные клиента'),
-            _buildTextFormField(
-              controller: _customerNameController,
-              labelText: 'ФИО клиента *',
-              isRequired: true,
+            const Text(
+              'Позиции КП',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            _buildTextFormField(
-              controller: _customerPhoneController,
-              labelText: 'Телефон',
-              keyboardType: TextInputType.phone,
-            ),
-            _buildTextFormField(
-              controller: _customerEmailController,
-              labelText: 'Email',
-              keyboardType: TextInputType.emailAddress,
-            ),
-
-            // Блок: Данные объекта
-            _buildSectionHeader('Данные объекта'),
-            _buildTextFormField(
-              controller: _objectNameController,
-              labelText: 'Название объекта *',
-              hintText: 'Квартира, Дом, Офис...',
-              isRequired: true,
-            ),
-            _buildTextFormField(
-              controller: _addressController,
-              labelText: 'Адрес',
-              hintText: 'Город, улица, дом, квартира',
-            ),
-
-            // Блок: Параметры помещения
-            _buildSectionHeader('Параметры помещения'),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTextFormField(
-                    controller: _areaSController,
-                    labelText: 'Площадь (м²)',
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildTextFormField(
-                    controller: _perimeterPController,
-                    labelText: 'Периметр (м.п.)',
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildTextFormField(
-                    controller: _heightHController,
-                    labelText: 'Высота (м)',
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-              ],
-            ),
-            _buildTextFormField(
-              controller: _ceilingSystemController,
-              labelText: 'Тип потолочной системы',
-              hintText: 'гарпун, теневой, парящий...',
-            ),
-
-            // Блок: Условия и примечания
-            _buildSectionHeader('Условия и примечания'),
-            _buildPaymentTermsField(),
-            _buildTextFormField(
-              controller: _installationTermsController,
-              labelText: 'Условия и даты монтажа',
-              maxLines: 3,
-            ),
-            _buildTextFormField(
-              controller: _notesController,
-              labelText: 'Прочие примечания',
-              maxLines: 3,
-            ),
-
-            // Добавляем блоки работ и оборудования
-            _buildLineItemsSection(),
-
-            const SizedBox(height: 32),
-            // Кнопка сохранения
             ElevatedButton.icon(
-              onPressed: _saveQuote,
-              icon: const Icon(Icons.save),
-              label: const Text('Сохранить коммерческое предложение'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
+              onPressed: _addNewLineItem,
+              icon: const Icon(Icons.add),
+              label: const Text('Добавить позицию'),
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        // TODO: Заменить на список позиций
+        Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Center(
+            child: Text(
+              'Список позиций будет здесь\n(Задание 3.2)',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 16. Секция итогов
+  Widget _buildTotalsSection() {
+    final total = _calculateTotal();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Итоги',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Общая сумма:', style: TextStyle(fontSize: 16)),
+              Text(
+                '${total.toStringAsFixed(2)} ₽',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Поле аванса
+          TextFormField(
+            initialValue: _currentQuote.prepayment.toStringAsFixed(2),
+            decoration: const InputDecoration(
+              labelText: 'Аванс',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.payment),
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              final prepayment = double.tryParse(value) ?? 0.0;
+              setState(() {
+                _currentQuote = _currentQuote.copyWith(prepayment: prepayment);
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Остаток к оплате:', style: TextStyle(fontSize: 16)),
+              Text(
+                '${(total - _currentQuote.prepayment).toStringAsFixed(2)} ₽',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
+  }
+
+  // 17. Секция примечаний
+  Widget _buildNotesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Примечания',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _notesController,
+          decoration: const InputDecoration(
+            labelText: 'Дополнительная информация',
+            border: OutlineInputBorder(),
+            alignLabelWithHint: true,
+          ),
+          maxLines: 4,
+        ),
+      ],
+    );
+  }
+
+  // 18. Очистка контроллеров
+  @override
+  void dispose() {
+    _customerNameController.dispose();
+    _customerPhoneController.dispose();
+    _addressController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 }
