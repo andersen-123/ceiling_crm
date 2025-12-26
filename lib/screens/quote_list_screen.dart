@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../widgets/quote_list_tile.dart';
 import '../models/quote.dart';
 import '../data/database_helper.dart';
+import 'quote_edit_screen.dart';
 
 class QuoteListScreen extends StatefulWidget {
   const QuoteListScreen({Key? key}) : super(key: key);
@@ -76,22 +77,32 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     }
   }
 
-  // 6. Метод перехода к созданию нового КП (пока заглушка)
+  // 6. Метод перехода к созданию нового КП
   void _navigateToCreateQuote() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const Placeholder()), // TODO: Заменить на QuoteEditScreen
-    ).then((_) => _loadQuotes()); // Перезагружаем список после возврата
+      MaterialPageRoute(
+        builder: (context) => const QuoteEditScreen(existingQuote: null),
+      ),
+    ).then((value) {
+      if (value == true) {
+        _loadQuotes(); // Перезагружаем список после сохранения
+      }
+    });
   }
-
-  // 7. Метод перехода к редактированию КП (пока заглушка)
+  // 7. Метод перехода к редактированию КП
   void _navigateToEditQuote(Quote quote) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const Placeholder()), // TODO: Заменить на QuoteEditScreen
-    ).then((_) => _loadQuotes());
+      MaterialPageRoute(
+        builder: (context) => QuoteEditScreen(existingQuote: quote),
+      ),
+    ).then((value) {
+      if (value == true) {
+        _loadQuotes(); // Перезагружаем список после сохранения
+      }
+    });
   }
-
   // 8. Построение UI
   @override
   Widget build(BuildContext context) {
