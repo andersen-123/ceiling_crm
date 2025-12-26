@@ -2,8 +2,8 @@
     <application
         android:label="Ceiling CRM"
         android:name="${applicationName}"
-        <!-- android:icon="@mipmap/ic_launcher" -->  <!-- Закомментировать -->
-        android:icon="@android:drawable/sym_def_app_icon">  <!-- Использовать системную -->>
+        #android:icon="@mipmap/ic_launcher"
+        android:icon="@android:drawable/sym_def_app_icon">
         <activity
             android:name=".MainActivity"
             android:exported="true"
