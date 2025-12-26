@@ -193,13 +193,20 @@ Future<void> _saveLineItems(int quoteId) async {
   void _addNewLineItem() {
     setState(() {
       _lineItems.add(LineItem(
-        quoteId: _currentQuote.id ?? 0, // Временный ID
+        quoteId: _currentQuote.id ?? 0,
         section: 'Работы',
         description: 'Новая позиция',
         unit: 'шт.',
         quantity: 1,
         unitPrice: 0,
       ));
+    
+      // ДОБАВЬТЕ ЭТИ ТРИ СТРОКИ:
+      _descriptionControllers.add(TextEditingController(text: 'Новая позиция'));
+      _quantityControllers.add(TextEditingController(text: '1'));
+      _priceControllers.add(TextEditingController(text: '0'));
+    });
+  }
     });
   }
   // 11. Удаление позиции
