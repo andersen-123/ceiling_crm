@@ -292,6 +292,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
           ),
         ],
       ),
+      drawer: _buildDrawer(),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _quotes.isEmpty
