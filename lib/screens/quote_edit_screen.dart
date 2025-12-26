@@ -39,8 +39,13 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   final List<LineItem> _lineItems = [];
   
   // 4. Состояние загрузки
-  bool _isLoading = true;
-  bool _isSaving = false;
+bool _isLoading = true;
+bool _isSaving = false;
+
+// 5. Контроллеры для полей позиций (ДОБАВЬТЕ ЭТО)
+final List<TextEditingController> _descriptionControllers = [];
+final List<TextEditingController> _quantityControllers = [];
+final List<TextEditingController> _priceControllers = [];
 
   // 5. Инициализация
   @override
@@ -60,6 +65,17 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       // Загружаем позиции из БД
       final items = await DatabaseHelper().getLineItemsForQuote(_currentQuote.id!);
       setState(() => _lineItems.addAll(items));
+
+      // ИНИЦИАЛИЗАЦИЯ КОНТРОЛЛЕРОВ (ДОБАВЬТЕ ЭТОТ БЛОК)
+      _descriptionControllers.clear();
+      _quantityControllers.clear();
+      _priceControllers.clear();
+
+      for (final item in _lineItems) {
+        _descriptionControllers.add(TextEditingController(text: item.description));
+        _quantityControllers.add(TextEditingController(text: item.quantity.toString()));
+        _priceControllers.add(TextEditingController(text: item.unitPrice.toStringAsFixed(2)));
+      }
     } else {
       // Создание нового КП
       _currentQuote = Quote(
