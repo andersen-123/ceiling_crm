@@ -1,30 +1,34 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.ceiling_crm">
+    
+    <!-- Временная версия без кастомных ресурсов -->
     <application
         android:label="Ceiling CRM"
         android:name="${applicationName}"
-        <!-- ЗАКОММЕНТИРУЙТЕ строку ниже -->
-        <!-- android:icon="@mipmap/ic_launcher" -->
-        <!-- ИСПОЛЬЗУЙТЕ стандартную иконку Android -->
         android:icon="@android:drawable/sym_def_app_icon"
-        android:theme="@android:style/Theme.Black.NoTitleBar"> <!-- Используем стандартную тему -->
-
+        android:theme="@android:style/Theme.Black.NoTitleBar">
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            <!-- УБЕРИТЕ ссылку на LaunchTheme -->
-            <!-- android:theme="@style/LaunchTheme" -->
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- УДАЛИТЕ весь блок <meta-data> с NormalTheme -->
+            
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+    
+    <!-- Разрешения (если понадобятся позже) -->
+    <!-- <uses-permission android:name="android.permission.INTERNET" /> -->
+    
 </manifest>
