@@ -770,7 +770,7 @@ Future<void> _saveLineItems(int quoteId) async {
     );
   }
 
-  // 26. Очистка контроллеров
+    // 26. Очистка контроллеров
   @override
   void dispose() {
     _customerNameController.dispose();
@@ -779,60 +779,64 @@ Future<void> _saveLineItems(int quoteId) async {
     _notesController.dispose();
     super.dispose();
   }
-  // 19. Enum для опций экспорта
-  enum ExportOption { preview, share, save }
+} // <--- ЭТА закрывающая скобка ЗАКАНЧИВАЕТ класс _QuoteEditScreenState
 
-  // 20. Диалог выбора опций экспорта
-  class ExportDialog extends StatelessWidget {
-    final File pdfFile;
-  
-    const ExportDialog({Key? key, required this.pdfFile}) : super(key: key);
-  
-    @override
-    Widget build(BuildContext context) {
-      return AlertDialog(
-        title: const Text('Экспорт КП'),
-        content: const Text('Выберите действие с созданным PDF-документом:'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, ExportOption.preview),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.preview, size: 20),
-                SizedBox(width: 8),
-                Text('Просмотреть'),
-              ],
-            ),
+// А ВОТ ТУТ, ВНЕ КЛАССА, добавьте:
+
+// Enum для опций экспорта
+enum ExportOption { preview, share, save }
+
+// Диалог выбора опций экспорта
+class ExportDialog extends StatelessWidget {
+  final File pdfFile;
+
+  const ExportDialog({Key? key, required this.pdfFile}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Экспорт КП'),
+      content: const Text('Выберите действие с созданным PDF-документом:'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, ExportOption.preview),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.preview, size: 20),
+              SizedBox(width: 8),
+              Text('Просмотреть'),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, ExportOption.share),
-            child: const Row(
-               mainAxisSize: MainAxisSize.min,
-               children: [
-                Icon(Icons.share, size: 20),
-                SizedBox(width: 8),
-                Text('Поделиться'),
-              ],
-            ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, ExportOption.share),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.share, size: 20),
+              SizedBox(width: 8),
+              Text('Поделиться'),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, ExportOption.save),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.save_alt, size: 20),
-                SizedBox(width: 8),
-                Text('Сохранить'),
-              ],
-            ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, ExportOption.save),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.save_alt, size: 20),
+              SizedBox(width: 8),
+              Text('Сохранить'),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-        ],
-      );
-    }
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+      ],
+    );
   }
-  }
+}
+// Файл заканчивается здесь, без лишних скобок
