@@ -770,7 +770,7 @@ Future<void> _saveLineItems(int quoteId) async {
     );
   }
 
-    // 26. Очистка контроллеров
+  // 26. Очистка контроллеров
   @override
   void dispose() {
     _customerNameController.dispose();
@@ -779,14 +779,12 @@ Future<void> _saveLineItems(int quoteId) async {
     _notesController.dispose();
     super.dispose();
   }
-} // <--- ЭТА закрывающая скобка ЗАКАНЧИВАЕТ класс _QuoteEditScreenState
+}
 
-// А ВОТ ТУТ, ВНЕ КЛАССА, добавьте:
+// ================ ВНЕ КЛАССА ================
 
-// Enum для опций экспорта
 enum ExportOption { preview, share, save }
 
-// Диалог выбора опций экспорта
 class ExportDialog extends StatelessWidget {
   final File pdfFile;
 
@@ -839,4 +837,3 @@ class ExportDialog extends StatelessWidget {
     );
   }
 }
-// Файл заканчивается здесь, без лишних скобок
