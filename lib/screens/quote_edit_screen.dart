@@ -144,21 +144,61 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // 9. Сохранение позиций (пока заглушка)
-  Future<void> _saveLineItems(int quoteId) async {
-    // TODO: Реализовать в следующем задании
+  // 9. Сохранение позиций
+Future<void> _saveLineItems(int quoteId) async {
+  final dbHelper = DatabaseHelper();
+  
+  // Получаем текущие позиции из БД
+  final existingItems = await dbHelper.getLineItemsForQuote(quoteId);
+  
+  // Удаляем старые позиции, которых нет в новом списке
+  for (final existingItem in existingItems) {
+    if (!_lineItems.any((item) => item.id == existingItem.id)) {
+      await dbHelper.deleteLineItem(existingItem.id!);
+    }
   }
+  
+  // Сохраняем или обновляем позиции
+  for (final item in _lineItems) {
+    if (item.id == null) {
+      // Новая позиция
+      await dbHelper.insertLineItem(item.copyWith(quoteId: quoteId));
+    } else {
+      // Обновление существующей
+      await dbHelper.updateLineItem(item);
+    }
+  }
+}
 
-  // 10. Добавление новой позиции (пока заглушка)
+  // 10. Добавление новой позиции
   void _addNewLineItem() {
-    // TODO: Реализовать в следующем задании
+    setState(() {
+      _lineItems.add(LineItem(
+        quoteId: _currentQuote.id ?? 0, // Временный ID
+        section: 'Работы',
+        description: 'Новая позиция',
+        unit: 'шт.',
+        quantity: 1,
+        unitPrice: 0,
+      ));
+    });
   }
-
-  // 11. Удаление позиции (пока заглушка)
+  // 11. Удаление позиции
   void _deleteLineItem(int index) {
-    // TODO: Реализовать в следующем задании
+    setState(() {
+      _lineItems.removeAt(index);
+      _recalculateQuoteTotal(); // Обновляем итоговую сумму
+    });
   }
 
+  // 12. Пересчитать общую сумму КП
+  void _recalculateQuoteTotal() {
+    final newTotal = _calculateTotal();
+    setState(() {
+      _currentQuote = _currentQuote.copyWith(totalAmount: newTotal);
+    });
+  }
+  
   // 12. Построение UI
   @override
   Widget build(BuildContext context) {
@@ -271,7 +311,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     );
   }
 
-  // 15. Секция позиций КП (пока заглушка)
+  // 15. Секция позиций КП
   Widget _buildLineItemsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,26 +331,236 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        // TODO: Заменить на список позиций
-        Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Center(
-            child: Text(
-              'Список позиций будет здесь\n(Задание 3.2)',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+      
+        if (_lineItems.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: const Center(
+              child: Column(
+                children: [
+                  Icon(Icons.list, size: 48, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'Нет добавленных позиций',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  Text(
+                    'Нажмите "Добавить позицию"',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _lineItems.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) => _buildLineItemCard(index),
           ),
-        ),
       ],
     );
   }
 
-  // 16. Секция итогов
+  // 16. Карточка позиции
+  Widget _buildLineItemCard(int index) {
+    final item = _lineItems[index];
+  
+    return Dismissible(
+      key: Key('line_item_${item.id ?? index}'),
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Удалить позицию?'),
+            content: const Text('Позиция будет удалена из КП.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Отмена'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          ),
+        );
+      },
+      onDismissed: (direction) => _deleteLineItem(index),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${index + 1}. ${item.description}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    '${item.total.toStringAsFixed(2)} ₽',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _buildLineItemFields(index, item),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 17. Поля редактирования позиции
+  Widget _buildLineItemFields(int index, LineItem item) {
+    return Column(
+      children: [
+        // Раздел
+        DropdownButtonFormField<String>(
+          value: item.section,
+          decoration: const InputDecoration(
+            labelText: 'Раздел',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          items: const ['Работы', 'Материалы', 'Оборудование', 'Прочее']
+              .map((section) {
+            return DropdownMenuItem(
+              value: section,
+              child: Text(section),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _lineItems[index] = item.copyWith(section: value!);
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+      
+        // Описание
+        TextField(
+          controller: TextEditingController(text: item.description),
+          decoration: const InputDecoration(
+            labelText: 'Описание',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          ),
+          maxLines: 2,
+          onChanged: (value) {
+            setState(() {
+              _lineItems[index] = item.copyWith(description: value);
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+      
+        // Количество, цена и единица измерения
+        Row(
+          children: [
+            // Количество
+            Expanded(
+              child: TextField(
+                controller: TextEditingController(text: item.quantity.toString()),
+                decoration: const InputDecoration(
+                  labelText: 'Кол-во',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  final qty = double.tryParse(value) ?? 0;
+                  setState(() {
+                    _lineItems[index] = item.copyWith(quantity: qty);
+                    _recalculateQuoteTotal();
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+          
+            // Единица измерения
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: item.unit,
+                decoration: const InputDecoration(
+                  labelText: 'Ед.',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: const ['шт.', 'м²', 'п.м.', 'компл.', 'час']
+                    .map((unit) {
+                  return DropdownMenuItem(
+                    value: unit,
+                    child: Text(unit),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _lineItems[index] = item.copyWith(unit: value!);
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+          
+            // Цена за единицу
+            Expanded(
+              child: TextField(
+                controller: TextEditingController(text: item.unitPrice.toStringAsFixed(2)),
+                decoration: const InputDecoration(
+                  labelText: 'Цена',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  prefixText: '₽ ',
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  final price = double.tryParse(value) ?? 0;
+                  setState(() {
+                    _lineItems[index] = item.copyWith(unitPrice: price);
+                    _recalculateQuoteTotal();
+                  });
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+  
+  // 18. Секция итогов
   Widget _buildTotalsSection() {
     final total = _calculateTotal();
     
@@ -379,7 +629,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     );
   }
 
-  // 17. Секция примечаний
+  // 19. Секция примечаний
   Widget _buildNotesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +652,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     );
   }
 
-  // 18. Очистка контроллеров
+  // 20. Очистка контроллеров
   @override
   void dispose() {
     _customerNameController.dispose();
