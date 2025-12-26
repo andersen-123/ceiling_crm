@@ -1,5 +1,6 @@
 // lib/screens/quote_list_screen.dart
 
+import 'settings_screen.dart';
 import 'package:flutter/material.dart';
 import '../widgets/quote_list_tile.dart';
 import '../models/quote.dart';
@@ -14,6 +15,7 @@ class QuoteListScreen extends StatefulWidget {
 }
 
 class _QuoteListScreenState extends State<QuoteListScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   // 1. Список КП
   List<Quote> _quotes = [];
 
@@ -103,12 +105,185 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
       }
     });
   }
+    
+  // 8. Построение бокового меню
+  Widget _buildDrawer() {
+    return Drawer(
+      child: Column(
+        children: [
+          // Заголовок Drawer
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor,
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.description, size: 48, color: Colors.white),
+                SizedBox(height: 12),
+                Text(
+                  'Ceiling CRM',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Управление КП',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Пункты меню
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.home),
+                  title: const Text('Главная'),
+                  onTap: () {
+                    Navigator.pop(context); // Закрыть Drawer
+                    // Уже на главной
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.settings),
+                  title: const Text('Настройки компании'),
+                  onTap: () {
+                    Navigator.pop(context); // Закрыть Drawer
+                    _navigateToSettings();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.bar_chart),
+                  title: const Text('Статистика'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // TODO: Добавить экран статистики
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Экран статистики в разработке')),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.backup),
+                  title: const Text('Резервные копии'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // TODO: Добавить резервное копирование
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Резервное копирование в разработке')),
+                    );
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.help),
+                  title: const Text('Справка'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // TODO: Добавить справку
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.info),
+                  title: const Text('О приложении'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showAboutDialog();
+                  },
+                ),
+              ],
+            ),
+          ),
+          
+          // Нижняя часть Drawer
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
+                  'Версия 1.0.0',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'КП: ${_quotes.length}',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+    // 9. Переход к настройкам
+  void _navigateToSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+    );
+  }
+  
+    // 10. Диалог "О приложении"
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('О приложении'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Ceiling CRM', style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('Приложение для управления коммерческими предложениями по натяжным потолкам.'),
+            SizedBox(height: 12),
+            Text('Функции:'),
+            Text('• Создание и редактирование КП'),
+            Text('• Управление позициями работ'),
+            Text('• Экспорт в PDF'),
+            Text('• Настройки компании'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Закрыть'),
+          ),
+        ],
+      ),
+    );
+  }
+  
   // 8. Построение UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: const Text('Мои КП'),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
