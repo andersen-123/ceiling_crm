@@ -2,20 +2,22 @@
     <application
         android:label="Ceiling CRM"
         android:name="${applicationName}"
-        #android:icon="@mipmap/ic_launcher"
-        android:icon="@android:drawable/sym_def_app_icon">
+        <!-- ЗАКОММЕНТИРУЙТЕ строку ниже -->
+        <!-- android:icon="@mipmap/ic_launcher" -->
+        <!-- ИСПОЛЬЗУЙТЕ стандартную иконку Android -->
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:theme="@android:style/Theme.Black.NoTitleBar"> <!-- Используем стандартную тему -->
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@style/LaunchTheme"
+            <!-- УБЕРИТЕ ссылку на LaunchTheme -->
+            <!-- android:theme="@style/LaunchTheme" -->
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+            <!-- УДАЛИТЕ весь блок <meta-data> с NormalTheme -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
