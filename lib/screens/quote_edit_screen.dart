@@ -1,5 +1,7 @@
 // lib/screens/quote_edit_screen.dart
-
+import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import '../services/pdf_service.dart';
 import 'package:flutter/material.dart';
 import '../models/quote.dart';
 import '../models/line_item.dart';
@@ -199,6 +201,116 @@ Future<void> _saveLineItems(int quoteId) async {
     });
   }
   
+  // 13. Экспорт в PDF
+  Future<void> _exportToPdf() async {
+    if (_lineItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Добавьте хотя бы одну позицию для экспорта')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+  
+    try {
+      // Сохраняем текущие изменения
+      await _saveQuoteDataLocally();
+    
+      // Генерируем PDF
+      final pdfService = PdfService();
+      final pdfFile = await pdfService.generateQuotePdf(_currentQuote, _lineItems);
+    
+      // Показываем диалог с опциями
+      await _showExportDialog(pdfFile);
+    
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка при создании PDF: $e')),
+      );
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  // 14. Сохранение данных перед экспортом
+  Future<void> _saveQuoteDataLocally() async {
+    // Обновляем итоговую сумму
+    _currentQuote = _currentQuote.copyWith(totalAmount: _calculateTotal());
+  
+    // Если КП уже сохранён в БД, обновляем его
+    if (_currentQuote.id != null) {
+      final dbHelper = DatabaseHelper();
+      await dbHelper.updateQuote(_currentQuote);
+    }
+  }
+
+  // 15. Диалог экспорта
+  Future<void> _showExportDialog(File pdfFile) async {
+    final result = await showDialog<ExportOption>(
+      context: context,
+      builder: (context) => ExportDialog(pdfFile: pdfFile),
+    );
+  
+    if (result != null) {
+      switch (result) {
+        case ExportOption.preview:
+          await _previewPdf(pdfFile);
+          break;
+        case ExportOption.share:
+          await _sharePdf(pdfFile);
+          break;
+        case ExportOption.save:
+          await _savePdf(pdfFile);
+          break;
+      }
+    }
+  }
+
+  // 16. Просмотр PDF
+  Future<void> _previewPdf(File pdfFile) async {
+    // TODO: Реализовать просмотр через пакет printing
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Просмотр PDF будет доступен позже')),
+    );
+  }
+
+  // 17. Поделиться PDF
+  Future<void> _sharePdf(File pdfFile) async {
+    final uri = Uri.file(pdfFile.path);
+  
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось открыть диалог шаринга')),
+      );
+    }
+  }
+
+  // 18. Сохранить PDF в папку загрузок
+  Future<void> _savePdf(File pdfFile) async {
+    try {
+      final downloadsDirectory = await getDownloadsDirectory();
+      if (downloadsDirectory == null) {
+        throw Exception('Не удалось получить доступ к папке загрузок');
+      }
+    
+      final fileName = 'КП_${_currentQuote.customerName}_${_currentQuote.id}.pdf'
+          .replaceAll(RegExp(r'[^\w\d]'), '_');
+      final newPath = '${downloadsDirectory.path}/$fileName';
+    
+      await pdfFile.copy(newPath);
+    
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF сохранён: $fileName')),
+      );
+    
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка сохранения: $e')),
+      );
+    }
+  }
   // 12. Построение UI
   @override
   Widget build(BuildContext context) {
@@ -214,6 +326,11 @@ Future<void> _saveLineItems(int quoteId) async {
           ? 'Новое КП' 
           : 'Редактирование КП'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: _isSaving ? null : _exportToPdf,
+            tooltip: 'Экспорт в PDF',
+          ),
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _isSaving ? null : _saveQuote,
@@ -560,7 +677,7 @@ Future<void> _saveLineItems(int quoteId) async {
     );
   }
   
-  // 18. Секция итогов
+  // 24. Секция итогов
   Widget _buildTotalsSection() {
     final total = _calculateTotal();
     
@@ -629,7 +746,7 @@ Future<void> _saveLineItems(int quoteId) async {
     );
   }
 
-  // 19. Секция примечаний
+  // 25. Секция примечаний
   Widget _buildNotesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,7 +769,7 @@ Future<void> _saveLineItems(int quoteId) async {
     );
   }
 
-  // 20. Очистка контроллеров
+  // 26. Очистка контроллеров
   @override
   void dispose() {
     _customerNameController.dispose();
@@ -661,4 +778,60 @@ Future<void> _saveLineItems(int quoteId) async {
     _notesController.dispose();
     super.dispose();
   }
-}
+  // 19. Enum для опций экспорта
+  enum ExportOption { preview, share, save }
+
+  // 20. Диалог выбора опций экспорта
+  class ExportDialog extends StatelessWidget {
+    final File pdfFile;
+  
+    const ExportDialog({Key? key, required this.pdfFile}) : super(key: key);
+  
+    @override
+    Widget build(BuildContext context) {
+      return AlertDialog(
+        title: const Text('Экспорт КП'),
+        content: const Text('Выберите действие с созданным PDF-документом:'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, ExportOption.preview),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.preview, size: 20),
+                SizedBox(width: 8),
+                Text('Просмотреть'),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ExportOption.share),
+            child: const Row(
+               mainAxisSize: MainAxisSize.min,
+               children: [
+                Icon(Icons.share, size: 20),
+                SizedBox(width: 8),
+                Text('Поделиться'),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ExportOption.save),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.save_alt, size: 20),
+                SizedBox(width: 8),
+                Text('Сохранить'),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+        ],
+      );
+    }
+  }
+  }
