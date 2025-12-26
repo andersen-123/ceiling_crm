@@ -1,4 +1,5 @@
 // lib/screens/quote_edit_screen.dart
+import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import '../services/pdf_service.dart';
@@ -412,7 +413,7 @@ Future<void> _saveLineItems(int quoteId) async {
           decoration: const InputDecoration(
             labelText: 'Статус',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.status),
+            prefixIcon: const Icon(Icons.label_important),
           ),
           items: _statusOptions.map((status) {
             return DropdownMenuItem(
