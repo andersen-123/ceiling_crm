@@ -53,9 +53,9 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+  
     _formKey.currentState!.save();
-    
+  
     setState(() {
       _isSaving = true;
     });
@@ -76,15 +76,16 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       );
 
       // Сохраняем в базу данных
-      final savedQuote = await _dbHelper.saveQuote(quote);
+      final dbHelper = DatabaseHelper();
+      await dbHelper.saveQuote(quote); // Метод возвращает int (ID), но мы его игнорируем
 
-      // Переходим на экран детализации
+      // Переходим на экран детализации, используя исходный объект quote
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => ProposalDetailScreen(
-              quote: savedQuote.toMap(),
+              quote: quote.toMap(), // <-- ИСПРАВЛЕНО: используем quote, а не savedQuote
             ),
           ),
         );
