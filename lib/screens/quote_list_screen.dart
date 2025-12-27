@@ -1,5 +1,3 @@
-// lib/screens/quote_list_screen.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/services/database_helper.dart';
@@ -15,7 +13,7 @@ class QuoteListScreen extends StatefulWidget {
 }
 
 class _QuoteListScreenState extends State<QuoteListScreen> {
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
   List<Quote> _quotes = [];
   bool _isLoading = true;
   String _searchQuery = '';
@@ -26,14 +24,13 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     _loadQuotes();
   }
 
-  // Загрузка всех КП из базы
   Future<void> _loadQuotes() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final quotes = await _dbHelper.getAllProposals();
+      final quotes = await _dbHelper.getAllQuotes();
       setState(() {
         _quotes = quotes;
       });
@@ -46,20 +43,18 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     }
   }
 
-  // Фильтрация по поисковому запросу
   List<Quote> get _filteredQuotes {
     if (_searchQuery.isEmpty) return _quotes;
     
     final query = _searchQuery.toLowerCase();
     return _quotes.where((quote) {
       return quote.clientName.toLowerCase().contains(query) ||
-          quote.address.toLowerCase().contains(query) ||
-          quote.phone.toLowerCase().contains(query);
+          quote.clientAddress.toLowerCase().contains(query) ||
+          quote.clientPhone.toLowerCase().contains(query);
     }).toList();
   }
 
-  // Удаление КП
-  Future<void> _deleteQuote(Quote quote) async {
+  Future<void> _deleteQuote(int quoteId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -80,7 +75,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     );
 
     if (confirmed == true) {
-      await _dbHelper.deleteProposal(quote.id!);
+      await _dbHelper.deleteQuote(quoteId);
       await _loadQuotes();
       
       if (mounted) {
@@ -94,27 +89,104 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     }
   }
 
-  // Переход к редактированию КП
-  void _editQuote(Quote quote) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => QuoteEditScreen(quoteToEdit: quote),
-      ),
-    ).then((_) => _loadQuotes());
+  Future<void> _duplicateQuote(Quote quote) async {
+    try {
+      final newQuote = quote.copyWith(
+        id: 0,
+        clientName: '${quote.clientName} (копия)',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      
+      await _dbHelper.insertQuote(newQuote);
+      await _loadQuotes();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('КП дублировано'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Ошибка дублирования: $e');
+    }
   }
 
-  // Переход к деталям КП
-  void _viewQuote(Quote quote) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ProposalDetailScreen(quote: quote.toMap()),
+  void _showContextMenu(BuildContext context, Quote quote) async {
+    final result = await showModalBottomSheet<int>(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit, color: Colors.blue),
+              title: const Text('Редактировать КП'),
+              onTap: () {
+                Navigator.of(context).pop(1);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.content_copy, color: Colors.orange),
+              title: const Text('Дублировать КП'),
+              onTap: () {
+                Navigator.of(context).pop(2);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf, color: Colors.green),
+              title: const Text('Создать PDF'),
+              onTap: () {
+                Navigator.of(context).pop(3);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Удалить КП'),
+              onTap: () {
+                Navigator.of(context).pop(4);
+              },
+            ),
+          ],
+        ),
       ),
-    ).then((_) => _loadQuotes());
+    );
+
+    if (result == 1) {
+      // Редактировать КП
+      final updated = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (context) => QuoteEditScreen(quoteId: quote.id),
+        ),
+      );
+      
+      if (updated == true) {
+        await _loadQuotes();
+      }
+    } else if (result == 2) {
+      // Дублировать КП
+      await _duplicateQuote(quote);
+    } else if (result == 3) {
+      // Создать PDF
+      _generatePdfForQuote(quote);
+    } else if (result == 4) {
+      // Удалить КП
+      await _deleteQuote(quote.id);
+    }
   }
 
-  // Виджет пустого состояния
+  void _generatePdfForQuote(Quote quote) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('PDF для ${quote.clientName} в разработке...'),
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -158,9 +230,8 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     );
   }
 
-  // Расчет общей суммы всех КП
   double _calculateTotalSum() {
-    return _quotes.fold(0.0, (sum, quote) => sum + (quote.totalAmount));
+    return _quotes.fold(0.0, (sum, quote) => sum + quote.totalAmount);
   }
 
   @override
@@ -238,11 +309,17 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
                           itemCount: _filteredQuotes.length,
                           itemBuilder: (context, index) {
                             final quote = _filteredQuotes[index];
-                            return QuoteListTile(
-                              quote: quote,
-                              onTap: () => _viewQuote(quote),
-                              onEdit: () => _editQuote(quote),
-                              onDelete: () => _deleteQuote(quote),
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProposalDetailScreen(quote: quote),
+                                  ),
+                                ).then((_) => _loadQuotes());
+                              },
+                              onLongPress: () => _showContextMenu(context, quote),
+                              child: QuoteListTile(quote: quote),
                             );
                           },
                         ),
