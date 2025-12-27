@@ -5,8 +5,8 @@
     
     <application
         android:label="Ceiling CRM"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:name="${applicationName}">
+        <!-- УБРАЛИ android:icon="@mipmap/ic_launcher" -->
         
         <activity
             android:name=".MainActivity"
