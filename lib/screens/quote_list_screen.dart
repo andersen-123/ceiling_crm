@@ -14,6 +14,7 @@ class QuoteListScreen extends StatefulWidget {
 
 class _QuoteListScreenState extends State<QuoteListScreen> {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final PdfService _pdfService = PdfService();
   List<Quote> _quotes = [];
   bool _isLoading = true;
   String _searchQuery = '';
@@ -179,12 +180,19 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     }
   }
 
-  void _generatePdfForQuote(Quote quote) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('PDF для ${quote.clientName} в разработке...'),
-      ),
-    );
+  // Обновите метод:
+  void _generatePdfForQuote(Quote quote) async {
+    try {
+      await _pdfService.previewPdf(context, quote);
+    } catch (e) {
+      print('Ошибка генерации PDF: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка генерации PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildEmptyState() {
