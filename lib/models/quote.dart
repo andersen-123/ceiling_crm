@@ -91,7 +91,6 @@ class Quote {
     );
   }
 
-  // Метод для загрузки стандартных позиций из JSON файла
   static Future<List<LineItem>> loadStandardPositions() async {
     try {
       final jsonString = await rootBundle.loadString('assets/standard_positions.json');
@@ -104,7 +103,7 @@ class Quote {
           quantity: 1.0,
           unit: item['unit'] ?? 'шт.',
           price: (item['price'] as num).toDouble(),
-          note: item['note'] ?? '',
+          description: item['description'] ?? '',
         );
       }).toList();
     } catch (e) {
@@ -121,7 +120,7 @@ class Quote {
         quantity: 1.0,
         unit: 'м²',
         price: 610.0,
-        note: 'Стандартная установка',
+        description: 'Стандартная установка',
       ),
       LineItem(
         id: 0,
@@ -129,7 +128,7 @@ class Quote {
         quantity: 1.0,
         unit: 'м.п.',
         price: 310.0,
-        note: '',
+        description: '',
       ),
       LineItem(
         id: 0,
@@ -137,7 +136,7 @@ class Quote {
         quantity: 1.0,
         unit: 'м.п.',
         price: 220.0,
-        note: '',
+        description: '',
       ),
     ];
   }
