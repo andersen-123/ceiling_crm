@@ -1,80 +1,115 @@
 // lib/models/quote.dart
+import 'dart:convert';
+
+import 'line_item.dart';
 
 class Quote {
   int? id;
-  String customerName;
-  String customerPhone;
+  String clientName;
   String address;
-  DateTime quoteDate;
-  double totalAmount;
-  double prepayment;
-  String status;
+  String phone;
+  String email;
   String notes;
+  double totalAmount;
+  List<LineItem> positions;
+  DateTime? createdAt;
+  DateTime? updatedAt;
 
   Quote({
     this.id,
-    required this.customerName,
-    required this.customerPhone,
+    required this.clientName,
     required this.address,
-    required this.quoteDate,
-    required this.totalAmount,
-    this.prepayment = 0.0,
-    this.status = 'Черновик',
+    this.phone = '',
+    this.email = '',
     this.notes = '',
-  });
+    this.totalAmount = 0.0,
+    List<LineItem>? positions,
+    this.createdAt,
+    this.updatedAt,
+  }) : positions = positions ?? [];
 
-  // Конвертация в Map для SQLite
+  // Преобразование в Map для SQLite
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id,
-      'customerName': customerName,
-      'customerPhone': customerPhone,
+      'id': id,
+      'clientName': clientName,
       'address': address,
-      'quoteDate': quoteDate.toIso8601String(),
-      'totalAmount': totalAmount,
-      'prepayment': prepayment,
-      'status': status,
+      'phone': phone,
+      'email': email,
       'notes': notes,
+      'totalAmount': totalAmount,
+      'positions': jsonEncode(positions.map((p) => p.toMap()).toList()),
+      'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
-  // Создание объекта из Map (из SQLite)
+  // Создание из Map из SQLite
   factory Quote.fromMap(Map<String, dynamic> map) {
+    List<LineItem> positions = [];
+    try {
+      if (map['positions'] != null && map['positions'].isNotEmpty) {
+        final positionsList = jsonDecode(map['positions']) as List;
+        positions = positionsList
+            .map((p) => LineItem.fromMap(p as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      print('Error parsing positions: $e');
+    }
+
     return Quote(
       id: map['id'],
-      customerName: map['customerName'],
-      customerPhone: map['customerPhone'],
-      address: map['address'],
-      quoteDate: DateTime.parse(map['quoteDate']),
-      totalAmount: map['totalAmount'],
-      prepayment: map['prepayment'],
-      status: map['status'],
-      notes: map['notes'],
+      clientName: map['clientName'] ?? '',
+      address: map['address'] ?? '',
+      phone: map['phone'] ?? '',
+      email: map['email'] ?? '',
+      notes: map['notes'] ?? '',
+      totalAmount: map['totalAmount'] ?? 0.0,
+      positions: positions,
+      createdAt: map['createdAt'] != null
+          ? DateTime.parse(map['createdAt'])
+          : DateTime.now(),
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.parse(map['updatedAt'])
+          : DateTime.now(),
     );
   }
 
-  // Копия объекта с изменениями
+  // Копирование объекта с изменениями
   Quote copyWith({
     int? id,
-    String? customerName,
-    String? customerPhone,
+    String? clientName,
     String? address,
-    DateTime? quoteDate,
-    double? totalAmount,
-    double? prepayment,
-    String? status,
+    String? phone,
+    String? email,
     String? notes,
+    double? totalAmount,
+    List<LineItem>? positions,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return Quote(
       id: id ?? this.id,
-      customerName: customerName ?? this.customerName,
-      customerPhone: customerPhone ?? this.customerPhone,
+      clientName: clientName ?? this.clientName,
       address: address ?? this.address,
-      quoteDate: quoteDate ?? this.quoteDate,
-      totalAmount: totalAmount ?? this.totalAmount,
-      prepayment: prepayment ?? this.prepayment,
-      status: status ?? this.status,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
       notes: notes ?? this.notes,
+      totalAmount: totalAmount ?? this.totalAmount,
+      positions: positions ?? List.from(this.positions),
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
+  }
+
+  // Расчет общей суммы
+  double calculateTotal() {
+    return positions.fold(0.0, (sum, item) => sum + (item.quantity * item.price));
+  }
+
+  @override
+  String toString() {
+    return 'Quote(id: $id, clientName: $clientName, total: $totalAmount)';
   }
 }
