@@ -4,6 +4,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'package:ceiling_crm/models/quote.dart';
 
 class PdfService {
@@ -100,6 +103,14 @@ class PdfService {
         pw.SizedBox(height: 10),
         pw.Table(
           border: pw.TableBorder.all(),
+          columnWidths: {
+            0: const pw.FlexColumnWidth(0.5),
+            1: const pw.FlexColumnWidth(2.5),
+            2: const pw.FlexColumnWidth(0.8),
+            3: const pw.FlexColumnWidth(0.7),
+            4: const pw.FlexColumnWidth(1.0),
+            5: const pw.FlexColumnWidth(1.0),
+          },
           children: [
             pw.TableRow(
               children: [
@@ -220,7 +231,59 @@ class PdfService {
       );
     } catch (e) {
       print('Ошибка предпросмотра PDF: $e');
-      rethrow;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка предпросмотра: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> sharePdf(BuildContext context, Quote quote) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          title: Text('Генерация PDF'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Подготовка файла для отправки...'),
+            ],
+          ),
+        ),
+      );
+
+      final pdfBytes = await generateQuotePdf(quote);
+      
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/КП_${quote.id}_${quote.clientName}.pdf');
+      await file.writeAsBytes(pdfBytes);
+
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Закрыть диалог загрузки
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'Коммерческое предложение для ${quote.clientName}',
+        );
+      }
+    } catch (e) {
+      print('Ошибка шаринга PDF: $e');
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Закрыть диалог загрузки
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка отправки: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }
