@@ -14,7 +14,7 @@ class _AppState extends State<App> {
 
   static const List<Widget> _widgetOptions = <Widget>[
     QuoteListScreen(),
-    Placeholder(), // TODO: Заменить на DashboardScreen
+    PlaceholderWidget(title: 'Дашборд'),
     SettingsScreen(),
   ];
 
@@ -126,7 +126,9 @@ class _AppState extends State<App> {
             title: const Text('Помощь'),
             onTap: () {
               Navigator.pop(context);
-              // TODO: Открыть экран помощи
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Раздел помощи в разработке')),
+              );
             },
           ),
           ListTile(
@@ -134,8 +136,41 @@ class _AppState extends State<App> {
             title: const Text('О приложении'),
             onTap: () {
               Navigator.pop(context);
-              // TODO: Открыть экран "О приложении"
+              showAboutDialog(
+                context: context,
+                applicationName: 'Ceiling CRM',
+                applicationVersion: '1.0.0',
+                applicationLegalese: '© 2024 Ceiling CRM',
+              );
             },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlaceholderWidget extends StatelessWidget {
+  final String title;
+
+  const PlaceholderWidget({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.dashboard, size: 80, color: Colors.grey),
+          const SizedBox(height: 20),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 24, color: Colors.grey),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Раздел в разработке',
+            style: TextStyle(color: Colors.grey),
           ),
         ],
       ),
