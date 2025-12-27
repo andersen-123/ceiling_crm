@@ -13,8 +13,9 @@ class QuoteEditScreen extends StatefulWidget {
 
 class _QuoteEditScreenState extends State<QuoteEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  late Quote? _initialQuote;
+  late Quote _quote;
   bool _isLoading = true;
+  bool _isNew = true;
 
   final _clientNameController = TextEditingController();
   final _clientAddressController = TextEditingController();
@@ -29,57 +30,75 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   }
 
   Future<void> _loadQuote() async {
-    if (widget.quoteId != null) {
-      final dbHelper = DatabaseHelper.instance;
-      final quote = await dbHelper.getQuote(widget.quoteId!);
-      
-      if (quote != null) {
-        setState(() {
-          _initialQuote = quote;
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      if (widget.quoteId != null && widget.quoteId! > 0) {
+        final dbHelper = DatabaseHelper.instance;
+        final quote = await dbHelper.getQuote(widget.quoteId!);
+        
+        if (quote != null) {
+          _quote = quote;
+          _isNew = false;
           _clientNameController.text = quote.clientName;
           _clientAddressController.text = quote.clientAddress;
           _clientPhoneController.text = quote.clientPhone;
           _clientEmailController.text = quote.clientEmail;
           _notesController.text = quote.notes;
-          _isLoading = false;
-        });
+        } else {
+          _createNewQuote();
+        }
       } else {
-        setState(() {
-          _initialQuote = null;
-          _isLoading = false;
-        });
+        _createNewQuote();
       }
-    } else {
+    } catch (e) {
+      print('Ошибка загрузки КП: $e');
+      _createNewQuote();
+    } finally {
       setState(() {
-        _initialQuote = null;
         _isLoading = false;
       });
     }
   }
 
+  void _createNewQuote() {
+    _quote = Quote(
+      id: 0,
+      clientName: '',
+      clientAddress: '',
+      clientPhone: '',
+      clientEmail: '',
+      notes: '',
+      items: [],
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    _isNew = true;
+  }
+
   Future<void> _saveQuote() async {
     if (_formKey.currentState!.validate()) {
-      final quote = Quote(
-        id: widget.quoteId ?? 0,
+      final updatedQuote = Quote(
+        id: _isNew ? 0 : _quote.id,
         clientName: _clientNameController.text.trim(),
         clientAddress: _clientAddressController.text.trim(),
         clientPhone: _clientPhoneController.text.trim(),
         clientEmail: _clientEmailController.text.trim(),
         notes: _notesController.text.trim(),
-        items: _initialQuote?.items ?? [],
-        createdAt: widget.quoteId == null 
-            ? DateTime.now() 
-            : (_initialQuote?.createdAt ?? DateTime.now()),
+        items: _quote.items,
+        createdAt: _isNew ? DateTime.now() : _quote.createdAt,
         updatedAt: DateTime.now(),
       );
 
       try {
         final dbHelper = DatabaseHelper.instance;
         
-        if (widget.quoteId == null) {
-          await dbHelper.insertQuote(quote);
+        if (_isNew) {
+          await dbHelper.insertQuote(updatedQuote);
         } else {
-          await dbHelper.updateQuote(quote);
+          await dbHelper.updateQuote(updatedQuote);
         }
         
         if (mounted) {
@@ -120,7 +139,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.quoteId == null ? 'Новое КП' : 'Редактировать КП'),
+        title: Text(_isNew ? 'Новое КП' : 'Редактировать КП'),
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
@@ -129,10 +148,10 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
+      body: Form(
+        key: _formKey,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
           child: ListView(
             children: [
               Card(
@@ -259,13 +278,13 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                       ),
                       const SizedBox(height: 12),
                       
-                      if (_initialQuote != null) ...[
+                      if (!_isNew) ...[
                         Row(
                           children: [
                             const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
                             const SizedBox(width: 8),
                             Text(
-                              'Создано: ${_initialQuote!.createdAt.day}.${_initialQuote!.createdAt.month}.${_initialQuote!.createdAt.year}',
+                              'Создано: ${_quote.createdAt.day}.${_quote.createdAt.month}.${_quote.createdAt.year}',
                               style: const TextStyle(color: Colors.grey),
                             ),
                           ],
@@ -277,20 +296,20 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                             const Icon(Icons.update, size: 16, color: Colors.grey),
                             const SizedBox(width: 8),
                             Text(
-                              'Обновлено: ${_initialQuote!.updatedAt.day}.${_initialQuote!.updatedAt.month}.${_initialQuote!.updatedAt.year}',
+                              'Обновлено: ${_quote.updatedAt.day}.${_quote.updatedAt.month}.${_quote.updatedAt.year}',
                               style: const TextStyle(color: Colors.grey),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         
-                        if (_initialQuote!.items.isNotEmpty)
+                        if (_quote.items.isNotEmpty)
                           Row(
                             children: [
                               const Icon(Icons.list, size: 16, color: Colors.grey),
                               const SizedBox(width: 8),
                               Text(
-                                'Позиций: ${_initialQuote!.items.length}',
+                                'Позиций: ${_quote.items.length}',
                                 style: const TextStyle(color: Colors.grey),
                               ),
                             ],
@@ -341,7 +360,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: Text(
-                        widget.quoteId == null ? 'Создать КП' : 'Сохранить изменения',
+                        _isNew ? 'Создать КП' : 'Сохранить изменения',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
