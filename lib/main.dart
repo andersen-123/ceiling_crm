@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/screens/quote_list_screen.dart';
 import 'package:ceiling_crm/screens/settings_screen.dart';
-import 'package:ceiling_crm/screens/quick_add_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -40,14 +39,7 @@ class _AppState extends State<App> {
 
   final List<Widget> _screens = [
     const QuoteListScreen(),
-    const QuickAddScreen(),
     const SettingsScreen(),
-  ];
-
-  final List<String> _screenTitles = [
-    'Коммерческие предложения',
-    'Быстрое добавление',
-    'Настройки',
   ];
 
   void _onItemTapped(int index) {
@@ -67,10 +59,6 @@ class _AppState extends State<App> {
           BottomNavigationBarItem(
             icon: Icon(Icons.description),
             label: 'КП',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle),
-            label: 'Быстрое',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
