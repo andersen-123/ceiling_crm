@@ -74,7 +74,6 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
       isScrollControlled: true,
       builder: (context) => EditPositionModal(
         onSave: (item) => item,
-        isEditing: false,
       ),
     );
 
@@ -110,8 +109,7 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
       isScrollControlled: true,
       builder: (context) => EditPositionModal(
         initialItem: item,
-        onSave: (editedItem) => editedItem,
-        isEditing: true,
+        onSave: (item) => item,
       ),
     );
 
