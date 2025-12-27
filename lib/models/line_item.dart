@@ -4,7 +4,7 @@ class LineItem {
   double quantity;
   String unit;
   double price;
-  String description; // Изменили note на description
+  String description;
 
   LineItem({
     required this.id,
