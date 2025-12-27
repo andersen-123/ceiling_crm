@@ -15,6 +15,7 @@ class ProposalDetailScreen extends StatefulWidget {
 }
 
 class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
+  final PdfService _pdfService = PdfService();
   late Quote _quote;
   late List<LineItem> _items;
   bool _isLoading = false;
