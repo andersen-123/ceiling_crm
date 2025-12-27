@@ -9,23 +9,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  shared_preferences: ^2.2.2
-  image_picker: ^1.0.4
-  
-  # Для базы данных
+  cupertino_icons: ^1.0.2
   sqflite: ^2.3.0
   path: ^1.8.3
-  
-  # Для PDF (временно закомментируем syncfusion, используем более простой вариант)
-  # syncfusion_flutter_pdfviewer: ^23.2.7
-  printing: ^5.11.1
-  pdf: ^3.10.6
-  
-  # Для шаринга
-  share_plus: ^7.0.0
-  
-  # Для работы с датами
   intl: ^0.18.1
+  share_plus: ^7.0.2
+  printing: ^5.11.2
+  pdf: ^3.10.7
+  http: ^1.1.0
 
 dev_dependencies:
   flutter_test:
@@ -34,3 +25,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+  # ДОБАВЬТЕ ЭТОТ БЛОК:
+  assets:
+    - assets/standard_positions.json
+
+  # Остальное оставьте как есть
