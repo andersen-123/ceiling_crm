@@ -27,7 +27,7 @@ apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
     namespace "com.example.ceiling_crm"
-    compileSdkVersion 34
+    compileSdkVersion 33  // ← ИЗМЕНЕНО: было 34, стало 33
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -45,7 +45,7 @@ android {
     defaultConfig {
         applicationId "com.example.ceiling_crm"
         minSdkVersion 21
-        targetSdkVersion 34
+        targetSdkVersion 33  // ← ИЗМЕНЕНО: было 34, стало 33
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
@@ -53,20 +53,13 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            // Отключаем minify для устранения ошибок
+            // ОТКЛЮЧАЕМ оптимизацию
             minifyEnabled false
             shrinkResources false
         }
     }
     
-    packagingOptions {
-        // УПРОЩЕННАЯ КОНФИГУРАЦИЯ - работает в 99% случаев
-        pickFirst '**/*.so'
-        pickFirst 'META-INF/LICENSE'
-        pickFirst 'META-INF/LICENSE.txt'
-        pickFirst 'META-INF/NOTICE'
-        pickFirst 'META-INF/NOTICE.txt'
-    }
+    // УБИРАЕМ ВЕСЬ БЛОК packagingOptions - он вызывает проблемы
 }
 
 flutter {
@@ -74,5 +67,5 @@ flutter {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.10"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.7.10"  // ← ИЗМЕНЕНО: было 1.8.10
 }
