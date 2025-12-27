@@ -1,70 +1,57 @@
-// lib/models/line_item.dart
 class LineItem {
   int id;
   String name;
-  String description;
   double quantity;
   String unit;
   double price;
+  String description; // Изменили note на description
 
   LineItem({
     required this.id,
     required this.name,
-    this.description = '',
     required this.quantity,
     required this.unit,
     required this.price,
+    required this.description,
   });
 
-  // Преобразование в Map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
-      'description': description,
       'quantity': quantity,
       'unit': unit,
       'price': price,
-      'total': quantity * price,
+      'description': description,
     };
   }
 
-  // Создание из Map
   factory LineItem.fromMap(Map<String, dynamic> map) {
     return LineItem(
-      id: map['id'] ?? DateTime.now().millisecondsSinceEpoch,
-      name: map['name'] ?? 'Без названия',
-      description: map['description'] ?? '',
-      quantity: map['quantity'] ?? 1.0,
-      unit: map['unit'] ?? 'шт.',
-      price: map['price'] ?? 0.0,
+      id: map['id'] as int,
+      name: map['name'] as String,
+      quantity: (map['quantity'] as num).toDouble(),
+      unit: map['unit'] as String,
+      price: (map['price'] as num).toDouble(),
+      description: map['description'] as String,
     );
   }
 
-  // Копирование с изменениями
   LineItem copyWith({
     int? id,
     String? name,
-    String? description,
     double? quantity,
     String? unit,
     double? price,
+    String? description,
   }) {
     return LineItem(
       id: id ?? this.id,
       name: name ?? this.name,
-      description: description ?? this.description,
       quantity: quantity ?? this.quantity,
       unit: unit ?? this.unit,
       price: price ?? this.price,
+      description: description ?? this.description,
     );
-  }
-
-  // Получение суммы
-  double get total => quantity * price;
-
-  @override
-  String toString() {
-    return 'LineItem($name: $quantity $unit × $price = $total)';
   }
 }
