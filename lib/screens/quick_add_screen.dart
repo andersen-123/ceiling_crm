@@ -72,7 +72,6 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
       builder: (context) => EditPositionModal(
         initialItem: item,
         onSave: (editedItem) => editedItem,
-        isEditing: true,
       ),
     );
 
@@ -92,7 +91,6 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
       isScrollControlled: true,
       builder: (context) => EditPositionModal(
         onSave: (item) => item,
-        isEditing: false,
       ),
     );
 
