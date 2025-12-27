@@ -24,7 +24,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
-  // 2. Контроллеры для ДИНАМИЧЕСКИХ полей позиций (КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ)
+  // 2. Контроллеры для ДИНАМИЧЕСКИХ полей позиций
   final List<TextEditingController> _descriptionControllers = [];
   final List<TextEditingController> _quantityControllers = [];
   final List<TextEditingController> _priceControllers = [];
@@ -81,7 +81,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     _notesController.text = _currentQuote.notes;
     _selectedStatus = _currentQuote.status;
 
-    // ИНИЦИАЛИЗИРУЕМ КОНТРОЛЛЕРЫ ДЛЯ ПОЗИЦИЙ (важно!)
+    // Инициализируем контроллеры для позиций
     _descriptionControllers.clear();
     _quantityControllers.clear();
     _priceControllers.clear();
@@ -180,7 +180,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
         quantity: 1,
         unitPrice: 0,
       ));
-      // СОЗДАЁМ КОНТРОЛЛЕРЫ ДЛЯ НОВОЙ ПОЗИЦИИ
+      // Создаём контроллеры для новой позиции
       _descriptionControllers.add(TextEditingController(text: 'Новая позиция'));
       _quantityControllers.add(TextEditingController(text: '1'));
       _priceControllers.add(TextEditingController(text: '0'));
@@ -190,7 +190,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   // 11. Удаление позиции
   void _deleteLineItem(int index) {
     setState(() {
-      // УНИЧТОЖАЕМ КОНТРОЛЛЕРЫ УДАЛЯЕМОЙ ПОЗИЦИИ
+      // Уничтожаем контроллеры удаляемой позиции
       _descriptionControllers[index].dispose();
       _quantityControllers[index].dispose();
       _priceControllers[index].dispose();
@@ -212,7 +212,142 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     });
   }
 
-  // 13. Экспорт в PDF
+  // 13. Редактирование позиции в диалоге
+  void _editLineItemDialog(int index, LineItem item) {
+    final descriptionController = TextEditingController(text: item.description);
+    final quantityController = TextEditingController(text: item.quantity.toString());
+    final priceController = TextEditingController(text: item.unitPrice.toStringAsFixed(2));
+    String selectedSection = item.section;
+    String selectedUnit = item.unit;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Редактировать позицию'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Раздел
+                  DropdownButtonFormField<String>(
+                    value: selectedSection,
+                    decoration: const InputDecoration(
+                      labelText: 'Раздел',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const ['Работы', 'Материалы', 'Оборудование', 'Прочее']
+                        .map((section) {
+                      return DropdownMenuItem(
+                        value: section,
+                        child: Text(section),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setStateDialog(() => selectedSection = value!);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Описание
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Описание',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Количество и единица измерения
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: quantityController,
+                          decoration: const InputDecoration(
+                            labelText: 'Кол-во',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: selectedUnit,
+                          decoration: const InputDecoration(
+                            labelText: 'Ед.',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const ['шт.', 'м²', 'п.м.', 'компл.', 'час']
+                              .map((unit) {
+                            return DropdownMenuItem(
+                              value: unit,
+                              child: Text(unit),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setStateDialog(() => selectedUnit = value!);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Цена
+                  TextField(
+                    controller: priceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Цена за единицу',
+                      border: OutlineInputBorder(),
+                      prefixText: '₽ ',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Отмена'),
+              ),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _lineItems[index] = item.copyWith(
+                      section: selectedSection,
+                      description: descriptionController.text,
+                      unit: selectedUnit,
+                      quantity: double.tryParse(quantityController.text) ?? 0,
+                      unitPrice: double.tryParse(priceController.text) ?? 0,
+                    );
+                    _recalculateQuoteTotal();
+                    
+                    // Обновляем контроллеры
+                    _descriptionControllers[index].text = descriptionController.text;
+                    _quantityControllers[index].text = quantityController.text;
+                    _priceControllers[index].text = priceController.text;
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Позиция обновлена')),
+                  );
+                },
+                child: const Text('Сохранить'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // 14. Экспорт в PDF
   Future<void> _exportToPdf() async {
     if (_lineItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -236,7 +371,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // 14. Сохранение данных перед экспортом
+  // 15. Сохранение данных перед экспортом
   Future<void> _saveQuoteDataLocally() async {
     _currentQuote = _currentQuote.copyWith(totalAmount: _calculateTotal());
     if (_currentQuote.id != null) {
@@ -245,11 +380,53 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // 15. Диалог экспорта
+  // 16. Диалог экспорта
   Future<void> _showExportDialog(File pdfFile) async {
     final result = await showDialog<ExportOption>(
       context: context,
-      builder: (context) => ExportDialog(pdfFile: pdfFile),
+      builder: (context) => AlertDialog(
+        title: const Text('Экспорт КП'),
+        content: const Text('Выберите действие с созданным PDF-документом:'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, ExportOption.preview),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.preview, size: 20),
+                SizedBox(width: 8),
+                Text('Просмотреть'),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ExportOption.share),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.share, size: 20),
+                SizedBox(width: 8),
+                Text('Поделиться'),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ExportOption.save),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.save_alt, size: 20),
+                SizedBox(width: 8),
+                Text('Сохранить'),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+        ],
+      ),
     );
 
     if (result != null) {
@@ -267,26 +444,55 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // 16. Просмотр PDF
+  // 17. Просмотр PDF (улучшенная версия)
   Future<void> _previewPdf(File pdfFile) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Просмотр PDF будет доступен позже')),
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Предпросмотр PDF'),
+        content: const Text('Функция предпросмотра временно недоступна. Хотите сохранить файл в папку "Загрузки"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
     );
+    
+    if (save == true) {
+      await _savePdf(pdfFile);
+    }
   }
 
-  // 17. Поделиться PDF
+  // 18. Поделиться PDF (исправленная версия)
   Future<void> _sharePdf(File pdfFile) async {
-    final uri = Uri.file(pdfFile.path);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
+    try {
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Поделиться PDF'),
+          content: const Text('Функция "Поделиться" будет доступна в следующем обновлении. Пока вы можете:\n\n1. Сохранить файл (кнопка "Сохранить")\n2. Найти его в папке "Загрузки" на телефоне\n3. Поделиться оттуда через стандартные средства Android'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось открыть диалог шаринга')),
+        const SnackBar(content: Text('Для шаринга файлов нужно обновить приложение')),
       );
     }
   }
 
-  // 18. Сохранить PDF в папку загрузок
+  // 19. Сохранить PDF в папку загрузок (улучшенная версия)
   Future<void> _savePdf(File pdfFile) async {
     try {
       final downloadsDirectory = await getDownloadsDirectory();
@@ -297,8 +503,24 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           .replaceAll(RegExp(r'[^\w\d]'), '_');
       final newPath = '${downloadsDirectory.path}/$fileName';
       await pdfFile.copy(newPath);
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF сохранён: $fileName')),
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('✅ PDF успешно сохранён', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Файл: $fileName', style: const TextStyle(fontSize: 12)),
+              Text('Папка: Загрузки', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'ОК',
+            onPressed: () {},
+          ),
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -307,7 +529,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  // 19. Построение UI (ОБЯЗАТЕЛЬНЫЙ МЕТОД ДЛЯ State)
+  // 20. Построение UI
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -336,7 +558,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     );
   }
 
-  // 20. Основное содержимое
+  // 21. Основное содержимое
   Widget _buildContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -355,7 +577,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     );
   }
 
-  // 21. Секция информации о клиенте
+  // 22. Секция информации о клиенте
   Widget _buildClientInfoSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,7 +637,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     );
   }
 
-  // 22. Секция позиций КП
+  // 23. Секция позиций КП (с упрощённым редактированием)
   Widget _buildLineItemsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -471,7 +693,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     );
   }
 
-  // 23. Карточка позиции
+  // 24. Карточка позиции (с возможностью нажатия для редактирования)
   Widget _buildLineItemCard(int index) {
     final item = _lineItems[index];
 
@@ -506,160 +728,82 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       onDismissed: (direction) => _deleteLineItem(index),
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${index + 1}. ${item.description}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+        child: InkWell(
+          onTap: () => _editLineItemDialog(index, item),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${index + 1}. ${item.description}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  item.section,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${item.quantity} ${item.unit} × ${item.unitPrice} ₽',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Text(
-                    '${item.total.toStringAsFixed(2)} ₽',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${item.total.toStringAsFixed(2)} ₽',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Нажмите для редактирования',
+                          style: TextStyle(fontSize: 10, color: Colors.grey),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildLineItemFields(index, item),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    );
-  }
-
-  // 24. Поля редактирования позиции (ИСПРАВЛЕННАЯ ВЕРСИЯ)
-  Widget _buildLineItemFields(int index, LineItem item) {
-    return Column(
-      children: [
-        // Раздел
-        DropdownButtonFormField<String>(
-          value: item.section,
-          decoration: const InputDecoration(
-            labelText: 'Раздел',
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          items: const ['Работы', 'Материалы', 'Оборудование', 'Прочее']
-              .map((section) {
-            return DropdownMenuItem(
-              value: section,
-              child: Text(section),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _lineItems[index] = item.copyWith(section: value!);
-            });
-          },
-        ),
-        const SizedBox(height: 8),
-
-        // Описание (используем сохранённый контроллер)
-        TextField(
-          controller: _descriptionControllers[index],
-          decoration: const InputDecoration(
-            labelText: 'Описание',
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          ),
-          maxLines: 2,
-          onChanged: (value) {
-            setState(() {
-              _lineItems[index] = item.copyWith(description: value);
-            });
-          },
-        ),
-        const SizedBox(height: 8),
-
-        // Количество, цена и единица измерения
-        Row(
-          children: [
-            // Количество (используем сохранённый контроллер)
-            Expanded(
-              child: TextField(
-                controller: _quantityControllers[index],
-                decoration: const InputDecoration(
-                  labelText: 'Кол-во',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  final qty = double.tryParse(value) ?? 0;
-                  setState(() {
-                    _lineItems[index] = item.copyWith(quantity: qty);
-                    _recalculateQuoteTotal();
-                  });
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Единица измерения
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: item.unit,
-                decoration: const InputDecoration(
-                  labelText: 'Ед.',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                items: const ['шт.', 'м²', 'п.м.', 'компл.', 'час']
-                    .map((unit) {
-                  return DropdownMenuItem(
-                    value: unit,
-                    child: Text(unit),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _lineItems[index] = item.copyWith(unit: value!);
-                  });
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Цена за единицу (используем сохранённый контроллер)
-            Expanded(
-              child: TextField(
-                controller: _priceControllers[index],
-                decoration: const InputDecoration(
-                  labelText: 'Цена',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  prefixText: '₽ ',
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  final price = double.tryParse(value) ?? 0;
-                  setState(() {
-                    _lineItems[index] = item.copyWith(unitPrice: price);
-                    _recalculateQuoteTotal();
-                  });
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
