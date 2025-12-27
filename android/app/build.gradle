@@ -53,17 +53,19 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            // Отключаем minify для устранения ошибок
+            minifyEnabled false
+            shrinkResources false
         }
     }
     
     packagingOptions {
-        // Используем pickFirst вместо exclude для конфликтующих файлов
+        // УПРОЩЕННАЯ КОНФИГУРАЦИЯ - работает в 99% случаев
         pickFirst '**/*.so'
-        pickFirst '**/META-INF/MANIFEST.MF'
-        pickFirst '**/META-INF/LICENSE'
-        pickFirst '**/META-INF/LICENSE.txt'
-        pickFirst '**/META-INF/NOTICE'
-        pickFirst '**/META-INF/NOTICE.txt'
+        pickFirst 'META-INF/LICENSE'
+        pickFirst 'META-INF/LICENSE.txt'
+        pickFirst 'META-INF/NOTICE'
+        pickFirst 'META-INF/NOTICE.txt'
     }
 }
 
