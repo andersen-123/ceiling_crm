@@ -7,14 +7,14 @@ class EditPositionModal extends StatefulWidget {
   final bool isEditing;
 
   const EditPositionModal({
-    Key? key,
+    super.key,
     this.initialItem,
     required this.onSave,
     this.isEditing = false,
-  }) : super(key: key);
+  });
 
   @override
-  _EditPositionModalState createState() => _EditPositionModalState();
+  State<EditPositionModal> createState() => _EditPositionModalState();
 }
 
 class _EditPositionModalState extends State<EditPositionModal> {
@@ -22,7 +22,7 @@ class _EditPositionModalState extends State<EditPositionModal> {
   late TextEditingController _quantityController;
   late TextEditingController _unitController;
   late TextEditingController _priceController;
-  late TextEditingController _noteController;
+  late TextEditingController _descriptionController;
 
   final List<String> _units = ['шт.', 'м²', 'м.п.', 'компл.', 'набор'];
   String _selectedUnit = 'шт.';
@@ -39,7 +39,7 @@ class _EditPositionModalState extends State<EditPositionModal> {
     _priceController = TextEditingController(
       text: widget.initialItem?.price.toStringAsFixed(2) ?? '0.00'
     );
-    _noteController = TextEditingController(text: widget.initialItem?.note ?? '');
+    _descriptionController = TextEditingController(text: widget.initialItem?.description ?? '');
     
     _selectedUnit = widget.initialItem?.unit ?? 'шт.';
   }
@@ -50,7 +50,7 @@ class _EditPositionModalState extends State<EditPositionModal> {
     _quantityController.dispose();
     _unitController.dispose();
     _priceController.dispose();
-    _noteController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -73,7 +73,7 @@ class _EditPositionModalState extends State<EditPositionModal> {
       return;
     }
 
-    final note = _noteController.text.trim();
+    final description = _descriptionController.text.trim();
 
     final item = LineItem(
       id: widget.initialItem?.id ?? 0,
@@ -81,7 +81,7 @@ class _EditPositionModalState extends State<EditPositionModal> {
       quantity: quantity,
       unit: _selectedUnit,
       price: price,
-      note: note,
+      description: description,
     );
 
     widget.onSave(item);
@@ -104,19 +104,19 @@ class _EditPositionModalState extends State<EditPositionModal> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               widget.isEditing ? 'Редактировать позицию' : 'Добавить позицию',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             
             TextFormField(
               controller: _nameController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Название позиции *',
                 border: OutlineInputBorder(),
                 hintText: 'Введите название',
@@ -124,14 +124,14 @@ class _EditPositionModalState extends State<EditPositionModal> {
               textInputAction: TextInputAction.next,
               autofocus: true,
             ),
-            SizedBox(height: 15),
+            const SizedBox(height: 15),
             
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     controller: _quantityController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Количество *',
                       border: OutlineInputBorder(),
                       hintText: '1.00',
@@ -140,11 +140,11 @@ class _EditPositionModalState extends State<EditPositionModal> {
                     textInputAction: TextInputAction.next,
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _selectedUnit,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Единица',
                       border: OutlineInputBorder(),
                     ),
@@ -163,11 +163,11 @@ class _EditPositionModalState extends State<EditPositionModal> {
                 ),
               ],
             ),
-            SizedBox(height: 15),
+            const SizedBox(height: 15),
             
             TextFormField(
               controller: _priceController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Цена (руб.) *',
                 border: OutlineInputBorder(),
                 prefixText: '₽ ',
@@ -176,19 +176,19 @@ class _EditPositionModalState extends State<EditPositionModal> {
               keyboardType: TextInputType.numberWithOptions(decimal: true),
               textInputAction: TextInputAction.next,
             ),
-            SizedBox(height: 15),
+            const SizedBox(height: 15),
             
             TextFormField(
-              controller: _noteController,
-              decoration: InputDecoration(
-                labelText: 'Примечание (необязательно)',
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Описание (необязательно)',
                 border: OutlineInputBorder(),
                 hintText: 'Дополнительная информация',
               ),
               maxLines: 2,
               textInputAction: TextInputAction.done,
             ),
-            SizedBox(height: 25),
+            const SizedBox(height: 25),
             
             Row(
               children: [
@@ -197,18 +197,18 @@ class _EditPositionModalState extends State<EditPositionModal> {
                     onPressed: () => Navigator.of(context).pop(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[300],
-                      padding: EdgeInsets.symmetric(vertical: 15),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
-                    child: Text('Отмена', style: TextStyle(color: Colors.black87)),
+                    child: const Text('Отмена', style: TextStyle(color: Colors.black87)),
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _savePosition,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).primaryColor,
-                      padding: EdgeInsets.symmetric(vertical: 15),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
                     child: Text(widget.isEditing ? 'Сохранить' : 'Добавить'),
                   ),
