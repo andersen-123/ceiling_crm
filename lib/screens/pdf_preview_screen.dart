@@ -164,7 +164,7 @@ class PdfPreviewScreen extends StatelessWidget {
             const SizedBox(height: 40),
             
             // Уведомление
-            const Card(
+            Card(
               color: Colors.amber.shade50,
               child: Padding(
                 padding: EdgeInsets.all(16),
