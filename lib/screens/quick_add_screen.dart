@@ -188,7 +188,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                                 children: [
                                   Text(
                                     '${item.price} ₽',
-                                    style: const TextStyle(
+                                    style: TextStyle(  // УБЕРИТЕ const
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
                                       color: Colors.blue[700],
