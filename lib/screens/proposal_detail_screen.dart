@@ -155,26 +155,25 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
 
   // Генерация PDF
   Future<void> _generatePdf() async {
-    try {
-      // Переход на экран PDF
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PdfPreviewScreen(
-            quote: _quote.toMap(),
-          ),
+  try {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PdfPreviewScreen(
+          quote: _quote.toMap(),
+          fileName: 'КП_${_quote.clientName}_${DateTime.now().millisecondsSinceEpoch}.pdf',
         ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка генерации PDF: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+      ),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Ошибка: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
-
+}
   // Редактирование КП (переход в режим редактирования)
   void _editQuote() {
     Navigator.push(
