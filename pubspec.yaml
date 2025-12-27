@@ -1,5 +1,5 @@
 name: ceiling_crm
-description: A new Flutter project.
+description: CRM для натяжных потолков
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -17,8 +17,6 @@ dependencies:
   printing: ^5.11.2
   pdf: ^3.10.7
   http: ^1.1.0
-  shared_preferences: ^2.2.2
-  image_picker: ^1.0.4
 
 dev_dependencies:
   flutter_test:
@@ -28,8 +26,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   
-  # ДОБАВЬТЕ ЭТОТ БЛОК:
   assets:
     - assets/standard_positions.json
-
-  # Остальное оставьте как есть
