@@ -1,12 +1,12 @@
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus';
+import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import 'package:ceiling_crm/models/quote.dart';
 
 class PdfService {
@@ -267,16 +267,13 @@ class PdfService {
       await file.writeAsBytes(pdfBytes);
 
       if (context.mounted) {
-        Navigator.of(context).pop(); // Закрыть диалог загрузки
-        await Share.shareXFiles(
-          [XFile(file.path)],
-          text: 'Коммерческое предложение для ${quote.clientName}',
-        );
+        Navigator.of(context).pop();
+        await Share.shareFiles([file.path], text: 'Коммерческое предложение для ${quote.clientName}');
       }
     } catch (e) {
       print('Ошибка шаринга PDF: $e');
       if (context.mounted) {
-        Navigator.of(context).pop(); // Закрыть диалог загрузки
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Ошибка отправки: $e'),
