@@ -1,115 +1,104 @@
-// lib/services/database_helper.dart
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'dart:convert';
-import '../models/quote.dart';
+import 'package:ceiling_crm/models/quote.dart';
 
 class DatabaseHelper {
-  static const _databaseName = 'ceiling_crm.db';
-  static const _databaseVersion = 1;
-  
+  static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
-  
+
+  DatabaseHelper._init();
+
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDatabase();
+    _database = await _initDB('quotes.db');
     return _database!;
   }
-  
-  Future<Database> _initDatabase() async {
-    final path = join(await getDatabasesPath(), _databaseName);
-    
+
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, filePath);
+
     return await openDatabase(
       path,
-      version: _databaseVersion,
-      onCreate: _onCreate,
+      version: 1,
+      onCreate: _createDB,
     );
   }
-  
-  Future<void> _onCreate(Database db, int version) async {
+
+  Future<void> _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE quotes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         clientName TEXT NOT NULL,
-        address TEXT NOT NULL,
-        phone TEXT,
-        email TEXT,
+        clientAddress TEXT NOT NULL,
+        clientPhone TEXT NOT NULL,
+        clientEmail TEXT,
         notes TEXT,
-        totalAmount REAL DEFAULT 0,
-        positions TEXT,
-        createdAt TEXT,
-        updatedAt TEXT
-      )
-    ''');
-    
-    await db.execute('''
-      CREATE TABLE company_profile (
-        id INTEGER PRIMARY KEY,
-        companyName TEXT,
-        address TEXT,
-        phone TEXT,
-        email TEXT,
-        inn TEXT,
-        bankDetails TEXT
+        items TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
       )
     ''');
   }
-  
-  // CRUD операции для Quote
-  Future<int> saveQuote(Quote quote) async {
-    final db = await database;
-    
-    final quoteMap = quote.toMap();
-    
-    if (quote.id == null) {
-      // Вставка новой записи
-      return await db.insert('quotes', quoteMap);
-    } else {
-      // Обновление существующей записи
-      return await db.update(
-        'quotes',
-        quoteMap,
-        where: 'id = ?',
-        whereArgs: [quote.id],
-      );
-    }
+
+  // Создание нового КП
+  Future<int> insertQuote(Quote quote) async {
+    final db = await instance.database;
+    return await db.insert('quotes', quote.toMap());
   }
-  
-  Future<List<Quote>> getAllProposals() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('quotes', orderBy: 'createdAt DESC');
+
+  // Получение всех КП
+  Future<List<Quote>> getAllQuotes() async {
+    final db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'quotes',
+      orderBy: 'createdAt DESC',
+    );
     
     return List.generate(maps.length, (i) {
       return Quote.fromMap(maps[i]);
     });
   }
-  
-  Future<Quote?> getProposal(int id) async {
-    final db = await database;
+
+  // Получение одного КП по ID
+  Future<Quote?> getQuote(int id) async {
+    final db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'quotes',
       where: 'id = ?',
       whereArgs: [id],
     );
-    
+
     if (maps.isNotEmpty) {
       return Quote.fromMap(maps.first);
     }
     return null;
   }
-  
-  Future<int> deleteProposal(int id) async {
-    final db = await database;
+
+  // Обновление КП
+  Future<int> updateQuote(Quote quote) async {
+    final db = await instance.database;
+    return await db.update(
+      'quotes',
+      quote.toMap(),
+      where: 'id = ?',
+      whereArgs: [quote.id],
+    );
+  }
+
+  // Удаление КП
+  Future<int> deleteQuote(int id) async {
+    final db = await instance.database;
     return await db.delete(
       'quotes',
       where: 'id = ?',
       whereArgs: [id],
     );
   }
-  
-  // Закрытие базы данных (для тестов)
+
+  // Закрытие базы данных
   Future<void> close() async {
-    final db = await database;
-    await db.close();
+    final db = await instance.database;
+    db.close();
   }
 }
