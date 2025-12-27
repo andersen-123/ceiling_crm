@@ -38,6 +38,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
       });
     } catch (e) {
       print('Ошибка загрузки КП: $e');
+      _showError('Ошибка загрузки данных');
     } finally {
       setState(() {
         _isLoading = false;
@@ -77,16 +78,16 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     );
 
     if (confirmed == true) {
-      await _dbHelper.deleteQuote(quoteId);
-      await _loadQuotes();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('КП удалено'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      try {
+        await _dbHelper.deleteQuote(quoteId);
+        await _loadQuotes();
+        
+        if (mounted) {
+          _showSuccess('КП удалено');
+        }
+      } catch (e) {
+        print('Ошибка удаления: $e');
+        _showError('Ошибка удаления КП');
       }
     }
   }
@@ -104,42 +105,52 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
       await _loadQuotes();
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('КП дублировано'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSuccess('КП дублировано');
       }
     } catch (e) {
       print('Ошибка дублирования: $e');
+      _showError('Ошибка дублирования КП');
     }
   }
 
-  void _generatePdfForQuote(Quote quote) async {
+  Future<void> _generatePdfForQuote(Quote quote) async {
     try {
       await _pdfService.previewPdf(context, quote);
     } catch (e) {
       print('Ошибка генерации PDF: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ошибка генерации PDF: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _showError('Ошибка генерации PDF');
+    }
+  }
+
+  Future<void> _sharePdfForQuote(Quote quote) async {
+    try {
+      await _pdfService.sharePdf(context, quote);
+    } catch (e) {
+      print('Ошибка шаринга PDF: $e');
+      _showError('Ошибка отправки PDF');
     }
   }
 
   void _showContextMenu(BuildContext context, Quote quote) async {
     final result = await showModalBottomSheet<int>(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             ListTile(
               leading: const Icon(Icons.edit, color: Colors.blue),
               title: const Text('Редактировать КП'),
@@ -156,12 +167,19 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.picture_as_pdf, color: Colors.green),
-              title: const Text('Создать PDF'),
+              title: const Text('Предпросмотр PDF'),
               onTap: () {
                 Navigator.of(context).pop(3);
               },
             ),
-            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.share, color: Colors.blue),
+              title: const Text('Поделиться PDF'),
+              onTap: () {
+                Navigator.of(context).pop(5);
+              },
+            ),
+            const Divider(height: 8),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
               title: const Text('Удалить КП'),
@@ -174,23 +192,55 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
       ),
     );
 
-    if (result == 1) {
-      final updated = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (context) => QuoteEditScreen(quoteId: quote.id),
-        ),
-      );
-      
-      if (updated == true) {
-        await _loadQuotes();
-      }
-    } else if (result == 2) {
-      await _duplicateQuote(quote);
-    } else if (result == 3) {
-      _generatePdfForQuote(quote);
-    } else if (result == 4) {
-      await _deleteQuote(quote.id);
+    switch (result) {
+      case 1:
+        _editQuote(quote);
+        break;
+      case 2:
+        await _duplicateQuote(quote);
+        break;
+      case 3:
+        _generatePdfForQuote(quote);
+        break;
+      case 4:
+        await _deleteQuote(quote.id);
+        break;
+      case 5:
+        _sharePdfForQuote(quote);
+        break;
     }
+  }
+
+  void _editQuote(Quote quote) async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => QuoteEditScreen(quoteId: quote.id),
+      ),
+    );
+    
+    if (updated == true) {
+      await _loadQuotes();
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Widget _buildEmptyState() {
@@ -240,6 +290,64 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     return _quotes.fold(0.0, (sum, quote) => sum + quote.totalAmount);
   }
 
+  Widget _buildSearchField() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: TextField(
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+        },
+        decoration: InputDecoration(
+          hintText: 'Поиск по клиентам, адресам...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          filled: true,
+          fillColor: Colors.grey.shade50,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Chip(
+            backgroundColor: Colors.blue.shade50,
+            label: Text(
+              'Всего: ${_quotes.length}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Chip(
+            backgroundColor: Colors.green.shade50,
+            label: Text(
+              'Сумма: ${_calculateTotalSum().toStringAsFixed(2)} ₽',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -251,53 +359,24 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
             onPressed: _loadQuotes,
             tooltip: 'Обновить',
           ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const QuoteEditScreen(),
+                ),
+              ).then((_) => _loadQuotes());
+            },
+            tooltip: 'Создать новое КП',
+          ),
         ],
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Поиск по клиентам, адресам...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-            ),
-          ),
-          
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Chip(
-                  backgroundColor: Colors.blue.shade50,
-                  label: Text(
-                    'Всего: ${_quotes.length}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Chip(
-                  backgroundColor: Colors.green.shade50,
-                  label: Text(
-                    'Сумма: ${_calculateTotalSum().toStringAsFixed(2)} ₽',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
+          _buildSearchField(),
+          _buildStatsHeader(),
           const SizedBox(height: 8),
           
           Expanded(
@@ -333,6 +412,9 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
                                   ).then((_) => _loadQuotes());
                                 },
                                 onDelete: () => _deleteQuote(quote.id),
+                                onShare: () => _sharePdfForQuote(quote),
+                                onPreview: () => _generatePdfForQuote(quote),
+                                onDuplicate: () => _duplicateQuote(quote),
                               ),
                             );
                           },
