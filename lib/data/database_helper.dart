@@ -185,4 +185,37 @@ class DatabaseHelper {
     final db = await database;
     await db.close();
   }
+  
+  Future<void> updateProposal(Map<String, dynamic> proposal) async {
+    final db = await database;
+    await db.update(
+      'proposals',
+      {
+        'clientName': proposal['clientName'],
+        'address': proposal['address'],
+        'phone': proposal['phone'],
+        'totalAmount': proposal['totalAmount'],
+        'positions': jsonEncode(proposal['positions'] ?? []),
+        'updatedAt': proposal['updatedAt'],
+      },
+      where: 'id = ?',
+      whereArgs: [proposal['id']],
+    );
+  }
+
+  // При получении КП декодируем позиции
+  Map<String, dynamic> _proposalFromMap(Map<String, dynamic> map) {
+    return {
+      'id': map['id'],
+      'clientName': map['clientName'],
+      'address': map['address'],
+      'phone': map['phone'],
+      'totalAmount': map['totalAmount'],
+      'positions': map['positions'] != null 
+          ? jsonDecode(map['positions']) 
+          : [],
+      'createdAt': map['createdAt'],
+      'updatedAt': map['updatedAt'],
+    };
+  }
 }
