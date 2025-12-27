@@ -8,13 +8,13 @@ class QuickAddScreen extends StatefulWidget {
   final List<LineItem> existingItems;
 
   const QuickAddScreen({
-    Key? key,
+    super.key,
     required this.onItemsSelected,
     required this.existingItems,
-  }) : super(key: key);
+  });
 
   @override
-  _QuickAddScreenState createState() => _QuickAddScreenState();
+  State<QuickAddScreen> createState() => _QuickAddScreenState();
 }
 
 class _QuickAddScreenState extends State<QuickAddScreen> {
@@ -58,7 +58,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
           quantity: item.quantity,
           unit: item.unit,
           price: item.price,
-          note: item.note,
+          description: item.description,
         );
         _selectedItems.add(newItem);
       }
@@ -112,48 +112,48 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Быстрое добавление позиций'),
+        title: const Text('Быстрое добавление позиций'),
         actions: [
           IconButton(
-            icon: Icon(Icons.add),
+            icon: const Icon(Icons.add),
             onPressed: _addCustomItem,
             tooltip: 'Добавить свою позицию',
           ),
           IconButton(
-            icon: Icon(Icons.done),
+            icon: const Icon(Icons.done),
             onPressed: _selectedItems.isNotEmpty ? _saveAndReturn : null,
             tooltip: 'Добавить выбранные',
           ),
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 Container(
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   color: Colors.blue[50],
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
                         'Выбрано позиций: ${_selectedItems.length}',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       if (_selectedItems.isNotEmpty)
                         Text(
                           'Итого: ${_calculateTotal()} ₽',
                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green[700]),
                         ),
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
                       ElevatedButton(
                         onPressed: _saveAndReturn,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
-                          padding: EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        child: Text('Добавить выбранные позиции'),
+                        child: const Text('Добавить выбранные позиции'),
                       ),
                     ],
                   ),
@@ -169,7 +169,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                       );
                       
                       return Card(
-                        margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         color: isSelected ? Colors.green[50] : null,
                         elevation: 2,
                         child: ListTile(
@@ -183,30 +183,30 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(height: 4),
+                              const SizedBox(height: 4),
                               Row(
                                 children: [
                                   Text(
                                     '${item.price} ₽',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
                                       color: Colors.blue[700],
                                     ),
                                   ),
-                                  SizedBox(width: 8),
+                                  const SizedBox(width: 8),
                                   Text(
                                     '/ ${item.unit}',
-                                    style: TextStyle(color: Colors.grey[600]),
+                                    style: const TextStyle(color: Colors.grey[600]),
                                   ),
                                 ],
                               ),
-                              if (item.note.isNotEmpty) 
+                              if (item.description.isNotEmpty) 
                                 Padding(
-                                  padding: EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.only(top: 4),
                                   child: Text(
-                                    item.note,
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                    item.description,
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey[600]),
                                   ),
                                 ),
                             ],
@@ -220,7 +220,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                               ),
                               if (isSelected)
                                 IconButton(
-                                  icon: Icon(Icons.edit, size: 20, color: Colors.blue),
+                                  icon: const Icon(Icons.edit, size: 20, color: Colors.blue),
                                   onPressed: () => _editItem(item),
                                 ),
                             ],
