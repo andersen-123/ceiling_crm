@@ -1,178 +1,216 @@
-// lib/screens/edit_position_modal.dart
 import 'package:flutter/material.dart';
+import 'package:ceiling_crm/models/line_item.dart';
 
 class EditPositionModal extends StatefulWidget {
-  final Map<String, dynamic> position;
-  final Function(Map<String, dynamic>) onSave;
+  final LineItem? initialItem;
+  final Function(LineItem) onSave;
+  final bool isEditing;
 
   const EditPositionModal({
-    super.key,
-    required this.position,
+    Key? key,
+    this.initialItem,
     required this.onSave,
-  });
+    this.isEditing = false,
+  }) : super(key: key);
 
   @override
-  State<EditPositionModal> createState() => _EditPositionModalState();
+  _EditPositionModalState createState() => _EditPositionModalState();
 }
 
 class _EditPositionModalState extends State<EditPositionModal> {
   late TextEditingController _nameController;
   late TextEditingController _quantityController;
-  late TextEditingController _priceController;
   late TextEditingController _unitController;
-  late TextEditingController _descriptionController;
+  late TextEditingController _priceController;
+  late TextEditingController _noteController;
+
+  final List<String> _units = ['шт.', 'м²', 'м.п.', 'компл.', 'набор'];
+  String _selectedUnit = 'шт.';
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(
-      text: widget.position['name'] ?? '',
-    );
+    
+    _nameController = TextEditingController(text: widget.initialItem?.name ?? '');
     _quantityController = TextEditingController(
-      text: (widget.position['quantity'] ?? 1).toString(),
+      text: widget.initialItem?.quantity.toStringAsFixed(2) ?? '1.00'
     );
+    _unitController = TextEditingController(text: widget.initialItem?.unit ?? 'шт.');
     _priceController = TextEditingController(
-      text: (widget.position['price'] ?? 0).toString(),
+      text: widget.initialItem?.price.toStringAsFixed(2) ?? '0.00'
     );
-    _unitController = TextEditingController(
-      text: widget.position['unit'] ?? 'шт.',
-    );
-    _descriptionController = TextEditingController(
-      text: widget.position['description'] ?? '',
-    );
+    _noteController = TextEditingController(text: widget.initialItem?.note ?? '');
+    
+    _selectedUnit = widget.initialItem?.unit ?? 'шт.';
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _quantityController.dispose();
-    _priceController.dispose();
     _unitController.dispose();
-    _descriptionController.dispose();
+    _priceController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
   void _savePosition() {
-    final updatedPosition = {
-      ...widget.position,
-      'name': _nameController.text,
-      'quantity': double.tryParse(_quantityController.text) ?? 1,
-      'price': double.tryParse(_priceController.text) ?? 0,
-      'unit': _unitController.text,
-      'description': _descriptionController.text,
-    };
-    
-    widget.onSave(updatedPosition);
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      _showError('Введите название позиции');
+      return;
+    }
+
+    final quantity = double.tryParse(_quantityController.text.replaceAll(',', '.'));
+    if (quantity == null || quantity <= 0) {
+      _showError('Введите корректное количество');
+      return;
+    }
+
+    final price = double.tryParse(_priceController.text.replaceAll(',', '.'));
+    if (price == null || price < 0) {
+      _showError('Введите корректную цену');
+      return;
+    }
+
+    final note = _noteController.text.trim();
+
+    final item = LineItem(
+      id: widget.initialItem?.id ?? 0,
+      name: name,
+      quantity: quantity,
+      unit: _selectedUnit,
+      price: price,
+      note: note,
+    );
+
+    widget.onSave(item);
+    Navigator.of(context).pop();
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(20),
-          ),
-        ),
+        padding: EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Редактирование позиции',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+            Text(
+              widget.isEditing ? 'Редактировать позицию' : 'Добавить позицию',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             
-            // Название
-            TextField(
+            TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Наименование',
+              decoration: InputDecoration(
+                labelText: 'Название позиции *',
                 border: OutlineInputBorder(),
+                hintText: 'Введите название',
               ),
-              maxLines: 2,
+              textInputAction: TextInputAction.next,
+              autofocus: true,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 15),
             
-            // Количество и цена
             Row(
               children: [
                 Expanded(
-                  child: TextField(
+                  child: TextFormField(
                     controller: _quantityController,
-                    decoration: const InputDecoration(
-                      labelText: 'Количество',
+                    decoration: InputDecoration(
+                      labelText: 'Количество *',
                       border: OutlineInputBorder(),
+                      hintText: '1.00',
                     ),
-                    keyboardType: TextInputType.number,
+                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                    textInputAction: TextInputAction.next,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 10),
                 Expanded(
-                  child: TextField(
-                    controller: _unitController,
-                    decoration: const InputDecoration(
-                      labelText: 'Ед.изм.',
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedUnit,
+                    decoration: InputDecoration(
+                      labelText: 'Единица',
                       border: OutlineInputBorder(),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: _priceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Цена',
-                      border: OutlineInputBorder(),
-                      prefixText: '₽ ',
-                    ),
-                    keyboardType: TextInputType.number,
+                    items: _units.map((unit) {
+                      return DropdownMenuItem(
+                        value: unit,
+                        child: Text(unit),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedUnit = value ?? 'шт.';
+                      });
+                    },
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 15),
             
-            // Примечание
-            TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Примечание',
+            TextFormField(
+              controller: _priceController,
+              decoration: InputDecoration(
+                labelText: 'Цена (руб.) *',
                 border: OutlineInputBorder(),
+                prefixText: '₽ ',
+                hintText: '0.00',
+              ),
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.next,
+            ),
+            SizedBox(height: 15),
+            
+            TextFormField(
+              controller: _noteController,
+              decoration: InputDecoration(
+                labelText: 'Примечание (необязательно)',
+                border: OutlineInputBorder(),
+                hintText: 'Дополнительная информация',
               ),
               maxLines: 2,
+              textInputAction: TextInputAction.done,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 25),
             
-            // Кнопки
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context, {'delete': true}),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[300],
+                      padding: EdgeInsets.symmetric(vertical: 15),
                     ),
-                    child: const Text('Удалить'),
+                    child: Text('Отмена', style: TextStyle(color: Colors.black87)),
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      _savePosition();
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Сохранить'),
+                    onPressed: _savePosition,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      padding: EdgeInsets.symmetric(vertical: 15),
+                    ),
+                    child: Text(widget.isEditing ? 'Сохранить' : 'Добавить'),
                   ),
                 ),
               ],
