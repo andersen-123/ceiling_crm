@@ -9,10 +9,10 @@ import 'package:ceiling_crm/screens/quick_add_screen.dart';
 class ProposalDetailScreen extends StatefulWidget {
   final Quote quote;
 
-  const ProposalDetailScreen({Key? key, required this.quote}) : super(key: key);
+  const ProposalDetailScreen({super.key, required this.quote});
 
   @override
-  _ProposalDetailScreenState createState() => _ProposalDetailScreenState();
+  State<ProposalDetailScreen> createState() => _ProposalDetailScreenState();
 }
 
 class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
@@ -219,11 +219,10 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
       appBar: AppBar(
         title: Text('КП: ${_quote.clientName}'),
         actions: [
-          // Кнопка PDF
           if (_items.isNotEmpty)
             IconButton(
               icon: _isGeneratingPdf 
-                  ? SizedBox(
+                  ? const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
@@ -236,7 +235,6 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
               tooltip: 'Создать PDF',
             ),
           
-          // Меню дополнительных опций
           PopupMenuButton(
             itemBuilder: (context) => [
               PopupMenuItem(
@@ -252,7 +250,6 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                   title: Text('Поделиться'),
                 ),
                 onTap: () {
-                  // TODO: Реализовать шаринг
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Шаринг в разработке...')),
@@ -275,7 +272,6 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Информация о клиенте
                 Card(
                   margin: const EdgeInsets.all(8),
                   child: Padding(
@@ -330,7 +326,6 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                   ),
                 ),
 
-                // Заголовок списка позиций
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
@@ -351,7 +346,6 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                   ),
                 ),
 
-                // Список позиций
                 Expanded(
                   child: _items.isEmpty
                       ? Center(
@@ -419,11 +413,11 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                                         ),
                                       ],
                                     ),
-                                    if (item.note.isNotEmpty)
+                                    if (item.description.isNotEmpty)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 4),
                                         child: Text(
-                                          item.note,
+                                          item.description,
                                           style: const TextStyle(
                                             fontSize: 12, 
                                             color: Colors.grey
