@@ -5,10 +5,10 @@ import 'package:ceiling_crm/services/database_helper.dart';
 class QuoteEditScreen extends StatefulWidget {
   final int? quoteId;
 
-  const QuoteEditScreen({Key? key, this.quoteId}) : super(key: key);
+  const QuoteEditScreen({super.key, this.quoteId});
 
   @override
-  _QuoteEditScreenState createState() => _QuoteEditScreenState();
+  State<QuoteEditScreen> createState() => _QuoteEditScreenState();
 }
 
 class _QuoteEditScreenState extends State<QuoteEditScreen> {
@@ -82,14 +82,19 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           await dbHelper.updateQuote(quote);
         }
         
-        Navigator.of(context).pop(true);
+        if (mounted) {
+          Navigator.of(context).pop(true);
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ошибка сохранения: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        print('Ошибка сохранения: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ошибка сохранения: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -108,8 +113,8 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: Text('Загрузка...')),
-        body: Center(child: CircularProgressIndicator()),
+        appBar: AppBar(title: const Text('Загрузка...')),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -118,7 +123,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
         title: Text(widget.quoteId == null ? 'Новое КП' : 'Редактировать КП'),
         actions: [
           IconButton(
-            icon: Icon(Icons.save),
+            icon: const Icon(Icons.save),
             onPressed: _saveQuote,
             tooltip: 'Сохранить',
           ),
@@ -136,15 +141,15 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Информация о клиенте',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       
                       TextFormField(
                         controller: _clientNameController,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Имя клиента *',
                           border: OutlineInputBorder(),
                           hintText: 'Иван Иванов',
@@ -156,11 +161,11 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                           return null;
                         },
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       
                       TextFormField(
                         controller: _clientAddressController,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Адрес *',
                           border: OutlineInputBorder(),
                           hintText: 'Москва, ул. Примерная, д. 1',
@@ -172,14 +177,14 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                           return null;
                         },
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       
                       Row(
                         children: [
                           Expanded(
                             child: TextFormField(
                               controller: _clientPhoneController,
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 labelText: 'Телефон *',
                                 border: OutlineInputBorder(),
                                 hintText: '+7 (999) 123-45-67',
@@ -193,11 +198,11 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                               },
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: TextFormField(
                               controller: _clientEmailController,
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 labelText: 'Email',
                                 border: OutlineInputBorder(),
                                 hintText: 'client@example.com',
@@ -212,7 +217,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                 ),
               ),
               
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               
               Card(
                 child: Padding(
@@ -220,15 +225,15 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Примечания',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       
                       TextFormField(
                         controller: _notesController,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Дополнительная информация',
                           border: OutlineInputBorder(),
                           hintText: 'Особые пожелания, условия монтажа и т.д.',
@@ -240,7 +245,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                 ),
               ),
               
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               
               Card(
                 child: Padding(
@@ -248,62 +253,62 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Информация о предложении',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       
                       if (_initialQuote != null) ...[
                         Row(
                           children: [
-                            Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                            SizedBox(width: 8),
+                            const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
                             Text(
                               'Создано: ${_initialQuote!.createdAt.day}.${_initialQuote!.createdAt.month}.${_initialQuote!.createdAt.year}',
-                              style: TextStyle(color: Colors.grey),
+                              style: const TextStyle(color: Colors.grey),
                             ),
                           ],
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         
                         Row(
                           children: [
-                            Icon(Icons.update, size: 16, color: Colors.grey),
-                            SizedBox(width: 8),
+                            const Icon(Icons.update, size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
                             Text(
                               'Обновлено: ${_initialQuote!.updatedAt.day}.${_initialQuote!.updatedAt.month}.${_initialQuote!.updatedAt.year}',
-                              style: TextStyle(color: Colors.grey),
+                              style: const TextStyle(color: Colors.grey),
                             ),
                           ],
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         
                         if (_initialQuote!.items.isNotEmpty)
                           Row(
                             children: [
-                              Icon(Icons.list, size: 16, color: Colors.grey),
-                              SizedBox(width: 8),
+                              const Icon(Icons.list, size: 16, color: Colors.grey),
+                              const SizedBox(width: 8),
                               Text(
                                 'Позиций: ${_initialQuote!.items.length}',
-                                style: TextStyle(color: Colors.grey),
+                                style: const TextStyle(color: Colors.grey),
                               ),
                             ],
                           ),
                       ] else ...[
                         Row(
                           children: [
-                            Icon(Icons.add_circle, size: 16, color: Colors.green),
-                            SizedBox(width: 8),
-                            Text(
+                            const Icon(Icons.add_circle, size: 16, color: Colors.green),
+                            const SizedBox(width: 8),
+                            const Text(
                               'Новое коммерческое предложение',
                               style: TextStyle(color: Colors.green),
                             ),
                           ],
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         
-                        Text(
+                        const Text(
                           'После сохранения вы сможете добавить позиции в деталях КП',
                           style: TextStyle(color: Colors.grey, fontSize: 14),
                         ),
@@ -313,7 +318,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                 ),
               ),
               
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
               
               Row(
                 children: [
@@ -322,22 +327,22 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                       onPressed: () => Navigator.of(context).pop(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey[300],
-                        padding: EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: Text('Отмена', style: TextStyle(color: Colors.black87)),
+                      child: const Text('Отмена', style: TextStyle(color: Colors.black87)),
                     ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: _saveQuote,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).primaryColor,
-                        padding: EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: Text(
                         widget.quoteId == null ? 'Создать КП' : 'Сохранить изменения',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
