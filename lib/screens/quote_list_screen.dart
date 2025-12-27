@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/services/database_helper.dart';
+import 'package:ceiling_crm/services/pdf_service.dart';
 import 'package:ceiling_crm/screens/quote_edit_screen.dart';
 import 'package:ceiling_crm/screens/proposal_detail_screen.dart';
 import 'package:ceiling_crm/widgets/quote_list_tile.dart';
@@ -115,6 +116,22 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     }
   }
 
+  void _generatePdfForQuote(Quote quote) async {
+    try {
+      await _pdfService.previewPdf(context, quote);
+    } catch (e) {
+      print('Ошибка генерации PDF: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка генерации PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showContextMenu(BuildContext context, Quote quote) async {
     final result = await showModalBottomSheet<int>(
       context: context,
@@ -158,7 +175,6 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     );
 
     if (result == 1) {
-      // Редактировать КП
       final updated = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
           builder: (context) => QuoteEditScreen(quoteId: quote.id),
@@ -169,29 +185,11 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
         await _loadQuotes();
       }
     } else if (result == 2) {
-      // Дублировать КП
       await _duplicateQuote(quote);
     } else if (result == 3) {
-      // Создать PDF
       _generatePdfForQuote(quote);
     } else if (result == 4) {
-      // Удалить КП
       await _deleteQuote(quote.id);
-    }
-  }
-
-  // Обновите метод:
-  void _generatePdfForQuote(Quote quote) async {
-    try {
-      await _pdfService.previewPdf(context, quote);
-    } catch (e) {
-      print('Ошибка генерации PDF: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка генерации PDF: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -257,7 +255,6 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
       ),
       body: Column(
         children: [
-          // Поиск
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -278,7 +275,6 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
             ),
           ),
           
-          // Статистика
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -304,7 +300,6 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
           
           const SizedBox(height: 8),
           
-          // Список КП
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -327,7 +322,18 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
                                 ).then((_) => _loadQuotes());
                               },
                               onLongPress: () => _showContextMenu(context, quote),
-                              child: QuoteListTile(quote: quote),
+                              child: QuoteListTile(
+                                quote: quote,
+                                onEdit: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => QuoteEditScreen(quoteId: quote.id),
+                                    ),
+                                  ).then((_) => _loadQuotes());
+                                },
+                                onDelete: () => _deleteQuote(quote.id),
+                              ),
                             );
                           },
                         ),
