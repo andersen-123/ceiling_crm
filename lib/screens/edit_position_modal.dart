@@ -46,7 +46,6 @@ class _EditPositionModalState extends State<EditPositionModal> {
     
     _selectedUnit = widget.initialItem?.unit ?? 'шт.';
     
-    // Устанавливаем фокус на первое поле
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nameFocus.requestFocus();
     });
@@ -123,7 +122,7 @@ class _EditPositionModalState extends State<EditPositionModal> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.initialItem?.id != null && widget.initialItem!.id > 0
+              widget.initialItem != null && widget.initialItem!.id > 0
                   ? 'Редактировать позицию'
                   : 'Добавить позицию',
               style: const TextStyle(
@@ -146,7 +145,7 @@ class _EditPositionModalState extends State<EditPositionModal> {
               onSubmitted: (_) {
                 _quantityFocus.requestFocus();
               },
-              textDirection: TextDirection.ltr, // Фикс RTL
+              textDirection: TextDirection.ltr,
             ),
             const SizedBox(height: 15),
             
@@ -252,7 +251,7 @@ class _EditPositionModalState extends State<EditPositionModal> {
                       padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
                     child: Text(
-                      widget.initialItem?.id != null && widget.initialItem!.id > 0
+                      widget.initialItem != null && widget.initialItem!.id > 0
                           ? 'Сохранить'
                           : 'Добавить',
                     ),
