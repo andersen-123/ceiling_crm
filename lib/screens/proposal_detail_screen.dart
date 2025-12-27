@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/models/line_item.dart';
 import 'package:ceiling_crm/services/database_helper.dart';
+import 'package:ceiling_crm/services/pdf_service.dart';
 import 'package:ceiling_crm/screens/edit_position_modal.dart';
 import 'package:ceiling_crm/screens/quick_add_screen.dart';
 
@@ -15,10 +16,12 @@ class ProposalDetailScreen extends StatefulWidget {
 }
 
 class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
-  final PdfService _pdfService = PdfService();
   late Quote _quote;
   late List<LineItem> _items;
+  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final PdfService _pdfService = PdfService();
   bool _isLoading = false;
+  bool _isGeneratingPdf = false;
 
   @override
   void initState() {
@@ -34,26 +37,30 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
 
     try {
       final updatedQuote = _quote.copyWith(items: _items);
-      final dbHelper = DatabaseHelper.instance;
-      await dbHelper.updateQuote(updatedQuote);
+      await _dbHelper.updateQuote(updatedQuote);
       
       setState(() {
         _quote = updatedQuote;
       });
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Изменения сохранены'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Изменения сохранены'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка сохранения: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Ошибка сохранения: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка сохранения: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -120,12 +127,12 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Удалить позицию?'),
+        title: const Text('Удалить позицию?'),
         content: Text('Вы уверены, что хотите удалить "${_items[index].name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Отмена'),
+            child: const Text('Отмена'),
           ),
           TextButton(
             onPressed: () {
@@ -135,7 +142,7 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
               _saveChanges();
               Navigator.of(context).pop();
             },
-            child: Text('Удалить', style: TextStyle(color: Colors.red)),
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -146,24 +153,24 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: Icon(Icons.add_circle_outline, color: Colors.blue),
-              title: Text('Добавить новую позицию'),
-              subtitle: Text('Создать позицию с нуля'),
+              leading: const Icon(Icons.add_circle_outline, color: Colors.blue),
+              title: const Text('Добавить новую позицию'),
+              subtitle: const Text('Создать позицию с нуля'),
               onTap: () {
                 Navigator.of(context).pop();
                 _addNewItem();
               },
             ),
-            Divider(),
+            const Divider(),
             ListTile(
-              leading: Icon(Icons.library_add, color: Colors.green),
-              title: Text('Быстрое добавление из шаблона'),
-              subtitle: Text('Выбрать из готовых позиций'),
+              leading: const Icon(Icons.library_add, color: Colors.green),
+              title: const Text('Быстрое добавление из шаблона'),
+              subtitle: const Text('Выбрать из готовых позиций'),
               onTap: () {
                 Navigator.of(context).pop();
                 _quickAddFromTemplate();
@@ -175,11 +182,31 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
     );
   }
 
-  void _generatePdf() {
-    // TODO: Реализовать генерацию PDF
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Генерация PDF в разработке...')),
-    );
+  void _generatePdf() async {
+    if (_isGeneratingPdf || _items.isEmpty) return;
+    
+    setState(() {
+      _isGeneratingPdf = true;
+    });
+
+    try {
+      final updatedQuote = _quote.copyWith(items: _items);
+      await _pdfService.previewPdf(context, updatedQuote);
+    } catch (e) {
+      print('Ошибка генерации PDF: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка генерации PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isGeneratingPdf = false;
+      });
+    }
   }
 
   double _calculateTotal() {
@@ -192,76 +219,101 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
       appBar: AppBar(
         title: Text('КП: ${_quote.clientName}'),
         actions: [
+          // Кнопка PDF
           if (_items.isNotEmpty)
             IconButton(
-              icon: Icon(Icons.picture_as_pdf),
-              onPressed: _generatePdf,
+              icon: _isGeneratingPdf 
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.picture_as_pdf),
+              onPressed: _isGeneratingPdf ? null : _generatePdf,
               tooltip: 'Создать PDF',
             ),
+          
+          // Меню дополнительных опций
           PopupMenuButton(
             itemBuilder: (context) => [
               PopupMenuItem(
-                child: ListTile(
+                child: const ListTile(
                   leading: Icon(Icons.save),
                   title: Text('Сохранить изменения'),
                 ),
                 onTap: _saveChanges,
               ),
               PopupMenuItem(
-                child: ListTile(
+                child: const ListTile(
                   leading: Icon(Icons.share),
                   title: Text('Поделиться'),
                 ),
                 onTap: () {
                   // TODO: Реализовать шаринг
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Шаринг в разработке...')),
+                    );
+                  }
                 },
               ),
             ],
           ),
         ],
       ),
+      
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddOptions,
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
         tooltip: 'Добавить позицию',
       ),
+      
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 // Информация о клиенте
                 Card(
-                  margin: EdgeInsets.all(8),
+                  margin: const EdgeInsets.all(8),
                   child: Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Клиент: ${_quote.clientName}',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 18, 
+                            fontWeight: FontWeight.bold
+                          ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text('Адрес: ${_quote.clientAddress}'),
                         if (_quote.clientPhone.isNotEmpty)
                           Text('Телефон: ${_quote.clientPhone}'),
                         if (_quote.clientEmail.isNotEmpty)
                           Text('Email: ${_quote.clientEmail}'),
                         if (_quote.notes.isNotEmpty) ...[
-                          SizedBox(height: 8),
-                          Text(
+                          const SizedBox(height: 8),
+                          const Text(
                             'Примечания:',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(_quote.notes),
                         ],
-                        Divider(height: 20),
+                        const Divider(height: 20),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
+                            const Text(
                               'Итого:',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 18, 
+                                fontWeight: FontWeight.bold
+                              ),
                             ),
                             Text(
                               '${_calculateTotal().toStringAsFixed(2)} ₽',
@@ -280,17 +332,20 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
 
                 // Заголовок списка позиций
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Позиции (${_items.length})',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 16, 
+                          fontWeight: FontWeight.bold
+                        ),
                       ),
                       Text(
                         'Сумма: ${_calculateTotal().toStringAsFixed(2)} ₽',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -303,16 +358,22 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.list, size: 64, color: Colors.grey),
-                              SizedBox(height: 16),
-                              Text(
+                              const Icon(Icons.list, size: 64, color: Colors.grey),
+                              const SizedBox(height: 16),
+                              const Text(
                                 'Нет позиций',
                                 style: TextStyle(fontSize: 18, color: Colors.grey),
                               ),
-                              SizedBox(height: 8),
-                              Text(
+                              const SizedBox(height: 8),
+                              const Text(
                                 'Нажмите "+" чтобы добавить позиции',
                                 style: TextStyle(color: Colors.grey),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.library_add),
+                                label: const Text('Добавить из шаблона'),
+                                onPressed: _quickAddFromTemplate,
                               ),
                             ],
                           ),
@@ -321,31 +382,36 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                           itemCount: _items.length,
                           itemBuilder: (context, index) {
                             final item = _items[index];
+                            final itemTotal = item.quantity * item.price;
+                            
                             return Card(
-                              margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 8, 
+                                vertical: 4
+                              ),
                               child: ListTile(
                                 title: Text(
                                   item.name,
-                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     Row(
                                       children: [
                                         Text(
                                           '${item.quantity} ${item.unit}',
-                                          style: TextStyle(color: Colors.blue),
+                                          style: const TextStyle(color: Colors.blue),
                                         ),
-                                        Text(' × '),
+                                        const Text(' × '),
                                         Text(
-                                          '${item.price} ₽',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                          '${item.price.toStringAsFixed(2)} ₽',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
                                         ),
-                                        Text(' = '),
+                                        const Text(' = '),
                                         Text(
-                                          '${(item.quantity * item.price).toStringAsFixed(2)} ₽',
+                                          '${itemTotal.toStringAsFixed(2)} ₽',
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             color: Colors.green[700],
@@ -355,10 +421,13 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                                     ),
                                     if (item.note.isNotEmpty)
                                       Padding(
-                                        padding: EdgeInsets.only(top: 4),
+                                        padding: const EdgeInsets.only(top: 4),
                                         child: Text(
                                           item.note,
-                                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                                          style: const TextStyle(
+                                            fontSize: 12, 
+                                            color: Colors.grey
+                                          ),
                                         ),
                                       ),
                                   ],
@@ -367,12 +436,16 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     IconButton(
-                                      icon: Icon(Icons.edit, size: 20),
+                                      icon: const Icon(Icons.edit, size: 20),
                                       onPressed: () => _editItem(item, index),
                                       tooltip: 'Редактировать',
                                     ),
                                     IconButton(
-                                      icon: Icon(Icons.delete, size: 20, color: Colors.red),
+                                      icon: const Icon(
+                                        Icons.delete, 
+                                        size: 20, 
+                                        color: Colors.red
+                                      ),
                                       onPressed: () => _removeItem(index),
                                       tooltip: 'Удалить',
                                     ),
