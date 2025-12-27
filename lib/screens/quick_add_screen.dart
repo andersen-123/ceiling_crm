@@ -197,7 +197,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                                   const SizedBox(width: 8),
                                   Text(
                                     '/ ${item.unit}',
-                                    style: const TextStyle(color: Colors.grey[600]),
+                                    style: TextStyle(color: Colors.grey[600]),
                                   ),
                                 ],
                               ),
@@ -206,7 +206,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                                   padding: const EdgeInsets.only(top: 4),
                                   child: Text(
                                     item.description,
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                                   ),
                                 ),
                             ],
