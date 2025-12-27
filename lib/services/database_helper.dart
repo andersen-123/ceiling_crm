@@ -41,13 +41,11 @@ class DatabaseHelper {
     ''');
   }
 
-  // Создание нового КП
   Future<int> insertQuote(Quote quote) async {
     final db = await instance.database;
     return await db.insert('quotes', quote.toMap());
   }
 
-  // Получение всех КП
   Future<List<Quote>> getAllQuotes() async {
     final db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -60,7 +58,6 @@ class DatabaseHelper {
     });
   }
 
-  // Получение одного КП по ID
   Future<Quote?> getQuote(int id) async {
     final db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -75,7 +72,6 @@ class DatabaseHelper {
     return null;
   }
 
-  // Обновление КП
   Future<int> updateQuote(Quote quote) async {
     final db = await instance.database;
     return await db.update(
@@ -86,7 +82,6 @@ class DatabaseHelper {
     );
   }
 
-  // Удаление КП
   Future<int> deleteQuote(int id) async {
     final db = await instance.database;
     return await db.delete(
@@ -96,7 +91,6 @@ class DatabaseHelper {
     );
   }
 
-  // Закрытие базы данных
   Future<void> close() async {
     final db = await instance.database;
     db.close();
