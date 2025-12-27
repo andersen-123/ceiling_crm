@@ -1,69 +1,70 @@
 // lib/models/line_item.dart
-
 class LineItem {
-  int? id;
-  final int quoteId; // Ссылка на id коммерческого предложения
-  final String section; // Раздел: "Работы", "Материалы" и т.д.
-  final String description; // Описание позиции
-  final String unit; // Единица измерения: "м2", "шт.", "п.м."
-  final double quantity;
-  final double unitPrice;
-  double get total => quantity * unitPrice; // Автоматический расчёт суммы
+  int id;
+  String name;
+  String description;
+  double quantity;
+  String unit;
+  double price;
 
   LineItem({
-    this.id,
-    required this.quoteId,
-    required this.section,
-    required this.description,
-    required this.unit,
+    required this.id,
+    required this.name,
+    this.description = '',
     required this.quantity,
-    required this.unitPrice,
+    required this.unit,
+    required this.price,
   });
 
-  // Конвертация в Map для SQLite
+  // Преобразование в Map
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id,
-      'quoteId': quoteId,
-      'section': section,
+      'id': id,
+      'name': name,
       'description': description,
-      'unit': unit,
       'quantity': quantity,
-      'unitPrice': unitPrice,
+      'unit': unit,
+      'price': price,
+      'total': quantity * price,
     };
   }
 
-  // Создание объекта из Map (из SQLite)
+  // Создание из Map
   factory LineItem.fromMap(Map<String, dynamic> map) {
     return LineItem(
-      id: map['id'],
-      quoteId: map['quoteId'],
-      section: map['section'],
-      description: map['description'],
-      unit: map['unit'],
-      quantity: map['quantity'],
-      unitPrice: map['unitPrice'],
+      id: map['id'] ?? DateTime.now().millisecondsSinceEpoch,
+      name: map['name'] ?? 'Без названия',
+      description: map['description'] ?? '',
+      quantity: map['quantity'] ?? 1.0,
+      unit: map['unit'] ?? 'шт.',
+      price: map['price'] ?? 0.0,
     );
   }
 
-  // Копия объекта с изменениями (удобно для редактирования)
+  // Копирование с изменениями
   LineItem copyWith({
     int? id,
-    int? quoteId,
-    String? section,
+    String? name,
     String? description,
-    String? unit,
     double? quantity,
-    double? unitPrice,
+    String? unit,
+    double? price,
   }) {
     return LineItem(
       id: id ?? this.id,
-      quoteId: quoteId ?? this.quoteId,
-      section: section ?? this.section,
+      name: name ?? this.name,
       description: description ?? this.description,
-      unit: unit ?? this.unit,
       quantity: quantity ?? this.quantity,
-      unitPrice: unitPrice ?? this.unitPrice,
+      unit: unit ?? this.unit,
+      price: price ?? this.price,
     );
+  }
+
+  // Получение суммы
+  double get total => quantity * price;
+
+  @override
+  String toString() {
+    return 'LineItem($name: $quantity $unit × $price = $total)';
   }
 }
