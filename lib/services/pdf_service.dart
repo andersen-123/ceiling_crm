@@ -1,26 +1,23 @@
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:ceiling_crm/models/quote.dart';
 import 'package:intl/intl.dart';
+import 'package:ceiling_crm/models/quote.dart';
 
 class PdfService {
-  // Формат чисел для рублей
   final NumberFormat _currencyFormat = NumberFormat.currency(
     locale: 'ru_RU',
     symbol: '₽',
     decimalDigits: 2,
   );
 
-  // Формат даты
   final DateFormat _dateFormat = DateFormat('dd.MM.yyyy');
 
-  // Генерация PDF документа
   Future<Uint8List> generateQuotePdf(Quote quote) async {
     final pdf = pw.Document();
 
-    // Добавляем страницу
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -28,24 +25,17 @@ class PdfService {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Шапка документа
               _buildHeader(quote),
               pw.SizedBox(height: 20),
-              
-              // Информация о клиенте
               _buildClientInfo(quote),
               pw.SizedBox(height: 20),
-              
-              // Таблица позиций
               _buildItemsTable(quote),
               pw.SizedBox(height: 20),
-              
-              // Итоговая сумма
               _buildTotalSection(quote),
-              pw.SizedBox(height: 20),
-              
-              // Примечания
-              if (quote.notes.isNotEmpty) _buildNotesSection(quote),
+              if (quote.notes.isNotEmpty) ...[
+                pw.SizedBox(height: 20),
+                _buildNotesSection(quote),
+              ],
             ],
           );
         },
@@ -55,7 +45,6 @@ class PdfService {
     return pdf.save();
   }
 
-  // Шапка документа
   pw.Widget _buildHeader(Quote quote) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -77,7 +66,6 @@ class PdfService {
     );
   }
 
-  // Информация о клиенте
   pw.Widget _buildClientInfo(Quote quote) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -98,7 +86,6 @@ class PdfService {
     );
   }
 
-  // Таблица позиций
   pw.Widget _buildItemsTable(Quote quote) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -114,57 +101,34 @@ class PdfService {
         pw.Table(
           border: pw.TableBorder.all(),
           children: [
-            // Заголовок таблицы
             pw.TableRow(
               children: [
                 pw.Padding(
                   padding: const pw.EdgeInsets.all(8),
-                  child: pw.Text(
-                    '№',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                  ),
+                  child: pw.Text('№', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 ),
                 pw.Padding(
                   padding: const pw.EdgeInsets.all(8),
-                  child: pw.Text(
-                    'Наименование',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                  ),
+                  child: pw.Text('Наименование', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 ),
                 pw.Padding(
                   padding: const pw.EdgeInsets.all(8),
-                  child: pw.Text(
-                    'Кол-во',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                    textAlign: pw.TextAlign.right,
-                  ),
+                  child: pw.Text('Кол-во', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right),
                 ),
                 pw.Padding(
                   padding: const pw.EdgeInsets.all(8),
-                  child: pw.Text(
-                    'Ед.',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                  ),
+                  child: pw.Text('Ед.', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 ),
                 pw.Padding(
                   padding: const pw.EdgeInsets.all(8),
-                  child: pw.Text(
-                    'Цена',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                    textAlign: pw.TextAlign.right,
-                  ),
+                  child: pw.Text('Цена', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right),
                 ),
                 pw.Padding(
                   padding: const pw.EdgeInsets.all(8),
-                  child: pw.Text(
-                    'Сумма',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                    textAlign: pw.TextAlign.right,
-                  ),
+                  child: pw.Text('Сумма', style: pw.TextStyle(fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right),
                 ),
               ],
             ),
-            // Данные позиций
             for (int i = 0; i < quote.items.length; i++)
               pw.TableRow(
                 children: [
@@ -178,10 +142,7 @@ class PdfService {
                   ),
                   pw.Padding(
                     padding: const pw.EdgeInsets.all(8),
-                    child: pw.Text(
-                      quote.items[i].quantity.toStringAsFixed(2),
-                      textAlign: pw.TextAlign.right,
-                    ),
+                    child: pw.Text(quote.items[i].quantity.toStringAsFixed(2), textAlign: pw.TextAlign.right),
                   ),
                   pw.Padding(
                     padding: const pw.EdgeInsets.all(8),
@@ -189,10 +150,7 @@ class PdfService {
                   ),
                   pw.Padding(
                     padding: const pw.EdgeInsets.all(8),
-                    child: pw.Text(
-                      _currencyFormat.format(quote.items[i].price),
-                      textAlign: pw.TextAlign.right,
-                    ),
+                    child: pw.Text(_currencyFormat.format(quote.items[i].price), textAlign: pw.TextAlign.right),
                   ),
                   pw.Padding(
                     padding: const pw.EdgeInsets.all(8),
@@ -209,7 +167,6 @@ class PdfService {
     );
   }
 
-  // Итоговая сумма
   pw.Widget _buildTotalSection(Quote quote) {
     return pw.Container(
       alignment: pw.Alignment.centerRight,
@@ -237,7 +194,6 @@ class PdfService {
     );
   }
 
-  // Примечания
   pw.Widget _buildNotesSection(Quote quote) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -255,20 +211,16 @@ class PdfService {
     );
   }
 
-  // Предпросмотр PDF
   Future<void> previewPdf(BuildContext context, Quote quote) async {
-    final pdfBytes = await generateQuotePdf(quote);
-    
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdfBytes,
-    );
-  }
-
-  // Сохранение PDF в файл
-  Future<void> savePdfToFile(Quote quote) async {
-    final pdfBytes = await generateQuotePdf(quote);
-    
-    // TODO: Реализовать сохранение в файл
-    // Для этого нужен пакет file_picker или path_provider
+    try {
+      final pdfBytes = await generateQuotePdf(quote);
+      
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdfBytes,
+      );
+    } catch (e) {
+      print('Ошибка предпросмотра PDF: $e');
+      rethrow;
+    }
   }
 }
