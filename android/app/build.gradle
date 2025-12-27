@@ -27,7 +27,7 @@ apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
     namespace "com.example.ceiling_crm"
-    compileSdkVersion 33  // ← ИЗМЕНЕНО: было 34, стало 33
+    compileSdkVersion 34 // Измените на 34 или выше
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
