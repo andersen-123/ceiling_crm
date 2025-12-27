@@ -1,9 +1,12 @@
 // lib/screens/proposal_detail_screen.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/quote.dart';
+import 'package:ceiling_crm/models/line_item.dart';
 import 'package:ceiling_crm/services/database_helper.dart';
 import 'package:ceiling_crm/screens/edit_position_modal.dart';
 import 'package:ceiling_crm/screens/pdf_preview_screen.dart';
+import 'package:ceiling_crm/screens/quote_edit_screen.dart';
 
 class ProposalDetailScreen extends StatefulWidget {
   final Map<String, dynamic> quote;
@@ -18,107 +21,96 @@ class ProposalDetailScreen extends StatefulWidget {
 }
 
 class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
-  late Map<String, dynamic> _quote;
+  late Quote _quote;
   bool _isSaving = false;
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
   @override
   void initState() {
     super.initState();
-    _quote = Map<String, dynamic>.from(widget.quote);
-    _quote['positions'] ??= [];
+    // Преобразуем Map в объект Quote
+    _quote = Quote.fromMap(widget.quote);
   }
 
-  // Преобразуем в объект Quote для сохранения
-  Quote _mapToQuote(Map<String, dynamic> map) {
-    return Quote(
-      id: map['id'],
-      clientName: map['clientName'] ?? '',
-      address: map['address'] ?? '',
-      phone: map['phone'] ?? '',
-      email: map['email'] ?? '',
-      notes: map['notes'] ?? '',
-      totalAmount: map['totalAmount'] ?? 0.0,
-      positions: (map['positions'] as List?)
-          ?.map((p) => LineItem.fromMap(p))
-          .toList() ??
-          [],
-      createdAt: map['createdAt'] != null 
-          ? DateTime.parse(map['createdAt']) 
-          : DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-  }
-
-  // Сохранение quote
+  // Сохранение изменений
   Future<void> _saveQuote() async {
     setState(() {
       _isSaving = true;
     });
 
     try {
-      final quote = _mapToQuote(_quote);
-      await _dbHelper.saveQuote(quote.toMap());
+      // Обновляем дату изменения
+      _quote = _quote.copyWith(
+        updatedAt: DateTime.now(),
+        totalAmount: _quote.calculateTotal(),
+      );
+
+      // Сохраняем в базу
+      await _dbHelper.saveQuote(_quote);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('КП сохранено'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('КП сохранено'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка сохранения: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка сохранения: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isSaving = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
-  // Методы для работы с позициями (остаются как в предыдущей версии)
-  double _calculateTotal() {
-    double total = 0;
-    for (var position in _quote['positions']) {
-      final quantity = position['quantity'] ?? 0;
-      final price = position['price'] ?? 0;
-      total += quantity * price;
-    }
-    return total;
-  }
-
-  void _addNewPosition() {
-    final newPosition = {
-      'id': DateTime.now().millisecondsSinceEpoch,
-      'name': 'Новая позиция',
-      'description': '',
-      'quantity': 1.0,
-      'unit': 'шт.',
-      'price': 0.0,
-    };
+  // Добавление новой позиции
+  void _addPosition() {
+    final newPosition = LineItem(
+      id: DateTime.now().millisecondsSinceEpoch,
+      name: 'Новая позиция',
+      quantity: 1.0,
+      unit: 'шт.',
+      price: 0.0,
+    );
 
     setState(() {
-      _quote['positions'].add(newPosition);
+      _quote = _quote.copyWith(
+        positions: [..._quote.positions, newPosition],
+      );
     });
 
-    _editPosition(_quote['positions'].length - 1);
+    _editPosition(_quote.positions.length - 1);
   }
 
+  // Редактирование позиции
   void _editPosition(int index) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => EditPositionModal(
-        position: _quote['positions'][index],
-        onSave: (updatedPosition) {
+        position: _quote.positions[index].toMap(),
+        onSave: (updatedMap) {
+          final updatedPosition = LineItem.fromMap(updatedMap);
+          final newPositions = List<LineItem>.from(_quote.positions);
+          newPositions[index] = updatedPosition;
+          
           setState(() {
-            _quote['positions'][index] = updatedPosition;
+            _quote = _quote.copyWith(positions: newPositions);
           });
+          
           _saveQuote();
         },
       ),
@@ -129,6 +121,7 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
     });
   }
 
+  // Удаление позиции
   void _deletePosition(int index) {
     showDialog(
       context: context,
@@ -142,15 +135,17 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
           ),
           TextButton(
             onPressed: () {
+              final newPositions = List<LineItem>.from(_quote.positions);
+              newPositions.removeAt(index);
+              
               setState(() {
-                _quote['positions'].removeAt(index);
+                _quote = _quote.copyWith(positions: newPositions);
               });
+              
               Navigator.pop(context);
               _saveQuote();
             },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Удалить'),
           ),
         ],
@@ -158,21 +153,15 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
     );
   }
 
-  // Генерация PDF через ваш pdf_service
+  // Генерация PDF
   Future<void> _generatePdf() async {
     try {
-      // Используем ваш PDF сервис
-      final pdfService = PdfService();
-      final pdfBytes = await pdfService.generateQuotePdf(_mapToQuote(_quote));
-      
-      // Переход на экран предпросмотра
+      // Переход на экран PDF
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => PdfPreviewScreen(
-            pdfBytes: pdfBytes,
-            fileName: 'КП_${_quote['clientName']}_${DateTime.now().millisecondsSinceEpoch}.pdf',
-            quote: _quote,
+            quote: _quote.toMap(),
           ),
         ),
       );
@@ -186,16 +175,63 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
     }
   }
 
+  // Редактирование КП (переход в режим редактирования)
+  void _editQuote() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuoteEditScreen(
+          quoteToEdit: _quote,
+        ),
+      ),
+    );
+  }
+
+  // Удаление всего КП
+  Future<void> _deleteQuote() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить КП?'),
+        content: const Text('Вы уверены, что хотите удалить это коммерческое предложение?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _dbHelper.deleteProposal(_quote.id!);
+      
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final totalAmount = _quote.calculateTotal();
+    
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_quote['clientName'] ?? 'КП'),
             Text(
-              '${_calculateTotal().toStringAsFixed(2)} ₽',
+              _quote.clientName,
+              style: const TextStyle(fontSize: 16),
+            ),
+            Text(
+              '${totalAmount.toStringAsFixed(2)} ₽',
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.normal,
@@ -207,35 +243,72 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
           if (_isSaving)
             const Padding(
               padding: EdgeInsets.all(8.0),
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
             ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            onPressed: _generatePdf,
-            tooltip: 'Создать PDF',
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'edit') {
+                _editQuote();
+              } else if (value == 'pdf') {
+                _generatePdf();
+              } else if (value == 'delete') {
+                _deleteQuote();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 20),
+                    SizedBox(width: 8),
+                    Text('Редактировать КП'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'pdf',
+                child: Row(
+                  children: [
+                    Icon(Icons.picture_as_pdf, size: 20),
+                    SizedBox(width: 8),
+                    Text('Создать PDF'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 20, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Удалить КП', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    return Column(
-      children: [
-        // Информация о клиенте
-        _buildClientInfo(),
-        
-        // Список позиций
-        Expanded(
-          child: _quote['positions'].isEmpty
-              ? _buildEmptyState()
-              : _buildPositionsList(),
-        ),
-        
-        // Панель с итогами
-        _buildBottomPanel(),
-      ],
+      body: Column(
+        children: [
+          // Информация о клиенте
+          _buildClientInfo(),
+          
+          // Список позиций
+          Expanded(
+            child: _quote.positions.isEmpty
+                ? _buildEmptyState()
+                : _buildPositionsList(),
+          ),
+          
+          // Панель с итогами и кнопками
+          _buildBottomPanel(),
+        ],
+      ),
     );
   }
 
@@ -249,11 +322,11 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.person, color: Colors.blue),
+                const Icon(Icons.person, color: Colors.blue, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _quote['clientName'] ?? 'Клиент не указан',
+                    _quote.clientName,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -262,24 +335,57 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.location_on, color: Colors.green),
+                const Icon(Icons.location_on, color: Colors.green, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(_quote['address'] ?? 'Адрес не указан'),
+                  child: Text(_quote.address),
                 ),
               ],
             ),
-            if (_quote['phone']?.isNotEmpty == true) ...[
+            if (_quote.phone.isNotEmpty) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.phone, color: Colors.purple),
+                  const Icon(Icons.phone, color: Colors.purple, size: 20),
                   const SizedBox(width: 8),
-                  Text(_quote['phone']),
+                  Text(_quote.phone),
                 ],
+              ),
+            ],
+            if (_quote.email.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.email, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Text(_quote.email),
+                ],
+              ),
+            ],
+            if (_quote.notes.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Card(
+                color: Colors.grey.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Примечания:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(_quote.notes),
+                    ],
+                  ),
+                ),
               ),
             ],
           ],
@@ -293,15 +399,22 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+          const Icon(
+            Icons.receipt_long,
+            size: 64,
+            color: Colors.grey,
+          ),
           const SizedBox(height: 16),
           const Text(
             'Позиции не добавлены',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey,
+            ),
           ),
           const SizedBox(height: 8),
           ElevatedButton.icon(
-            onPressed: _addNewPosition,
+            onPressed: _addPosition,
             icon: const Icon(Icons.add),
             label: const Text('Добавить первую позицию'),
           ),
@@ -313,10 +426,9 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
   Widget _buildPositionsList() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _quote['positions'].length,
+      itemCount: _quote.positions.length,
       itemBuilder: (context, index) {
-        final position = _quote['positions'][index];
-        final total = (position['quantity'] ?? 0) * (position['price'] ?? 0);
+        final position = _quote.positions[index];
         
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
@@ -332,16 +444,49 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
                 ),
               ),
             ),
-            title: Text(position['name'] ?? 'Без названия'),
-            subtitle: Text(
-              '${position['quantity']} ${position['unit']} × ${position['price']} ₽',
+            title: Text(
+              position.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            trailing: Text(
-              '${total.toStringAsFixed(2)} ₽',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${position.quantity} ${position.unit} × ${position.price} ₽',
+                ),
+                if (position.description.isNotEmpty)
+                  Text(
+                    position.description,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${position.total.toStringAsFixed(2)} ₽',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  position.unit,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -350,7 +495,7 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
   }
 
   Widget _buildBottomPanel() {
-    final total = _calculateTotal();
+    final totalAmount = _quote.calculateTotal();
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -373,10 +518,13 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
             children: [
               const Text(
                 'Итого:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(
-                '${total.toStringAsFixed(2)} ₽',
+                '${totalAmount.toStringAsFixed(2)} ₽',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -390,7 +538,7 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _addNewPosition,
+                  onPressed: _addPosition,
                   icon: const Icon(Icons.add),
                   label: const Text('Добавить позицию'),
                 ),
@@ -398,9 +546,16 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _saveQuote,
+                  onPressed: _isSaving ? null : _saveQuote,
                   icon: _isSaving
-                      ? const CircularProgressIndicator(strokeWidth: 2)
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Icon(Icons.save),
                   label: Text(_isSaving ? 'Сохранение...' : 'Сохранить'),
                 ),
