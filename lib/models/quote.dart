@@ -1,7 +1,7 @@
 // lib/models/quote.dart
+import 'package:ceiling_crm/models/line_item.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
-
-import 'line_item.dart';
 
 class Quote {
   int? id;
@@ -112,4 +112,49 @@ class Quote {
   String toString() {
     return 'Quote(id: $id, clientName: $clientName, total: $totalAmount)';
   }
+  // Метод для загрузки стандартных позиций из JSON
+  static Future<List<LineItem>> loadStandardPositions() async {
+    try {
+      final jsonString = await rootBundle.loadString('assets/standard_positions.json');
+      final List<dynamic> jsonList = jsonDecode(jsonString);
+      
+      return jsonList.map((item) {
+        return LineItem(
+          id: 0, // ID будет установлен при добавлении
+          name: item['name'] ?? '',
+          quantity: 1.0, // По умолчанию 1
+          unit: item['unit'] ?? 'шт.',
+          price: (item['price'] as num).toDouble(),
+          note: item['note'] ?? '',
+        );
+      }).toList();
+    } catch (e) {
+      print('Ошибка загрузки стандартных позиций: $e');
+      return _getDefaultPositions();
+    }
+  }
+
+  // Запасной метод на случай ошибки загрузки файла
+  static List<LineItem> _getDefaultPositions() {
+    return [
+      LineItem(
+        id: 0,
+        name: 'Полотно MSD Premium белое матовое с установкой',
+        quantity: 1.0,
+        unit: 'м²',
+        price: 610.0,
+        note: '',
+      ),
+      LineItem(
+        id: 0,
+        name: 'Профиль стеновой/потолочный гарпунный с установкой',
+        quantity: 1.0,
+        unit: 'м.п.',
+        price: 310.0,
+        note: '',
+      ),
+      // ... добавьте другие позиции по аналогии
+    ];
+  }
 }
+
