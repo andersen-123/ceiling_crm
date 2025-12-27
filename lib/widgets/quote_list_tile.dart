@@ -1,135 +1,131 @@
 // lib/widgets/quote_list_tile.dart
-
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/quote.dart';
 
 class QuoteListTile extends StatelessWidget {
   final Quote quote;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
-
+  
   const QuoteListTile({
-    Key? key,
+    super.key,
     required this.quote,
     required this.onTap,
+    this.onEdit,
     this.onDelete,
-  }) : super(key: key);
-
-  // Функция для цвета статуса
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Подписан':
-        return Colors.green;
-      case 'Отправлен':
-        return Colors.blue;
-      case 'В работе':
-        return Colors.orange;
-      case 'Черновик':
-      default:
-        return Colors.grey;
-    }
+  });
+  
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+    return DateFormat('dd.MM.yyyy').format(date);
   }
-
-  // Форматирование даты
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
-  }
-
-  // Форматирование суммы
+  
   String _formatAmount(double amount) {
-    return '${amount.toStringAsFixed(2)} ₽';
+    return NumberFormat.currency(
+      locale: 'ru_RU',
+      symbol: '₽',
+      decimalDigits: 0,
+    ).format(amount);
   }
-
+  
   @override
   Widget build(BuildContext context) {
+    final createdAt = quote.createdAt;
+    final total = quote.totalAmount;
+    
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       child: ListTile(
         onTap: onTap,
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: _getStatusColor(quote.status).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(
-              quote.customerName.substring(0, 1).toUpperCase(),
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: _getStatusColor(quote.status),
-              ),
+        leading: CircleAvatar(
+          backgroundColor: Colors.blue.shade50,
+          child: Text(
+            quote.clientName.isNotEmpty 
+                ? quote.clientName.substring(0, 1).toUpperCase()
+                : '?',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
             ),
           ),
         ),
         title: Text(
-          quote.customerName,
+          quote.clientName,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 4),
             Text(
               quote.address,
-              style: const TextStyle(fontSize: 14),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(quote.status).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    quote.status,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _getStatusColor(quote.status),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
+                Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade600),
+                const SizedBox(width: 4),
                 Text(
-                  _formatDate(quote.quoteDate),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  _formatDate(createdAt),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                const Spacer(),
+                Text(
+                  _formatAmount(total),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                    fontSize: 14,
+                  ),
                 ),
               ],
             ),
           ],
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              _formatAmount(quote.totalAmount),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
-              ),
-            ),
-            if (quote.prepayment > 0)
-              Text(
-                'Аванс: ${_formatAmount(quote.prepayment)}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.green,
-                ),
-              ),
-          ],
-        ),
+        trailing: onEdit != null || onDelete != null
+            ? PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'edit' && onEdit != null) {
+                    onEdit!();
+                  } else if (value == 'delete' && onDelete != null) {
+                    onDelete!();
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (onEdit != null)
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 20),
+                          SizedBox(width: 8),
+                          Text('Редактировать'),
+                        ],
+                      ),
+                    ),
+                  if (onDelete != null)
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, size: 20, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Удалить', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                ],
+              )
+            : null,
       ),
     );
   }
