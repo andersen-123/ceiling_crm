@@ -170,7 +170,11 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     final result = await showModalBottomSheet<LineItem>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => EditPositionModal(),
+      builder: (context) => EditPositionModal(
+        onSave: (item) {
+          // Обратный вызов при сохранении
+        },
+      ),
     );
     
     if (result != null) {
@@ -187,7 +191,12 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     final result = await showModalBottomSheet<LineItem>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => EditPositionModal(lineItem: item),
+      builder: (context) => EditPositionModal(
+        initialItem: item,
+        onSave: (updatedItem) {
+          // Обратный вызов при обновлении
+        },
+      ),
     );
     
     if (result != null) {
