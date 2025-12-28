@@ -30,14 +30,13 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
- # assets:
-   # - assets/
-   # - fonts/
-
- # fonts:
-   # - family: Roboto
-     # fonts:
-       # - asset: fonts/Roboto-Regular.ttf
-       # - asset: fonts/Roboto-Bold.ttf
+  
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: fonts/Roboto-Regular.ttf
+        - asset: fonts/Roboto-Bold.ttf
           weight: 700
+  
+  assets:
+    - assets/standard_positions.json
