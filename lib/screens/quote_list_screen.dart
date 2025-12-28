@@ -9,6 +9,7 @@ import 'package:ceiling_crm/services/pdf_service.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:ceiling_crm/screens/debug_screen.dart';
 
 class QuoteListScreen extends StatefulWidget {
   @override
@@ -618,6 +619,38 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
         title: Text('Коммерческие предложения'),
         backgroundColor: Colors.blueGrey[800],
         elevation: 2,
+        // В actions AppBar добавляем:
+        actions: [
+          // Секретная кнопка отладки (удерживать 3 секунды)
+          IconButton(
+            icon: Icon(Icons.bug_report),
+            onPressed: () {
+              // Обычное нажатие ничего не делает
+            },
+            onLongPress: () {
+              // Долгое нажатие открывает экран отладки
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DebugScreen(),
+                ),
+              );
+            },
+            tooltip: 'Удерживайте для отладки',
+          ),
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SettingsScreen(),
+                ),
+              );
+            },
+            tooltip: 'Настройки компании',
+          ),
+        ],
         actions: [
           IconButton(
             icon: Icon(Icons.settings),
