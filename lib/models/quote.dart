@@ -1,116 +1,105 @@
-import 'package:flutter/material.dart';
+import 'package:ceiling_crm/models/line_item.dart';
 
 class Quote {
-  final int? id;
-  final String clientName;
-  final String? clientPhone;
-  final String? objectAddress;
-  final String status;
-  final DateTime createdAt;
-  final double? total;
-  final double? vatRate;
-  final double? vatAmount;
-  final double? totalWithVat;
+  int? id;
+  String clientName;
+  String clientPhone;
+  String clientAddress;
+  String notes;
+  double totalAmount;
+  DateTime createdAt;
+  DateTime? updatedAt;
+  List<LineItem> items;
 
   Quote({
     this.id,
     required this.clientName,
-    this.clientPhone,
-    this.objectAddress,
-    this.status = 'draft',
-    DateTime? createdAt,
-    this.total,
-    this.vatRate,
-    this.vatAmount,
-    this.totalWithVat,
-  }) : createdAt = createdAt ?? DateTime.now();
+    this.clientPhone = '',
+    this.clientAddress = '',
+    this.notes = '',
+    this.totalAmount = 0.0,
+    required this.createdAt,
+    this.updatedAt,
+    this.items = const [],
+  });
 
-  // Фабричный конструктор из Map
-  factory Quote.fromMap(Map<String, dynamic> map) {
-    return Quote(
-      id: map['id'] as int?,
-      clientName: map['client_name'] ?? '',
-      clientPhone: map['client_phone'],
-      objectAddress: map['object_address'],
-      status: map['status'] ?? 'draft',
-      createdAt: map['created_at'] != null
-          ? DateTime.parse(map['created_at'] as String)
-          : DateTime.now(),
-      total: (map['total'] as num?)?.toDouble(),
-      vatRate: (map['vat_rate'] as num?)?.toDouble(),
-      vatAmount: (map['vat_amount'] as num?)?.toDouble(),
-      totalWithVat: (map['total_with_vat'] as num?)?.toDouble(),
-    );
-  }
-
-  // Метод для преобразования в Map
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id,
-      'client_name': clientName,
-      'client_phone': clientPhone,
-      'object_address': objectAddress,
-      'status': status,
-      'created_at': createdAt.toIso8601String(),
-      'total': total,
-      'vat_rate': vatRate,
-      'vat_amount': vatAmount,
-      'total_with_vat': totalWithVat,
+      'id': id,
+      'clientName': clientName,
+      'clientPhone': clientPhone,
+      'clientAddress': clientAddress,
+      'notes': notes,
+      'totalAmount': totalAmount,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
-  // Метод для создания копии
+  factory Quote.fromMap(Map<String, dynamic> map) {
+    return Quote(
+      id: map['id'],
+      clientName: map['clientName'],
+      clientPhone: map['clientPhone'] ?? '',
+      clientAddress: map['clientAddress'] ?? '',
+      notes: map['notes'] ?? '',
+      totalAmount: map['totalAmount'] ?? 0.0,
+      createdAt: DateTime.parse(map['createdAt']),
+      updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+    );
+  }
+
+  void addItem(LineItem item) {
+    final newItem = item.copyWith(quoteId: id ?? 0);
+    items.add(newItem);
+    _calculateTotal();
+  }
+
+  void addItems(List<LineItem> newItems) {
+    for (var item in newItems) {
+      addItem(item);
+    }
+  }
+
+  void removeItem(int index) {
+    if (index >= 0 && index < items.length) {
+      items.removeAt(index);
+      _calculateTotal();
+    }
+  }
+
+  void updateItem(int index, LineItem newItem) {
+    if (index >= 0 && index < items.length) {
+      items[index] = newItem.copyWith(quoteId: id ?? 0);
+      _calculateTotal();
+    }
+  }
+
+  void _calculateTotal() {
+    totalAmount = items.fold(0.0, (sum, item) => sum + item.totalPrice);
+  }
+
   Quote copyWith({
     int? id,
     String? clientName,
     String? clientPhone,
-    String? objectAddress,
-    String? status,
+    String? clientAddress,
+    String? notes,
+    double? totalAmount,
     DateTime? createdAt,
-    double? total,
-    double? vatRate,
-    double? vatAmount,
-    double? totalWithVat,
+    DateTime? updatedAt,
+    List<LineItem>? items,
   }) {
     return Quote(
       id: id ?? this.id,
       clientName: clientName ?? this.clientName,
       clientPhone: clientPhone ?? this.clientPhone,
-      objectAddress: objectAddress ?? this.objectAddress,
-      status: status ?? this.status,
+      clientAddress: clientAddress ?? this.clientAddress,
+      notes: notes ?? this.notes,
+      totalAmount: totalAmount ?? this.totalAmount,
       createdAt: createdAt ?? this.createdAt,
-      total: total ?? this.total,
-      vatRate: vatRate ?? this.vatRate,
-      vatAmount: vatAmount ?? this.vatAmount,
-      totalWithVat: totalWithVat ?? this.totalWithVat,
+      updatedAt: updatedAt ?? this.updatedAt,
+      items: items ?? List.from(this.items),
     );
-  }
-
-  // Геттер для цвета статуса
-  Color get statusColor {
-    switch (status) {
-      case 'accepted':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      case 'pending':
-        return Colors.orange;
-      default: // draft
-        return Colors.grey;
-    }
-  }
-
-  // Геттер для текста статуса
-  String get statusText {
-    switch (status) {
-      case 'accepted':
-        return 'Принят';
-      case 'rejected':
-        return 'Отклонен';
-      case 'pending':
-        return 'На рассмотрении';
-      default: // draft
-        return 'Черновик';
-    }
   }
 }
