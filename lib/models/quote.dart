@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 
 class Quote {
   int? id;
@@ -12,7 +13,7 @@ class Quote {
   String notes;
   double totalPrice;
   
-  // НОВОЕ ПОЛЕ: статус КП
+  // Статусы КП
   String status; // 'draft', 'sent', 'accepted', 'rejected', 'expired'
   DateTime? statusChangedAt;
   String? statusComment;
@@ -47,7 +48,6 @@ class Quote {
       'valid_until': validUntil?.toIso8601String(),
       'notes': notes,
       'total_price': totalPrice,
-      // НОВЫЕ ПОЛЯ
       'status': status,
       'status_changed_at': statusChangedAt?.toIso8601String(),
       'status_comment': statusComment,
@@ -67,7 +67,6 @@ class Quote {
       validUntil: map['valid_until'] != null ? DateTime.parse(map['valid_until']) : null,
       notes: map['notes'] ?? '',
       totalPrice: map['total_price'],
-      // НОВЫЕ ПОЛЯ
       status: map['status'] ?? 'draft',
       statusChangedAt: map['status_changed_at'] != null 
           ? DateTime.parse(map['status_changed_at']) 
@@ -112,12 +111,6 @@ class Quote {
     }
   }
 
-  // Проверка статусов
-  bool get isDraft => status == 'draft';
-  bool get isSent => status == 'sent';
-  bool get isAccepted => status == 'accepted';
-  bool get isRejected => status == 'rejected';
-  
   // Цвет статуса для UI
   Color get statusColor {
     switch (status) {
@@ -128,5 +121,38 @@ class Quote {
       case 'expired': return Colors.orange;
       default: return Colors.grey;
     }
+  }
+
+  // Метод для копирования объекта
+  Quote copyWith({
+    int? id,
+    String? title,
+    String? clientName,
+    String? clientPhone,
+    String? clientEmail,
+    String? clientAddress,
+    DateTime? createdAt,
+    DateTime? validUntil,
+    String? notes,
+    double? totalPrice,
+    String? status,
+    DateTime? statusChangedAt,
+    String? statusComment,
+  }) {
+    return Quote(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      clientName: clientName ?? this.clientName,
+      clientPhone: clientPhone ?? this.clientPhone,
+      clientEmail: clientEmail ?? this.clientEmail,
+      clientAddress: clientAddress ?? this.clientAddress,
+      createdAt: createdAt ?? this.createdAt,
+      validUntil: validUntil ?? this.validUntil,
+      notes: notes ?? this.notes,
+      totalPrice: totalPrice ?? this.totalPrice,
+      status: status ?? this.status,
+      statusChangedAt: statusChangedAt ?? this.statusChangedAt,
+      statusComment: statusComment ?? this.statusComment,
+    );
   }
 }
