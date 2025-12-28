@@ -3,77 +3,52 @@ import 'package:ceiling_crm/screens/quote_list_screen.dart';
 import 'package:ceiling_crm/screens/settings_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(CeilingCRMApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
+class CeilingCRMApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Ceiling CRM',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
+        primarySwatch: Colors.blueGrey,
+        fontFamily: 'Roboto',
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.blueGrey[800],
+          elevation: 2,
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(),
+          filled: true,
+          fillColor: Colors.grey[50],
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            padding: EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+            textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
         ),
       ),
-      home: const App(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
-
-class App extends StatefulWidget {
-  const App({super.key});
-
-  @override
-  State<App> createState() => _AppState();
-}
-
-class _AppState extends State<App> {
-  int _selectedIndex = 0;
-
-  final List<Widget> _screens = [
-    const QuoteListScreen(),
-    const SettingsScreen(),
-  ];
-
-  final List<String> _screenTitles = [
-    'Коммерческие предложения',
-    'Настройки',
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_screenTitles[_selectedIndex]),
-      ),
-      body: _screens[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.description),
-            label: 'КП',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Настройки',
-          ),
-        ],
-      ),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => QuoteListScreen(),
+        '/settings': (context) => SettingsScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/pdf_preview') {
+          final args = settings.arguments;
+          // Здесь будет создание экрана предпросмотра PDF
+          return MaterialPageRoute(builder: (context) => Container());
+        }
+        return null;
+      },
     );
   }
 }
