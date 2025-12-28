@@ -6,7 +6,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
-import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/quote.dart';
 import '../models/company_profile.dart';
@@ -15,15 +14,15 @@ import '../models/line_item.dart';
 class PdfService {
   // Загружаем шрифт Roboto из assets
   static Future<pw.Font> _loadRobotoFont() async {
-    final ByteData fontData = await rootBundle.load('fonts/Roboto-Regular.ttf');
-    final Uint8List fontBytes = fontData.buffer.asUint8List();
-    return pw.Font.ttf(fontBytes);
+    final fontData = await rootBundle.load('fonts/Roboto-Regular.ttf');
+    final fontBytes = fontData.buffer.asUint8List();
+    return pw.Font.ttf(fontBytes.buffer.asByteData());
   }
 
   static Future<pw.Font> _loadRobotoBoldFont() async {
-    final ByteData fontData = await rootBundle.load('fonts/Roboto-Bold.ttf');
-    final Uint8List fontBytes = fontData.buffer.asUint8List();
-    return pw.Font.ttf(fontBytes);
+    final fontData = await rootBundle.load('fonts/Roboto-Bold.ttf');
+    final fontBytes = fontData.buffer.asUint8List();
+    return pw.Font.ttf(fontBytes.buffer.asByteData());
   }
 
   static Future<Uint8List> generateQuotePdf(
@@ -92,10 +91,8 @@ class PdfService {
                         style: titleStyle,
                       ),
                       pw.SizedBox(height: 4),
-                      pw.Text(
-                        company.address ?? '',
-                        style: normalStyle,
-                      ),
+                      if (company.address != null && company.address!.isNotEmpty)
+                        pw.Text(company.address!, style: normalStyle),
                       pw.Text(
                         'Тел: ${company.phone ?? '+7 (999) 123-45-67'}',
                         style: normalStyle,
@@ -106,8 +103,6 @@ class PdfService {
                       ),
                     ],
                   ),
-                  // Здесь можно добавить логотип если есть
-                  // pw.Image(pw.MemoryImage(logoBytes), width: 100, height: 50),
                 ],
               ),
               
@@ -142,7 +137,7 @@ class PdfService {
                       borderRadius: pw.BorderRadius.circular(4),
                     ),
                     child: pw.Text(
-                      quote.statusDisplay.toUpperCase(),
+                      _getStatusDisplay(quote.status).toUpperCase(),
                       style: pw.TextStyle(
                         font: robotoBoldFont,
                         fontSize: 10,
@@ -228,87 +223,90 @@ class PdfService {
               ),
               pw.SizedBox(height: 10),
               
-              pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.grey300, width: 1),
-                columnWidths: {
-                  0: pw.FlexColumnWidth(1),
-                  1: pw.FlexColumnWidth(3),
-                  2: pw.FlexColumnWidth(1),
-                  3: pw.FlexColumnWidth(1.5),
-                  4: pw.FlexColumnWidth(1.5),
-                },
-                children: [
-                  // Заголовок таблицы
-                  pw.TableRow(
-                    decoration: pw.BoxDecoration(color: PdfColors.blue700),
-                    children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('#', style: tableHeaderStyle, textAlign: pw.TextAlign.center),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('Наименование', style: tableHeaderStyle),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('Кол-во', style: tableHeaderStyle, textAlign: pw.TextAlign.center),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('Цена', style: tableHeaderStyle, textAlign: pw.TextAlign.right),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('Сумма', style: tableHeaderStyle, textAlign: pw.TextAlign.right),
-                      ),
-                    ],
-                  ),
-                  
-                  // Позиции
-                  for (var i = 0; i < items.length; i++)
+              if (items.isNotEmpty)
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300, width: 1),
+                  columnWidths: {
+                    0: pw.FlexColumnWidth(1),
+                    1: pw.FlexColumnWidth(3),
+                    2: pw.FlexColumnWidth(1),
+                    3: pw.FlexColumnWidth(1.5),
+                    4: pw.FlexColumnWidth(1.5),
+                  },
+                  children: [
+                    // Заголовок таблицы
                     pw.TableRow(
+                      decoration: pw.BoxDecoration(color: PdfColors.blue700),
                       children: [
                         pw.Padding(
                           padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            (i + 1).toString(),
-                            style: normalStyle,
-                            textAlign: pw.TextAlign.center,
-                          ),
+                          child: pw.Text('#', style: tableHeaderStyle, textAlign: pw.TextAlign.center),
                         ),
                         pw.Padding(
                           padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(items[i].description, style: normalStyle),
+                          child: pw.Text('Наименование', style: tableHeaderStyle),
                         ),
                         pw.Padding(
                           padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            items[i].quantity.toStringAsFixed(2).replaceAll('.', ','),
-                            style: normalStyle,
-                            textAlign: pw.TextAlign.center,
-                          ),
+                          child: pw.Text('Кол-во', style: tableHeaderStyle, textAlign: pw.TextAlign.center),
                         ),
                         pw.Padding(
                           padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            formatCurrency(items[i].unitPrice),
-                            style: normalStyle,
-                            textAlign: pw.TextAlign.right,
-                          ),
+                          child: pw.Text('Цена', style: tableHeaderStyle, textAlign: pw.TextAlign.right),
                         ),
                         pw.Padding(
                           padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            formatCurrency(items[i].totalPrice),
-                            style: normalStyle,
-                            textAlign: pw.TextAlign.right,
-                          ),
+                          child: pw.Text('Сумма', style: tableHeaderStyle, textAlign: pw.TextAlign.right),
                         ),
                       ],
                     ),
-                ],
-              ),
+                    
+                    // Позиции
+                    for (var i = 0; i < items.length; i++)
+                      pw.TableRow(
+                        children: [
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text(
+                              (i + 1).toString(),
+                              style: normalStyle,
+                              textAlign: pw.TextAlign.center,
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text(items[i].description, style: normalStyle),
+                          ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text(
+                              items[i].quantity.toStringAsFixed(2).replaceAll('.', ','),
+                              style: normalStyle,
+                              textAlign: pw.TextAlign.center,
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text(
+                              formatCurrency(items[i].unitPrice),
+                              style: normalStyle,
+                              textAlign: pw.TextAlign.right,
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text(
+                              formatCurrency(items[i].totalPrice),
+                              style: normalStyle,
+                              textAlign: pw.TextAlign.right,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                )
+              else
+                pw.Text('Нет позиций', style: normalStyle),
               
               pw.SizedBox(height: 20),
               
@@ -404,33 +402,6 @@ class PdfService {
                   ),
                 ],
               ),
-              
-              pw.SizedBox(height: 30),
-              
-              // Статус и комментарий (если есть)
-              if (quote.statusComment != null && quote.statusComment!.isNotEmpty)
-                pw.Container(
-                  padding: pw.EdgeInsets.all(12),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.grey100,
-                    border: pw.Border.all(color: PdfColors.grey300),
-                    borderRadius: pw.BorderRadius.circular(4),
-                  ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'Комментарий к статусу:',
-                        style: pw.TextStyle(
-                          font: robotoBoldFont,
-                          fontSize: 12,
-                        ),
-                      ),
-                      pw.SizedBox(height: 4),
-                      pw.Text(quote.statusComment!, style: normalStyle),
-                    ],
-                  ),
-                ),
             ],
           );
         },
@@ -438,6 +409,18 @@ class PdfService {
     );
 
     return pdf.save();
+  }
+  
+  // Получение текста статуса для PDF
+  static String _getStatusDisplay(String status) {
+    switch (status) {
+      case 'draft': return 'Черновик';
+      case 'sent': return 'Отправлен';
+      case 'accepted': return 'Принят';
+      case 'rejected': return 'Отклонен';
+      case 'expired': return 'Просрочен';
+      default: return 'Черновик';
+    }
   }
   
   // Цвет статуса для PDF
@@ -450,14 +433,6 @@ class PdfService {
       case 'expired': return PdfColors.orange;
       default: return PdfColors.grey;
     }
-  }
-
-  // Сохранение PDF в файл
-  static Future<File> savePdfToFile(Uint8List pdfBytes, String fileName) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/$fileName.pdf');
-    await file.writeAsBytes(pdfBytes);
-    return file;
   }
 
   // Предпросмотр PDF
