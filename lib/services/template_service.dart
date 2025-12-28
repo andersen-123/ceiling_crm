@@ -16,17 +16,16 @@ class TemplateService {
       
       _standardTemplates = jsonList.map((item) {
         return LineItem(
-          quoteId: 0, // Будет установлено при добавлении
+          quoteId: 0,
           name: item['name'] ?? 'Без названия',
-          description: item['description'] ?? '',
-          unitPrice: (item['price'] as num).toDouble(),
+          description: item['description'],
+          price: (item['price'] as num).toDouble(),
           quantity: 1,
           unit: item['unit'] ?? 'шт.',
         );
-      }).toList();
+      }).toList() as List<LineItem>;
     } catch (e) {
       print('Ошибка загрузки шаблонов из JSON: $e');
-      // Если файла нет, загружаем все позиции из кода
       _standardTemplates = _getAllTemplates();
     }
   }
@@ -44,7 +43,7 @@ class TemplateService {
         quoteId: 0,
         name: "Полотно MSD Premium белое матовое с установкой",
         description: "Стандартная установка",
-        unitPrice: 610.0,
+        price: 610.0,
         quantity: 1,
         unit: "м²",
       ),
@@ -52,7 +51,7 @@ class TemplateService {
         quoteId: 0,
         name: "Профиль стеновой/потолочный гарпунный с установкой",
         description: "Монтаж профиля по периметру",
-        unitPrice: 310.0,
+        price: 310.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -60,7 +59,7 @@ class TemplateService {
         quoteId: 0,
         name: "Вставка по периметру гарпунная",
         description: "Установка гарпунной вставки",
-        unitPrice: 220.0,
+        price: 220.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -68,7 +67,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж закладных под световое оборудование, установка светильников",
         description: "Подготовка и установка светильников",
-        unitPrice: 780.0,
+        price: 780.0,
         quantity: 1,
         unit: "шт.",
       ),
@@ -76,7 +75,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж закладных под сдвоенное световое оборудование, установка светильников",
         description: "Монтаж двойных светильников",
-        unitPrice: 1350.0,
+        price: 1350.0,
         quantity: 1,
         unit: "шт.",
       ),
@@ -84,7 +83,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж закладных под люстру",
         description: "Подготовка основания для люстры",
-        unitPrice: 1100.0,
+        price: 1100.0,
         quantity: 1,
         unit: "шт.",
       ),
@@ -92,7 +91,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж закладной и установка вентелятора",
         description: "Установка вентиляционной системы",
-        unitPrice: 1300.0,
+        price: 1300.0,
         quantity: 1,
         unit: "шт.",
       ),
@@ -100,7 +99,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж закладной под потолочный карниз",
         description: "Подготовка под карниз",
-        unitPrice: 650.0,
+        price: 650.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -108,7 +107,7 @@ class TemplateService {
         quoteId: 0,
         name: "Установка потолочного карниза",
         description: "Монтаж карниза",
-        unitPrice: 270.0,
+        price: 270.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -116,7 +115,7 @@ class TemplateService {
         quoteId: 0,
         name: "Установка разделителей",
         description: "Монтаж разделительных планок",
-        unitPrice: 1700.0,
+        price: 1700.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -124,7 +123,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж закладных под встраеваемые шкафы",
         description: "Подготовка под встроенную мебель",
-        unitPrice: 1100.0,
+        price: 1100.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -132,7 +131,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж шторных карнизов (ПК-15) двухрядный",
         description: "Установка двухрядного карниза",
-        unitPrice: 4000.0,
+        price: 4000.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -140,7 +139,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж шторных карнизов (ПК-5) трехрядный",
         description: "Установка трехрядного карниза",
-        unitPrice: 4500.0,
+        price: 4500.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -148,7 +147,7 @@ class TemplateService {
         quoteId: 0,
         name: "Работы по керамической плитке/керамограниту",
         description: "Работы по плиточным поверхностям",
-        unitPrice: 400.0,
+        price: 400.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -156,7 +155,7 @@ class TemplateService {
         quoteId: 0,
         name: "Установка вентиляционной решетки",
         description: "Монтаж вентиляционной решетки",
-        unitPrice: 600.0,
+        price: 600.0,
         quantity: 1,
         unit: "шт.",
       ),
@@ -164,7 +163,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж \"парящего\" потолка, установка светодиодной ленты",
         description: "Создание парящего потолка с подсветкой",
-        unitPrice: 1600.0,
+        price: 1600.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -172,7 +171,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж потолка системы \"EuroKRAAB\"",
         description: "Установка системы EuroKRAAB",
-        unitPrice: 1600.0,
+        price: 1600.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -180,7 +179,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж световых линий, установка светодиодной ленты",
         description: "Создание световых линий",
-        unitPrice: 3400.0,
+        price: 3400.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -188,7 +187,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж открытой ниши",
         description: "Создание открытой ниши",
-        unitPrice: 1200.0,
+        price: 1200.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -196,7 +195,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж ниши с поворотом полотна",
         description: "Создание ниши с поворотом",
-        unitPrice: 3000.0,
+        price: 3000.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -204,7 +203,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж перехода уровня",
         description: "Оформление перехода между уровнями",
-        unitPrice: 3700.0,
+        price: 3700.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -212,7 +211,7 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж закладных под трековое освещение (встраиваемые) с установкой",
         description: "Установка встраиваемого трекового освещения",
-        unitPrice: 3400.0,
+        price: 3400.0,
         quantity: 1,
         unit: "м.п.",
       ),
@@ -220,14 +219,13 @@ class TemplateService {
         quoteId: 0,
         name: "Монтаж закладных под трековое освещение (накладные) с установкой",
         description: "Установка накладного трекового освещения",
-        unitPrice: 1100.0,
+        price: 1100.0,
         quantity: 1,
         unit: "м.п.",
       ),
     ];
   }
 
-  // Метод для поиска шаблонов по названию или описанию
   List<LineItem> searchTemplates(String query) {
     final allTemplates = getTemplates();
     if (query.isEmpty) return allTemplates;
@@ -235,11 +233,10 @@ class TemplateService {
     final lowerQuery = query.toLowerCase();
     return allTemplates.where((template) {
       return template.name.toLowerCase().contains(lowerQuery) ||
-             template.description.toLowerCase().contains(lowerQuery);
+             (template.description ?? '').toLowerCase().contains(lowerQuery);
     }).toList();
   }
 
-  // Метод для получения шаблонов по категории
   Map<String, List<LineItem>> getTemplatesByCategory() {
     final allTemplates = getTemplates();
     final categories = <String, List<LineItem>>{};
@@ -257,7 +254,6 @@ class TemplateService {
 
   String _determineCategory(LineItem item) {
     final name = item.name.toLowerCase();
-    final description = item.description.toLowerCase();
     
     if (name.contains('полотно') || name.contains('потолок')) {
       return 'Основные работы';
@@ -280,7 +276,6 @@ class TemplateService {
     }
   }
 
-  // Метод для получения шаблона по ID
   LineItem? getTemplateById(int index) {
     final templates = getTemplates();
     if (index >= 0 && index < templates.length) {
@@ -289,7 +284,6 @@ class TemplateService {
     return null;
   }
 
-  // Метод для обновления шаблона
   void updateTemplate(int index, LineItem newTemplate) {
     final templates = getTemplates();
     if (index >= 0 && index < templates.length) {
@@ -297,24 +291,20 @@ class TemplateService {
     }
   }
 
-  // Метод для добавления нового шаблона
   void addTemplate(LineItem template) {
     _standardTemplates.add(template);
   }
 
-  // Метод для удаления шаблона
   void removeTemplate(int index) {
     if (index >= 0 && index < _standardTemplates.length) {
       _standardTemplates.removeAt(index);
     }
   }
 
-  // Метод для сброса к стандартным шаблонам
   void resetToDefaults() {
     _standardTemplates = _getAllTemplates();
   }
 
-  // Метод для получения статистики
   Map<String, dynamic> getStatistics() {
     final templates = getTemplates();
     return {
@@ -326,7 +316,7 @@ class TemplateService {
 
   double _calculateAveragePrice(List<LineItem> templates) {
     if (templates.isEmpty) return 0.0;
-    final total = templates.fold(0.0, (sum, item) => sum + item.unitPrice);
+    final total = templates.fold(0.0, (sum, item) => sum + item.price);
     return total / templates.length;
   }
 }
