@@ -1,244 +1,74 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/models/line_item.dart';
-import 'package:ceiling_crm/repositories/quote_repository.dart';
-import 'package:ceiling_crm/screens/edit_position_modal.dart';
-import 'package:ceiling_crm/services/pdf_service.dart';
+import 'package:ceiling_crm/services/database_helper.dart';
 
 class QuoteEditScreen extends StatefulWidget {
-  final int quoteId;
-
-  const QuoteEditScreen({Key? key, required this.quoteId}) : super(key: key);
+  final int? quoteId;
+  
+  const QuoteEditScreen({Key? key, this.quoteId}) : super(key: key);
 
   @override
   _QuoteEditScreenState createState() => _QuoteEditScreenState();
 }
 
 class _QuoteEditScreenState extends State<QuoteEditScreen> {
-  final QuoteRepository _quoteRepo = QuoteRepository();
   final _formKey = GlobalKey<FormState>();
+  final DatabaseHelper _dbHelper = DatabaseHelper();
   
-  final _clientNameController = TextEditingController();
-  final _clientPhoneController = TextEditingController();
-  final _objectAddressController = TextEditingController();
-  
-  Quote? _currentQuote;
-  List<LineItem> _lineItems = [];
-  double _vatRate = 0.0;
-  
+  late Quote _quote;
+  bool _isLoading = true;
+  bool _isNewQuote = true;
+
+  final TextEditingController _clientNameController = TextEditingController();
+  final TextEditingController _clientPhoneController = TextEditingController();
+  final TextEditingController _clientAddressController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _loadQuote();
   }
 
-  @override
-  void dispose() {
-    _clientNameController.dispose();
-    _clientPhoneController.dispose();
-    _objectAddressController.dispose();
-    super.dispose();
-  }
-  
-  Future<void> _exportToPdf() async {
-    if (_currentQuote == null) return;
-  
-    try {
-      // Показываем индикатор загрузки
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Генерируем PDF...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    
-      // Создаем обновленный quote с актуальными данными
-      final updatedQuote = _currentQuote!.copyWith(
-        total: _calculateTotal(),
-        vatAmount: _calculateVatAmount(),
-        totalWithVat: _calculateTotalWithVat(),
-        vatRate: _vatRate,
-      );
-    
-      // Генерируем и делимся PDF
-      await PdfService.generateAndShareQuote(
-        quote: updatedQuote,
-        lineItems: _lineItems,
-        context: context,
-      );
-    
-    } catch (e) {
-      print('❌ Ошибка PDF: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка при создании PDF: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-  
   Future<void> _loadQuote() async {
-    final quote = await _quoteRepo.getQuoteById(widget.quoteId);
-    if (quote != null) {
-      setState(() {
-        _currentQuote = quote;
-        _clientNameController.text = quote.clientName;
-        _clientPhoneController.text = quote.clientPhone ?? '';
-        _objectAddressController.text = quote.objectAddress ?? '';
-        _vatRate = quote.vatRate ?? 0.0;
-      });
-      
-      // Загружаем позиции
-      final items = await _quoteRepo.getLineItems(widget.quoteId);
-      setState(() {
-        _lineItems = items;
-      });
-    }
-  }
-
-  Future<void> _saveQuote() async {
-    if (_formKey.currentState!.validate()) {
-      final updatedQuote = Quote(
-        id: _currentQuote!.id,
-        clientName: _clientNameController.text.trim(),
-        clientPhone: _clientPhoneController.text.trim().isNotEmpty 
-            ? _clientPhoneController.text.trim() 
-            : null,
-        objectAddress: _objectAddressController.text.trim().isNotEmpty
-            ? _objectAddressController.text.trim()
-            : null,
-        status: _currentQuote?.status ?? 'draft',
-        createdAt: _currentQuote!.createdAt,
-        total: _calculateTotal(),
-        vatRate: _vatRate,
-        vatAmount: _calculateVatAmount(),
-        totalWithVat: _calculateTotalWithVat(),
-      );
-
-      try {
-        await _quoteRepo.updateQuote(updatedQuote);
-        
-        setState(() {
-          _currentQuote = updatedQuote;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('КП сохранено')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения: $e')),
-        );
+    if (widget.quoteId != null) {
+      final existingQuote = await _dbHelper.getQuoteById(widget.quoteId!);
+      if (existingQuote != null) {
+        _quote = existingQuote;
+        _isNewQuote = false;
+      } else {
+        _createNewQuote();
       }
+    } else {
+      _createNewQuote();
     }
-  }
-
-  Future<void> _updateQuoteStatus(String status) async {
-    if (_currentQuote != null) {
-      final updatedQuote = _currentQuote!.copyWith(status: status);
-      await _quoteRepo.updateQuote(updatedQuote);
-      setState(() {
-        _currentQuote = updatedQuote;
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Статус изменен на: ${_getStatusText(status)}')),
-      );
-    }
-  }
-
-  Future<void> _addNewPosition() async {
-    final newItem = LineItem(
-      quoteId: widget.quoteId,
-      name: 'Новая позиция',
-      unit: 'шт.',
-      price: 0.0,
-      quantity: 1.0,
-    );
     
-    final id = await _quoteRepo.addLineItem(newItem);
-    setState(() {
-      _lineItems.add(newItem.copyWith(id: id));
-    });
-  }
-
-  Future<void> _editPosition(int index) async {
-    final item = _lineItems[index];
-    final result = await showDialog<LineItem>(
-      context: context,
-      builder: (context) => EditPositionModal(
-        initialItem: item,
-      ),
-    );
+    // Инициализируем контроллеры
+    _clientNameController.text = _quote.clientName;
+    _clientPhoneController.text = _quote.clientPhone;
+    _clientAddressController.text = _quote.clientAddress;
+    _notesController.text = _quote.notes;
     
-    if (result != null) {
-      final updatedItem = result.copyWith(id: item.id, quoteId: item.quoteId);
-      await _quoteRepo.updateLineItem(updatedItem);
-      
-      setState(() {
-        _lineItems[index] = updatedItem;
-      });
-    }
+    setState(() => _isLoading = false);
   }
 
-  Future<void> _deletePosition(int index) async {
-    final item = _lineItems[index];
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить позицию'),
-        content: Text('Вы уверены, что хотите удалить "${item.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
+  void _createNewQuote() {
+    _quote = Quote(
+      clientName: 'Новый клиент',
+      clientPhone: '',
+      clientAddress: '',
+      notes: '',
+      totalAmount: 0.0,
+      createdAt: DateTime.now(),
+      items: [],
     );
-
-    if (confirmed == true && item.id != null) {
-      await _quoteRepo.deleteLineItem(item.id!);
-      setState(() {
-        _lineItems.removeAt(index);
-      });
-    }
-  }
-
-  double _calculateTotal() {
-    double total = 0;
-    for (final item in _lineItems) {
-      total += item.price * item.quantity;
-    }
-    return total;
-  }
-
-  double _calculateVatAmount() {
-    return _calculateTotal() * (_vatRate / 100);
-  }
-
-  double _calculateTotalWithVat() {
-    return _calculateTotal() + _calculateVatAmount();
-  }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'accepted': return 'Принят';
-      case 'rejected': return 'Отклонен';
-      case 'pending': return 'На рассмотрении';
-      default: return 'Черновик';
-    }
+    _isNewQuote = true;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_currentQuote == null) {
+    if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
@@ -246,223 +76,337 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('КП #${_currentQuote!.id}'),
+        title: Text(_isNewQuote ? 'Новое КП' : 'Редактирование КП'),
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveQuote,
             tooltip: 'Сохранить',
           ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            onPressed: _exportToPdf,
-            tooltip: 'Экспорт в PDF',
-          ),
-          PopupMenuButton<String>(
-            onSelected: _updateQuoteStatus,
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'draft',
-                child: Text('Черновик'),
-              ),
-              const PopupMenuItem(
-                value: 'pending',
-                child: Text('На рассмотрении'),
-              ),
-              const PopupMenuItem(
-                value: 'accepted',
-                child: Text('Принят'),
-              ),
-              const PopupMenuItem(
-                value: 'rejected',
-                child: Text('Отклонен'),
-              ),
-            ],
-          ),
         ],
       ),
-      body: Column(
-        children: [
-          // Форма редактирования КП
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Информация о клиенте
-                    _buildSectionHeader('Информация о клиенте'),
-                    _buildTextField(
-                      controller: _clientNameController,
-                      label: 'Имя клиента *',
-                      icon: Icons.person,
-                      required: true,
-                    ),
-                    _buildTextField(
-                      controller: _clientPhoneController,
-                      label: 'Телефон',
-                      icon: Icons.phone,
-                      keyboardType: TextInputType.phone,
-                    ),
-                    _buildTextField(
-                      controller: _objectAddressController,
-                      label: 'Адрес объекта',
-                      icon: Icons.location_on,
-                    ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Информация о клиенте
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Информация о клиенте',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _clientNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Имя клиента *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Введите имя клиента';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) {
+                          setState(() => _quote.clientName = value);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _clientPhoneController,
+                        decoration: const InputDecoration(
+                          labelText: 'Телефон',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) => _quote.clientPhone = value,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _clientAddressController,
+                        decoration: const InputDecoration(
+                          labelText: 'Адрес',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) => _quote.clientAddress = value,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: const InputDecoration(
+                          labelText: 'Примечания',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                        onChanged: (value) => _quote.notes = value,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
-                    // Позиции
-                    _buildSectionHeader('Позиции'),
-                    ..._lineItems.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final item = entry.value;
-                      return _buildPositionCard(item, index);
-                    }).toList(),
+              const SizedBox(height: 24),
 
-                    // Кнопка добавления позиции
-                    OutlinedButton.icon(
-                      onPressed: _addNewPosition,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Добавить позицию'),
+              // Список позиций
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Позиции',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('Добавить'),
+                    onPressed: _addNewItem,
+                  ),
+                ],
+              ),
 
-                    // Итоги
-                    _buildSectionHeader('Итоги'),
-                    _buildTotalCard(),
-                  ],
+              const SizedBox(height: 12),
+
+              if (_quote.items.isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.list, size: 48, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text('Нет добавленных позиций'),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ..._quote.items.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  return _buildLineItemCard(item, index);
+                }).toList(),
+
+              const SizedBox(height: 24),
+
+              // Итоговая сумма
+              Card(
+                color: Colors.blue[50],
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'ИТОГО:',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${_quote.totalAmount.toStringAsFixed(2)} руб.',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLineItemCard(LineItem item, int index) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    item.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _removeItem(index),
+                ),
+              ],
+            ),
+            
+            if (item.description.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(item.description),
+              ),
+            
+            const SizedBox(height: 8),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: item.unitPrice.toString(),
+                    decoration: const InputDecoration(
+                      labelText: 'Цена за единицу',
+                      border: OutlineInputBorder(),
+                      prefixText: '₽ ',
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      final price = double.tryParse(value) ?? 0.0;
+                      setState(() {
+                        _quote.items[index] = item.copyWith(unitPrice: price);
+                        _quote._calculateTotal();
+                      });
+                    },
+                  ),
+                ),
+                
+                const SizedBox(width: 16),
+                
+                Expanded(
+                  child: TextFormField(
+                    initialValue: item.quantity.toString(),
+                    decoration: const InputDecoration(
+                      labelText: 'Количество',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      final quantity = int.tryParse(value) ?? 1;
+                      setState(() {
+                        _quote.items[index] = item.copyWith(quantity: quantity);
+                        _quote._calculateTotal();
+                      });
+                    },
+                  ),
+                ),
+                
+                const SizedBox(width: 16),
+                
+                SizedBox(
+                  width: 100,
+                  child: TextFormField(
+                    initialValue: item.unit,
+                    decoration: const InputDecoration(
+                      labelText: 'Ед. изм.',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _quote.items[index] = item.copyWith(unit: value);
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 8),
+            
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                '${item.totalPrice.toStringAsFixed(2)} руб.',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 16),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.blue,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool required = false,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon),
-          border: const OutlineInputBorder(),
-        ),
-        keyboardType: keyboardType,
-        validator: (value) {
-          if (required && (value == null || value.trim().isEmpty)) {
-            return 'Это поле обязательно';
-          }
-          return null;
-        },
-      ),
-    );
-  }
-
-  Widget _buildPositionCard(LineItem item, int index) {
-    final total = item.price * item.quantity;
-    
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(
-          item.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${item.quantity} ${item.unit} × ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(item.price)}'),
-            Text(
-              'Итого: ${NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(total)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit, size: 20),
-              onPressed: () => _editPosition(index),
-              tooltip: 'Редактировать',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-              onPressed: () => _deletePosition(index),
-              tooltip: 'Удалить',
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTotalCard() {
-    final total = _calculateTotal();
-    final vatAmount = _calculateVatAmount();
-    final totalWithVat = _calculateTotalWithVat();
-    
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildTotalRow('Сумма:', total),
-            _buildTotalRow('НДС (${_vatRate}%):', vatAmount),
-            const Divider(),
-            _buildTotalRow('ИТОГО с НДС:', totalWithVat, isTotal: true),
-          ],
-        ),
-      ),
-    );
+  void _addNewItem() {
+    setState(() {
+      _quote.addItem(LineItem(
+        quoteId: _quote.id ?? 0,
+        name: 'Новая позиция',
+        unitPrice: 0.0,
+        quantity: 1,
+      ));
+    });
   }
 
-  Widget _buildTotalRow(String label, double amount, {bool isTotal = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isTotal ? 18 : 16,
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            ),
+  void _removeItem(int index) {
+    setState(() {
+      _quote.removeItem(index);
+    });
+  }
+
+  Future<void> _saveQuote() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        _quote.updatedAt = DateTime.now();
+        
+        if (_isNewQuote) {
+          await _dbHelper.insertQuote(_quote);
+        } else {
+          await _dbHelper.updateQuote(_quote);
+        }
+        
+        Navigator.pop(context, true);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('КП ${_isNewQuote ? 'создано' : 'обновлено'}'),
+            backgroundColor: Colors.green,
           ),
-          Text(
-            NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(amount),
-            style: TextStyle(
-              fontSize: isTotal ? 18 : 16,
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              color: isTotal ? Colors.green : Colors.black,
-            ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка сохранения: $e'),
+            backgroundColor: Colors.red,
           ),
-        ],
-      ),
-    );
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _clientNameController.dispose();
+    _clientPhoneController.dispose();
+    _clientAddressController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 }
