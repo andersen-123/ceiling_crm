@@ -1,106 +1,59 @@
 class CompanyProfile {
-  final int? id;
-  final String companyName; // Основное название компании (вместо name)
-  final String managerName;
-  final String position;
-  final String? phone;
-  final String? email;
-  final String? address;
-  final String? website; // Добавляем поле
-  final double vatRate; // Добавляем поле
-  final double defaultMargin; // Добавляем поле
-  final String currency; // Добавляем поле
+  int? id;
+  String companyName;
+  String? address;
+  String? phone;
+  String? email;
+  String? website;
+  String? bankDetails;
+  String? directorName;
 
   CompanyProfile({
     this.id,
     required this.companyName,
-    required this.managerName,
-    required this.position,
+    this.address,
     this.phone,
     this.email,
-    this.address,
     this.website,
-    this.vatRate = 0.0,
-    this.defaultMargin = 0.0,
-    this.currency = '₽',
+    this.bankDetails,
+    this.directorName,
   });
 
-  // Фабричный конструктор для создания объекта из Map (из БД)
-  factory CompanyProfile.fromMap(Map<String, dynamic> map) {
+  factory CompanyProfile.defaultProfile() {
     return CompanyProfile(
-      id: map['id'] as int?,
-      companyName: map['company_name'] ?? '',
-      managerName: map['manager_name'] ?? '',
-      position: map['position'] ?? '',
-      phone: map['phone'],
-      email: map['email'],
-      address: map['address'],
-      website: map['website'],
-      vatRate: (map['vat_rate'] as num?)?.toDouble() ?? 0.0,
-      defaultMargin: (map['default_margin'] as num?)?.toDouble() ?? 0.0,
-      currency: map['currency'] ?? '₽',
+      companyName: 'ООО "Натяжные Потолки"',
+      address: 'г. Москва, ул. Примерная, д. 1',
+      phone: '+7 (999) 123-45-67',
+      email: 'info@potolki.ru',
+      website: 'www.potolki.ru',
+      bankDetails: 'Банк: Тинькофф\nР/с: 40702810500000000001\nК/с: 30101810100000000741\nБИК: 044525974',
+      directorName: 'Иванов И.И.',
     );
   }
 
-  // Метод для преобразования объекта в Map (для сохранения в БД)
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id,
-      'company_name': companyName,
-      'manager_name': managerName,
-      'position': position,
+      'id': id,
+      'companyName': companyName,
+      'address': address,
       'phone': phone,
       'email': email,
-      'address': address,
       'website': website,
-      'vat_rate': vatRate,
-      'default_margin': defaultMargin,
-      'currency': currency,
+      'bankDetails': bankDetails,
+      'directorName': directorName,
     };
   }
 
-  // Метод для создания копии с изменениями
-  CompanyProfile copyWith({
-    int? id,
-    String? companyName,
-    String? managerName,
-    String? position,
-    String? phone,
-    String? email,
-    String? address,
-    String? website,
-    double? vatRate,
-    double? defaultMargin,
-    String? currency,
-  }) {
+  factory CompanyProfile.fromMap(Map<String, dynamic> map) {
     return CompanyProfile(
-      id: id ?? this.id,
-      companyName: companyName ?? this.companyName,
-      managerName: managerName ?? this.managerName,
-      position: position ?? this.position,
-      phone: phone ?? this.phone,
-      email: email ?? this.email,
-      address: address ?? this.address,
-      website: website ?? this.website,
-      vatRate: vatRate ?? this.vatRate,
-      defaultMargin: defaultMargin ?? this.defaultMargin,
-      currency: currency ?? this.currency,
-    );
-  }
-
-  // Статический метод для получения профиля по умолчанию
-  static CompanyProfile defaultProfile() {
-    return CompanyProfile(
-      companyName: 'PotolokForLife',
-      managerName: '',
-      position: 'Менеджер',
-      phone: '8(977)5311099',
-      email: 'potolokforlife@yandex.ru',
-      address: 'Пушкино',
-      website: '',
-      vatRate: 0.0,
-      defaultMargin: 0.0,
-      currency: '₽',
+      id: map['id'],
+      companyName: map['companyName'] ?? '',
+      address: map['address'],
+      phone: map['phone'],
+      email: map['email'],
+      website: map['website'],
+      bankDetails: map['bankDetails'],
+      directorName: map['directorName'],
     );
   }
 }
