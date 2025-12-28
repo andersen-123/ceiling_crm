@@ -236,29 +236,6 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
-  Future<void> _exportToPdf() async {
-    if (_currentQuote == null) return;
-    
-    try {
-      // Создаем копию quote с актуальными позициями
-      final quoteWithItems = _currentQuote!.copyWith(
-        total: _calculateTotal(),
-        vatAmount: _calculateVatAmount(),
-        totalWithVat: _calculateTotalWithVat(),
-      );
-      
-      await _generateAndSharePdf(
-        quote: quoteWithItems,
-        lineItems: _lineItems,
-        context: context,
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка генерации PDF: $e')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_currentQuote == null) {
