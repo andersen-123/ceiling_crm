@@ -42,6 +42,11 @@ class _AppState extends State<App> {
     const SettingsScreen(),
   ];
 
+  final List<String> _screenTitles = [
+    'Коммерческие предложения',
+    'Настройки',
+  ];
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -51,6 +56,9 @@ class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text(_screenTitles[_selectedIndex]),
+      ),
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
