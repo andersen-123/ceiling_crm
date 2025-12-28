@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/services/database_helper.dart';
+import 'package:ceiling_crm/screens/proposal_detail_screen.dart';
 
 class QuoteEditScreen extends StatefulWidget {
   final int? quoteId;
@@ -96,13 +97,24 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
         final dbHelper = DatabaseHelper.instance;
         
         if (_isNew) {
-          await dbHelper.insertQuote(updatedQuote);
+          final newId = await dbHelper.insertQuote(updatedQuote);
+          _quote = updatedQuote.copyWith(id: newId);
+          _isNew = false;
         } else {
           await dbHelper.updateQuote(updatedQuote);
+          _quote = updatedQuote;
         }
         
         if (mounted) {
-          Navigator.of(context).pop(true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_isNew ? 'КП создано' : 'КП обновлено'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // После сохранения можно перейти к добавлению позиций
+          _navigateToProposalDetail();
         }
       } catch (e) {
         print('Ошибка сохранения: $e');
@@ -115,6 +127,33 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           );
         }
       }
+    }
+  }
+
+  void _navigateToProposalDetail() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProposalDetailScreen(quote: _quote),
+      ),
+    );
+  }
+
+  void _managePositions() {
+    if (!_isNew && _quote.id > 0) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProposalDetailScreen(quote: _quote),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Сначала сохраните КП'),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
   }
 
@@ -141,6 +180,12 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       appBar: AppBar(
         title: Text(_isNew ? 'Новое КП' : 'Редактировать КП'),
         actions: [
+          if (!_isNew)
+            IconButton(
+              icon: const Icon(Icons.list),
+              onPressed: _managePositions,
+              tooltip: 'Управление позициями',
+            ),
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveQuote,
@@ -303,17 +348,26 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                         ),
                         const SizedBox(height: 8),
                         
-                        if (_quote.items.isNotEmpty)
-                          Row(
-                            children: [
-                              const Icon(Icons.list, size: 16, color: Colors.grey),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Позиций: ${_quote.items.length}',
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                            ],
+                        Row(
+                          children: [
+                            const Icon(Icons.list, size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Позиций: ${_quote.items.length}',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        ElevatedButton.icon(
+                          onPressed: _managePositions,
+                          icon: const Icon(Icons.add_circle),
+                          label: const Text('Добавить/редактировать позиции'),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
                           ),
+                        ),
                       ] else ...[
                         Row(
                           children: [
@@ -328,8 +382,19 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                         const SizedBox(height: 8),
                         
                         const Text(
-                          'После сохранения вы сможете добавить позиции в деталях КП',
+                          'После сохранения вы сможете добавить позиции',
                           style: TextStyle(color: Colors.grey, fontSize: 14),
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        ElevatedButton.icon(
+                          onPressed: _saveQuote,
+                          icon: const Icon(Icons.save),
+                          label: const Text('Сохранить и перейти к позициям'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            minimumSize: const Size(double.infinity, 48),
+                          ),
                         ),
                       ],
                     ],
