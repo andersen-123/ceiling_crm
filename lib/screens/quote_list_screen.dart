@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:ceiling_crm/screens/quote_edit_screen.dart';
 import 'package:ceiling_crm/screens/settings_screen.dart';
 import 'package:ceiling_crm/screens/pdf_preview_screen.dart';
-import 'package:ceiling_crm/models/quote.dart';
+import 'package:ceiling_crm/screens/debug_screen.dart'; // ДОБАВЛЕНО
+import 'package:ceiling_crm/models/quote.dart'; // ДОБАВЛЕНО
+import 'package:ceiling_crm/models/line_item.dart'; // ДОБАВЛЕНО
 import 'package:ceiling_crm/repositories/quote_repository.dart';
 import 'package:ceiling_crm/services/pdf_service.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:ceiling_crm/screens/debug_screen.dart';
 
 class QuoteListScreen extends StatefulWidget {
   @override
