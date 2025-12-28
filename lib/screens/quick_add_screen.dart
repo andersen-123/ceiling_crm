@@ -69,11 +69,11 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (item.description.isNotEmpty)
-                          Text(item.description),
+                        if ((item.description ?? '').isNotEmpty)
+                          Text(item.description ?? ''),
                         const SizedBox(height: 4),
                         Text(
-                          '${item.unitPrice} руб. × ${item.quantity} ${item.unit} = ${item.totalPrice} руб.',
+                          '${item.price} руб. × ${item.quantity} ${item.unit} = ${item.totalPrice} руб.',
                           style: const TextStyle(
                             color: Colors.blue,
                             fontWeight: FontWeight.w500,
@@ -103,8 +103,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
 
   Future<LineItem?> _showEditDialog(LineItem item) async {
     final nameController = TextEditingController(text: item.name);
-    final descriptionController = TextEditingController(text: item.description);
-    final priceController = TextEditingController(text: item.unitPrice.toString());
+    final descriptionController = TextEditingController(text: item.description ?? '');
+    final priceController = TextEditingController(text: item.price.toString());
     final quantityController = TextEditingController(text: item.quantity.toString());
     final unitController = TextEditingController(text: item.unit);
 
@@ -160,7 +160,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
               final editedItem = item.copyWith(
                 name: nameController.text,
                 description: descriptionController.text,
-                unitPrice: double.tryParse(priceController.text) ?? item.unitPrice,
+                price: double.tryParse(priceController.text) ?? item.price,
                 quantity: int.tryParse(quantityController.text) ?? item.quantity,
                 unit: unitController.text,
               );
