@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/quote.dart';
@@ -23,112 +22,87 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 1,
       onCreate: _createDB,
-      onUpgrade: _upgradeDB,
     );
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // Таблица quotes
+    // Таблица для коммерческих предложений
     await db.execute('''
       CREATE TABLE quotes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
         client_name TEXT NOT NULL,
         client_phone TEXT,
-        client_email TEXT,
-        client_address TEXT,
+        object_address TEXT,
+        status TEXT NOT NULL DEFAULT 'draft',
         created_at TEXT NOT NULL,
-        valid_until TEXT,
-        notes TEXT,
-        total_price REAL NOT NULL,
-        status TEXT DEFAULT 'draft',
-        status_changed_at TEXT,
-        status_comment TEXT
+        total REAL,
+        vat_rate REAL,
+        vat_amount REAL,
+        total_with_vat REAL
       )
     ''');
 
-    // Таблица line_items
+    // Таблица для позиций (line items)
     await db.execute('''
       CREATE TABLE line_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         quote_id INTEGER NOT NULL,
-        description TEXT NOT NULL,
+        name TEXT NOT NULL,
+        unit TEXT NOT NULL,
+        price REAL NOT NULL,
         quantity REAL NOT NULL,
-        unit_price REAL NOT NULL,
-        total_price REAL NOT NULL,
+        total REAL,
         FOREIGN KEY (quote_id) REFERENCES quotes (id) ON DELETE CASCADE
       )
     ''');
 
-    // Таблица company_profile
+    // Таблица для профиля компании
     await db.execute('''
-      CREATE TABLE company_profile (
-        id INTEGER PRIMARY KEY,
+      CREATE TABLE company_profiles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         company_name TEXT NOT NULL,
+        manager_name TEXT NOT NULL,
+        position TEXT NOT NULL,
         phone TEXT,
         email TEXT,
         address TEXT,
-        manager_name TEXT,
-        position TEXT,
-        vat_number TEXT,
-        logo_path TEXT
+        website TEXT,
+        vat_rate REAL DEFAULT 0,
+        default_margin REAL DEFAULT 0,
+        currency TEXT DEFAULT '₽'
       )
     ''');
-
-    // Вставляем тестовый профиль компании
-    await db.execute('''
-      INSERT INTO company_profile (id, company_name, phone, email)
-      VALUES (1, 'Ваша компания', '+7 (999) 123-45-67', 'info@company.ru')
-    ''');
   }
 
-  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('ALTER TABLE quotes ADD COLUMN status TEXT DEFAULT "draft"');
-      await db.execute('ALTER TABLE quotes ADD COLUMN status_changed_at TEXT');
-      await db.execute('ALTER TABLE quotes ADD COLUMN status_comment TEXT');
-    }
-  }
-
-  // ========== CRUD ДЛЯ QUOTES ==========
-
+  // CRUD для Quote
   Future<int> insertQuote(Quote quote) async {
-    final db = await database;
+    final db = await instance.database;
     return await db.insert('quotes', quote.toMap());
   }
 
   Future<List<Quote>> getAllQuotes() async {
-    final db = await database;
-    final maps = await db.query('quotes', orderBy: 'created_at DESC');
-    return maps.map((map) => Quote.fromMap(map)).toList();
-  }
-
-  Future<List<Quote>> getQuotesByStatus(String status) async {
-    final db = await database;
-    final maps = await db.query(
-      'quotes',
-      where: 'status = ?',
-      whereArgs: [status],
-      orderBy: 'created_at DESC',
-    );
+    final db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query('quotes', orderBy: 'created_at DESC');
     return maps.map((map) => Quote.fromMap(map)).toList();
   }
 
   Future<Quote?> getQuoteById(int id) async {
-    final db = await database;
-    final maps = await db.query(
+    final db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
       'quotes',
       where: 'id = ?',
       whereArgs: [id],
     );
-    if (maps.isNotEmpty) return Quote.fromMap(maps.first);
+    if (maps.isNotEmpty) {
+      return Quote.fromMap(maps.first);
+    }
     return null;
   }
 
   Future<int> updateQuote(Quote quote) async {
-    final db = await database;
+    final db = await instance.database;
     return await db.update(
       'quotes',
       quote.toMap(),
@@ -138,42 +112,42 @@ class DatabaseHelper {
   }
 
   Future<int> deleteQuote(int id) async {
-    final db = await database;
-    await db.delete('line_items', where: 'quote_id = ?', whereArgs: [id]);
-    return await db.delete('quotes', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<List<Quote>> searchQuotes(String query) async {
-    final db = await database;
-    final maps = await db.query(
+    final db = await instance.database;
+    return await db.delete(
       'quotes',
-      where: 'title LIKE ? OR client_name LIKE ? OR notes LIKE ?',
-      whereArgs: ['%$query%', '%$query%', '%$query%'],
-      orderBy: 'created_at DESC',
+      where: 'id = ?',
+      whereArgs: [id],
     );
-    return maps.map((map) => Quote.fromMap(map)).toList();
   }
 
-  // ========== CRUD ДЛЯ LINE ITEMS ==========
+  // Метод для получения общей выручки (только принятые КП)
+  Future<double> getTotalRevenue() async {
+    final db = await instance.database;
+    final result = await db.rawQuery(
+      'SELECT SUM(total_with_vat) as revenue FROM quotes WHERE status = "accepted"'
+    );
+    final revenue = result.first['revenue'] as num?;
+    return revenue?.toDouble() ?? 0.0;
+  }
 
+  // CRUD для LineItem
   Future<int> insertLineItem(LineItem item) async {
-    final db = await database;
+    final db = await instance.database;
     return await db.insert('line_items', item.toMap());
   }
 
-  Future<List<LineItem>> getLineItemsByQuoteId(int quoteId) async {
-    final db = await database;
-    final maps = await db.query(
+  Future<List<LineItem>> getLineItems(int quoteId) async {
+    final db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
       'line_items',
       where: 'quote_id = ?',
       whereArgs: [quoteId],
-      orderBy: 'id',
     );
     return maps.map((map) => LineItem.fromMap(map)).toList();
   }
 
   Future<int> updateLineItem(LineItem item) async {
-    final db = await database;
+    final db = await instance.database;
     return await db.update(
       'line_items',
       item.toMap(),
@@ -183,53 +157,56 @@ class DatabaseHelper {
   }
 
   Future<int> deleteLineItem(int id) async {
-    final db = await database;
-    return await db.delete('line_items', where: 'id = ?', whereArgs: [id]);
+    final db = await instance.database;
+    return await db.delete(
+      'line_items',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
-  // ========== CRUD ДЛЯ COMPANY PROFILE ==========
+  // CRUD для CompanyProfile
+  Future<int> insertCompanyProfile(CompanyProfile profile) async {
+    final db = await instance.database;
+    return await db.insert('company_profiles', profile.toMap());
+  }
 
   Future<CompanyProfile?> getCompanyProfile() async {
-    final db = await database;
-    final maps = await db.query('company_profile', where: 'id = 1');
-    if (maps.isNotEmpty) return CompanyProfile.fromMap(maps.first);
+    final db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query('company_profiles');
+    if (maps.isNotEmpty) {
+      return CompanyProfile.fromMap(maps.first);
+    }
     return null;
   }
 
   Future<int> updateCompanyProfile(CompanyProfile profile) async {
-    final db = await database;
-    
-    // Создаем копию с правильным id
-    final profileToUpdate = profile.copyWith(id: 1);
-    
-    return await db.update(
-      'company_profile',
-      profileToUpdate.toMap(),
+    final db = await instance.database;
+    // Если есть id, обновляем, иначе вставляем новый
+    if (profile.id != null) {
+      return await db.update(
+        'company_profiles',
+        profile.toMap(),
+        where: 'id = ?',
+        whereArgs: [profile.id],
+      );
+    } else {
+      return await db.insert('company_profiles', profile.toMap());
+    }
+  }
+
+  Future<int> deleteCompanyProfile(int id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'company_profiles',
       where: 'id = ?',
-      whereArgs: [1],
+      whereArgs: [id],
     );
   }
 
-  // ========== СТАТИСТИКА ==========
-
-  Future<Map<String, int>> getQuotesStatistics() async {
-    final db = await database;
-    final maps = await db.rawQuery('''
-      SELECT status, COUNT(*) as count 
-      FROM quotes 
-      GROUP BY status
-    ''');
-    
-    final stats = <String, int>{};
-    for (var map in maps) {
-      stats[map['status'] as String] = map['count'] as int;
-    }
-    
-    return stats;
-  }
-
-  Future<void> close() async {
-    final db = await database;
+  // Закрытие базы данных
+  Future close() async {
+    final db = await instance.database;
     db.close();
   }
 }
