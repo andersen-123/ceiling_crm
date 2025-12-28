@@ -20,38 +20,34 @@ class PdfService {
   }) async {
     try {
       print('🔧 Начинаем генерацию PDF для КП #${quote.id}');
-      
+    
       // 1. Получаем профиль компании
       final dbHelper = DatabaseHelper.instance;
       final companyProfile = await dbHelper.getCompanyProfile();
       print('✅ Профиль компании загружен');
-      
+    
       // 2. Генерируем PDF документ
       final pdf = await _generatePdfDocument(quote, lineItems, companyProfile);
       print('✅ PDF документ сгенерирован');
-      
+    
       // 3. Сохраняем во временный файл
       final output = await getTemporaryDirectory();
       final file = File('${output.path}/КП_${quote.id}_${DateTime.now().millisecondsSinceEpoch}.pdf');
       await file.writeAsBytes(await pdf.save());
       print('✅ PDF сохранен: ${file.path}');
-      
+    
       // 4. Предпросмотр PDF
       print('📄 Открываем предпросмотр PDF...');
       await Printing.layoutPdf(
         onLayout: (format) => pdf.save(),
       );
       print('✅ Предпросмотр открыт');
-      
-      // 5. Шаринг файла
+    
+      // 5. Шаринг файла - ТОЛЬКО ОДИН АРГУМЕНТ
       print('📤 Открываем диалог шаринга...');
-      final box = context.findRenderObject() as RenderBox?;
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        await Share.shareXFiles([XFile(file.path)]);
-      );
+      await Share.shareXFiles([XFile(file.path)]);
       print('✅ Шаринг запущен');
-      
+    
     } catch (e) {
       print('❌ Ошибка генерации PDF: $e');
       rethrow;
