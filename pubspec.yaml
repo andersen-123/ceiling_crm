@@ -47,6 +47,6 @@ flutter:
   fonts:
     - family: Roboto
       fonts:
-        - asset: fonts/roboto-regular.ttf      # ИСПРАВЛЕНО: строчные
-        - asset: fonts/roboto-bold.ttf         # ИСПРАВЛЕНО: строчные
+        - asset: fonts/Roboto-regular.ttf      
+        - asset: fonts/Roboto-bold.ttf         
           weight: 700
