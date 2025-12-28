@@ -48,7 +48,7 @@ class PdfService {
       final box = context.findRenderObject() as RenderBox?;
       await Share.shareXFiles(
         [XFile(file.path)],
-        sharePositionOrigin: box?.localToGlobal(Offset.zero) & box!.size,
+        await Share.shareXFiles([XFile(file.path)]);
       );
       print('✅ Шаринг запущен');
       
