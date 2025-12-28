@@ -40,7 +40,21 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     _objectAddressController.dispose();
     super.dispose();
   }
-
+  
+  Future<void> _generateAndSharePdf() async {
+    try {
+      // Временная заглушка для тестирования
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF экспорт временно отключен для исправления ошибок')),
+      );
+      // TODO: Восстановить вызов PdfService после исправления
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка генерации PDF: $e')),
+      );
+    }
+  }
+  
   Future<void> _loadQuote() async {
     final quote = await _quoteRepo.getQuoteById(widget.quoteId);
     if (quote != null) {
@@ -209,7 +223,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
         totalWithVat: _calculateTotalWithVat(),
       );
       
-      await PdfService.generateAndShareQuote(
+      await _generateAndSharePdf(
         quote: quoteWithItems,
         lineItems: _lineItems,
         context: context,
