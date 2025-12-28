@@ -1,143 +1,88 @@
-import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
-import 'line_item.dart';
+import 'package:flutter/foundation.dart';
 
 class Quote {
-  int id;
+  int? id;
   String clientName;
-  String clientAddress;
   String clientPhone;
-  String clientEmail;
-  String notes;
-  List<LineItem> items;
+  String objectAddress;
+  String? notes;
+  String status; // draft, sent, accepted, rejected
   DateTime createdAt;
-  DateTime updatedAt;
-
+  DateTime? updatedAt;
+  double total;
+  double vatRate;
+  
   Quote({
-    this.id = 0,
+    this.id,
     required this.clientName,
-    required this.clientAddress,
     required this.clientPhone,
-    required this.clientEmail,
-    required this.notes,
-    required this.items,
+    required this.objectAddress,
+    this.notes,
+    this.status = 'draft',
     required this.createdAt,
-    required this.updatedAt,
+    this.updatedAt,
+    this.total = 0.0,
+    this.vatRate = 20.0,
   });
-
-  double get totalAmount {
-    return items.fold(0.0, (sum, item) => sum + (item.quantity * item.price));
-  }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'clientName': clientName,
-      'clientAddress': clientAddress,
-      'clientPhone': clientPhone,
-      'clientEmail': clientEmail,
+      'client_name': clientName,
+      'client_phone': clientPhone,
+      'object_address': objectAddress,
       'notes': notes,
-      'items': jsonEncode(items.map((item) => item.toMap()).toList()),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      'status': status,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+      'total': total,
+      'vat_rate': vatRate,
     };
   }
 
   factory Quote.fromMap(Map<String, dynamic> map) {
-    List<LineItem> items = [];
-    try {
-      if (map['items'] != null) {
-        final itemsList = jsonDecode(map['items'] as String) as List;
-        items = itemsList.map((itemMap) => LineItem.fromMap(itemMap)).toList();
-      }
-    } catch (e) {
-      print('Error parsing items: $e');
-    }
-
     return Quote(
-      id: map['id'] as int,
-      clientName: map['clientName'] as String,
-      clientAddress: map['clientAddress'] as String,
-      clientPhone: map['clientPhone'] as String,
-      clientEmail: map['clientEmail'] as String,
-      notes: map['notes'] as String,
-      items: items,
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      updatedAt: DateTime.parse(map['updatedAt'] as String),
+      id: map['id'],
+      clientName: map['client_name'] ?? '',
+      clientPhone: map['client_phone'] ?? '',
+      objectAddress: map['object_address'] ?? '',
+      notes: map['notes'],
+      status: map['status'] ?? 'draft',
+      createdAt: DateTime.parse(map['created_at']),
+      updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
+      total: map['total']?.toDouble() ?? 0.0,
+      vatRate: map['vat_rate']?.toDouble() ?? 20.0,
     );
+  }
+
+  @override
+  String toString() {
+    return 'Quote(id: $id, client: $clientName, total: $total, status: $status)';
   }
 
   Quote copyWith({
     int? id,
     String? clientName,
-    String? clientAddress,
     String? clientPhone,
-    String? clientEmail,
+    String? objectAddress,
     String? notes,
-    List<LineItem>? items,
+    String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    double? total,
+    double? vatRate,
   }) {
     return Quote(
       id: id ?? this.id,
       clientName: clientName ?? this.clientName,
-      clientAddress: clientAddress ?? this.clientAddress,
       clientPhone: clientPhone ?? this.clientPhone,
-      clientEmail: clientEmail ?? this.clientEmail,
+      objectAddress: objectAddress ?? this.objectAddress,
       notes: notes ?? this.notes,
-      items: items ?? List.from(this.items),
+      status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      total: total ?? this.total,
+      vatRate: vatRate ?? this.vatRate,
     );
-  }
-
-  static Future<List<LineItem>> loadStandardPositions() async {
-    try {
-      final jsonString = await rootBundle.loadString('assets/standard_positions.json');
-      final List<dynamic> jsonList = jsonDecode(jsonString);
-      
-      return jsonList.map((item) {
-        return LineItem(
-          id: 0,
-          name: item['name'] ?? '',
-          quantity: 1.0,
-          unit: item['unit'] ?? 'шт.',
-          price: (item['price'] as num).toDouble(),
-          description: item['description'] ?? '',
-        );
-      }).toList();
-    } catch (e) {
-      print('Ошибка загрузки стандартных позиций: $e');
-      return _getDefaultPositions();
-    }
-  }
-
-  static List<LineItem> _getDefaultPositions() {
-    return [
-      LineItem(
-        id: 0,
-        name: 'Полотно MSD Premium белое матовое с установкой',
-        quantity: 1.0,
-        unit: 'м²',
-        price: 610.0,
-        description: 'Стандартная установка',
-      ),
-      LineItem(
-        id: 0,
-        name: 'Профиль стеновой/потолочный гарпунный с установкой',
-        quantity: 1.0,
-        unit: 'м.п.',
-        price: 310.0,
-        description: '',
-      ),
-      LineItem(
-        id: 0,
-        name: 'Вставка по периметру гарпунная',
-        quantity: 1.0,
-        unit: 'м.п.',
-        price: 220.0,
-        description: '',
-      ),
-    ];
   }
 }
