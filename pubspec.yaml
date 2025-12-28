@@ -40,3 +40,13 @@ flutter:
   
   assets:
     - assets/standard_positions.json
+  
+  # Добавляем шрифты если нужно
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: fonts/Roboto-regular.ttf
+        - asset: fonts/Roboto-bold.ttf
+          weight: 700
+  
+  generate: true
