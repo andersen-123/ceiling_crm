@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/models/line_item.dart';
 import 'package:ceiling_crm/services/database_helper.dart';
+import 'package:ceiling_crm/services/pdf_service.dart';
 import 'package:ceiling_crm/screens/quick_add_screen.dart';
 
 class QuoteEditScreen extends StatefulWidget {
@@ -16,10 +17,12 @@ class QuoteEditScreen extends StatefulWidget {
 class _QuoteEditScreenState extends State<QuoteEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  final PdfService _pdfService = PdfService();
   
   late Quote _quote;
   bool _isLoading = true;
   bool _isNewQuote = true;
+  bool _isGeneratingPdf = false;
 
   final TextEditingController _clientNameController = TextEditingController();
   final TextEditingController _clientPhoneController = TextEditingController();
@@ -78,178 +81,298 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isNewQuote ? 'Новое КП' : 'Редактирование КП'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveQuote,
-            tooltip: 'Сохранить',
-          ),
-        ],
+        actions: _buildAppBarActions(),
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      body: _isGeneratingPdf
+          ? _buildPdfGenerationOverlay()
+          : _buildMainContent(),
+    );
+  }
+
+  List<Widget> _buildAppBarActions() {
+    final actions = <Widget>[];
+    
+    // Кнопки PDF только для существующих КП
+    if (!_isNewQuote) {
+      actions.addAll([
+        // Кнопка предпросмотра PDF
+        IconButton(
+          icon: Stack(
             children: [
-              // Информация о клиенте
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Информация о клиенте',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _clientNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Имя клиента *',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Введите имя клиента';
-                          }
-                          return null;
-                        },
-                        onChanged: (value) {
-                          setState(() => _quote.clientName = value);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _clientPhoneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Телефон',
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (value) => _quote.clientPhone = value,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _clientAddressController,
-                        decoration: const InputDecoration(
-                          labelText: 'Адрес',
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (value) => _quote.clientAddress = value,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Примечания',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 3,
-                        onChanged: (value) => _quote.notes = value,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Список позиций
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Позиции',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+              const Icon(Icons.preview),
+              if (_isGeneratingPdf)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 12,
+                      minHeight: 12,
+                    ),
+                    child: const SizedBox(
+                      width: 8,
+                      height: 8,
                     ),
                   ),
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.bolt, size: 16),
-                        label: const Text('Быстрое'),
-                        onPressed: _openQuickAdd,
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Добавить'),
-                        onPressed: _addNewItem,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              if (_quote.items.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Icon(Icons.list, size: 48, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text('Нет добавленных позиций'),
-                          SizedBox(height: 8),
-                          Text(
-                            'Используйте кнопки выше для добавления позиций',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ..._quote.items.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
-                  return _buildLineItemCard(item, index);
-                }).toList(),
-
-              const SizedBox(height: 24),
-
-              // Итоговая сумма
-              Card(
-                color: Colors.blue[50],
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'ИТОГО:',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '${_quote.totalAmount.toStringAsFixed(2)} руб.',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
-              ),
-
-              const SizedBox(height: 32),
             ],
           ),
+          onPressed: _isGeneratingPdf ? null : _previewPdf,
+          tooltip: 'Предпросмотр PDF',
+        ),
+        
+        // Кнопка шаринга PDF
+        IconButton(
+          icon: const Icon(Icons.share),
+          onPressed: _isGeneratingPdf ? null : _sharePdf,
+          tooltip: 'Поделиться PDF',
+        ),
+        
+        const SizedBox(width: 8),
+      ]);
+    }
+    
+    // Кнопка сохранения
+    actions.add(
+      IconButton(
+        icon: const Icon(Icons.save),
+        onPressed: _isGeneratingPdf ? null : _saveQuote,
+        tooltip: 'Сохранить',
+      ),
+    );
+    
+    return actions;
+  }
+
+  Widget _buildPdfGenerationOverlay() {
+    return Stack(
+      children: [
+        Opacity(
+          opacity: 0.3,
+          child: _buildMainContent(),
+        ),
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.picture_as_pdf,
+                      size: 48,
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(height: 15),
+                    const Text(
+                      'Генерация PDF документа',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'КП для "${_quote.clientName}"',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainContent() {
+    return Form(
+      key: _formKey,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Информация о клиенте
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Информация о клиенте',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _clientNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Имя клиента *',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Введите имя клиента';
+                        }
+                        return null;
+                      },
+                      onChanged: (value) {
+                        setState(() => _quote.clientName = value);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _clientPhoneController,
+                      decoration: const InputDecoration(
+                        labelText: 'Телефон',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) => _quote.clientPhone = value,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _clientAddressController,
+                      decoration: const InputDecoration(
+                        labelText: 'Адрес',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) => _quote.clientAddress = value,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _notesController,
+                      decoration: const InputDecoration(
+                        labelText: 'Примечания',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                      onChanged: (value) => _quote.notes = value,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Список позиций
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Позиции',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.bolt, size: 16),
+                      label: const Text('Быстрое'),
+                      onPressed: _openQuickAdd,
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Добавить'),
+                      onPressed: _addNewItem,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            if (_quote.items.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.list, size: 48, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text('Нет добавленных позиций'),
+                        SizedBox(height: 8),
+                        Text(
+                          'Используйте кнопки выше для добавления позиций',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              ..._quote.items.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                return _buildLineItemCard(item, index);
+              }).toList(),
+
+            const SizedBox(height: 24),
+
+            // Итоговая сумма
+            Card(
+              color: Colors.blue[50],
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'ИТОГО:',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${_quote.totalAmount.toStringAsFixed(2)} руб.',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+          ],
         ),
       ),
     );
@@ -519,6 +642,82 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           backgroundColor: Colors.orange,
         ),
       );
+    }
+  }
+
+  Future<void> _previewPdf() async {
+    if (_quote.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Добавьте хотя бы одну позицию для генерации PDF'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isGeneratingPdf = true);
+    
+    try {
+      await _pdfService.previewPdf(_quote);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PDF сгенерирован и открыт для предпросмотра'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка генерации PDF: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
+      }
+    }
+  }
+
+  Future<void> _sharePdf() async {
+    if (_quote.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Добавьте хотя бы одну позицию для генерации PDF'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isGeneratingPdf = true);
+    
+    try {
+      await _pdfService.sharePdf(_quote);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PDF сгенерирован и готов к отправке'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка шаринга PDF: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
+      }
     }
   }
 
