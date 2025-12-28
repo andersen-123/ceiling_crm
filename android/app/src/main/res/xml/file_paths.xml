@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Путь к внешнему хранилищу -->
+    <external-path
+        name="external_files"
+        path="." />
+    
+    <!-- Путь к файлам приложения -->
+    <files-path
+        name="files"
+        path="." />
+    
+    <!-- Путь к кэшу приложения -->
+    <cache-path
+        name="cache"
+        path="." />
+    
+    <!-- Путь к внешним файлам приложения -->
+    <external-files-path
+        name="external_app_files"
+        path="." />
+    
+    <!-- Путь к внешнему кэшу приложения -->
+    <external-cache-path
+        name="external_app_cache"
+        path="." />
+    
+    <!-- Путь к публичным файлам -->
+    <external-files-path
+        name="downloads"
+        path="Download/" />
+    
+    <!-- Путь к документам -->
+    <external-files-path
+        name="documents"
+        path="Documents/" />
+    
+    <!-- Путь для шаринга PDF -->
+    <external-files-path
+        name="pdf_exports"
+        path="PDF_Exports/" />
+</paths>
