@@ -33,10 +33,19 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   double _quoteTotal = 0.0;
   double _vatRate = 20.0;
   
+  // Контроллер для скроллинга
+  final ScrollController _scrollController = ScrollController();
+  
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+  
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
   
   Future<void> _loadData() async {
@@ -182,6 +191,15 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
         _lineItems.add(result);
       });
       _calculateTotal();
+      
+      // Прокручиваем вниз к новой позиции
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
     }
   }
   
@@ -259,6 +277,15 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
         _lineItems.addAll(result);
       });
       _calculateTotal();
+      
+      // Прокручиваем вниз к новым позициям
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -449,7 +476,8 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       ),
       body: Form(
         key: _formKey,
-        child: Padding(
+        child: SingleChildScrollView(
+          controller: _scrollController,
           padding: EdgeInsets.all(16),
           child: Column(
             children: [
@@ -639,7 +667,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                 ),
               ),
               
-              Spacer(),
+              SizedBox(height: 16),
               
               // Кнопка сохранения
               Container(
