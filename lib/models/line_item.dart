@@ -1,66 +1,67 @@
 class LineItem {
-  final int? id;
-  final int quoteId;
-  final String name;
-  final String unit;
-  final double price;
-  final double quantity;
-  final double total; // Убираем optional, вычисляем внутри
+  int? id;
+  int quoteId;
+  String name;
+  String? description;
+  double price;
+  int quantity;
+  String unit;
 
   LineItem({
     this.id,
     required this.quoteId,
     required this.name,
-    required this.unit,
+    this.description,
     required this.price,
-    required this.quantity,
-    double? total, // Делаем параметр необязательным
-  }) : total = total ?? price * quantity; // Вычисляем если не передано
+    this.quantity = 1,
+    this.unit = 'шт.',
+  });
 
-  // Фабричный конструктор из Map
-  factory LineItem.fromMap(Map<String, dynamic> map) {
-    return LineItem(
-      id: map['id'] as int?,
-      quoteId: map['quote_id'] as int,
-      name: map['name'] ?? '',
-      unit: map['unit'] ?? 'шт.',
-      price: (map['price'] as num).toDouble(),
-      quantity: (map['quantity'] as num).toDouble(),
-      total: (map['total'] as num?)?.toDouble(),
-    );
-  }
+  // Геттер для обратной совместимости
+  double get unitPrice => price;
+  double get totalPrice => price * quantity;
 
-  // Метод для преобразования в Map
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id,
-      'quote_id': quoteId,
+      'id': id,
+      'quoteId': quoteId,
       'name': name,
-      'unit': unit,
+      'description': description,
       'price': price,
       'quantity': quantity,
-      'total': total ?? price * quantity,
+      'unit': unit,
     };
   }
 
-  // Метод для создания копии
+  factory LineItem.fromMap(Map<String, dynamic> map) {
+    return LineItem(
+      id: map['id'],
+      quoteId: map['quoteId'],
+      name: map['name'],
+      description: map['description'],
+      price: map['price'] ?? map['unitPrice'] ?? 0.0,
+      quantity: map['quantity'] ?? 1,
+      unit: map['unit'] ?? 'шт.',
+    );
+  }
+
   LineItem copyWith({
     int? id,
     int? quoteId,
     String? name,
-    String? unit,
+    String? description,
     double? price,
-    double? quantity,
-    double? total,
+    int? quantity,
+    String? unit,
   }) {
     return LineItem(
       id: id ?? this.id,
       quoteId: quoteId ?? this.quoteId,
       name: name ?? this.name,
-      unit: unit ?? this.unit,
+      description: description ?? this.description,
       price: price ?? this.price,
       quantity: quantity ?? this.quantity,
-      total: total ?? this.total,
+      unit: unit ?? this.unit,
     );
   }
 }
