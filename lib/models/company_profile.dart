@@ -1,93 +1,81 @@
+import 'dart:convert';
+
 class CompanyProfile {
-  String name;
-  String phone;
-  String email;
-  String address;
-  String? website;
+  int? id;
+  String companyName;
+  String? phone;
+  String? email;
+  String? address;
+  String? managerName;
+  String? position;
+  String? vatNumber;
   String? logoPath;
-  double vatRate;
-  double defaultMargin;
-  String currency;
-  
+
   CompanyProfile({
-    required this.name,
-    required this.phone,
-    required this.email,
-    required this.address,
-    this.website,
+    this.id,
+    required this.companyName,
+    this.phone,
+    this.email,
+    this.address,
+    this.managerName,
+    this.position,
+    this.vatNumber,
     this.logoPath,
-    this.vatRate = 20.0,
-    this.defaultMargin = 30.0,
-    this.currency = '₽',
   });
 
   Map<String, dynamic> toMap() {
     return {
-      'name': name,
+      'id': id,
+      'company_name': companyName,
       'phone': phone,
       'email': email,
       'address': address,
-      'website': website,
+      'manager_name': managerName,
+      'position': position,
+      'vat_number': vatNumber,
       'logo_path': logoPath,
-      'vat_rate': vatRate,
-      'default_margin': defaultMargin,
-      'currency': currency,
     };
   }
 
   factory CompanyProfile.fromMap(Map<String, dynamic> map) {
     return CompanyProfile(
-      name: map['name'] ?? 'Моя Компания',
-      phone: map['phone'] ?? '+7 (999) 123-45-67',
-      email: map['email'] ?? 'info@company.ru',
-      address: map['address'] ?? 'г. Москва, ул. Примерная, д. 1',
-      website: map['website'],
+      id: map['id'],
+      companyName: map['company_name'],
+      phone: map['phone'],
+      email: map['email'],
+      address: map['address'],
+      managerName: map['manager_name'],
+      position: map['position'],
+      vatNumber: map['vat_number'],
       logoPath: map['logo_path'],
-      vatRate: map['vat_rate']?.toDouble() ?? 20.0,
-      defaultMargin: map['default_margin']?.toDouble() ?? 30.0,
-      currency: map['currency'] ?? '₽',
     );
   }
 
-  @override
-  String toString() {
-    return 'CompanyProfile(name: $name, vat: $vatRate%, margin: $defaultMargin%)';
-  }
+  String toJson() => json.encode(toMap());
+
+  factory CompanyProfile.fromJson(String source) => CompanyProfile.fromMap(json.decode(source));
 
   CompanyProfile copyWith({
-    String? name,
+    int? id,
+    String? companyName,
     String? phone,
     String? email,
     String? address,
-    String? website,
+    String? managerName,
+    String? position,
+    String? vatNumber,
     String? logoPath,
-    double? vatRate,
-    double? defaultMargin,
-    String? currency,
   }) {
     return CompanyProfile(
-      name: name ?? this.name,
+      id: id ?? this.id,
+      companyName: companyName ?? this.companyName,
       phone: phone ?? this.phone,
       email: email ?? this.email,
       address: address ?? this.address,
-      website: website ?? this.website,
+      managerName: managerName ?? this.managerName,
+      position: position ?? this.position,
+      vatNumber: vatNumber ?? this.vatNumber,
       logoPath: logoPath ?? this.logoPath,
-      vatRate: vatRate ?? this.vatRate,
-      defaultMargin: defaultMargin ?? this.defaultMargin,
-      currency: currency ?? this.currency,
-    );
-  }
-
-  // Стандартный профиль по умолчанию
-  static CompanyProfile get defaultProfile {
-    return CompanyProfile(
-      name: 'Моя Компания',
-      phone: '+7 (999) 123-45-67',
-      email: 'info@company.ru',
-      address: 'г. Москва, ул. Примерная, д. 1',
-      vatRate: 20.0,
-      defaultMargin: 30.0,
-      currency: '₽',
     );
   }
 }
