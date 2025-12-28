@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#2196F3</color> <!-- Синий цвет фона -->
+    <color name="ic_launcher_background">#2196F3</color>
+    <color name="splashBackground">#2196F3</color> <!-- Синий фон для splash screen -->
 </resources>
