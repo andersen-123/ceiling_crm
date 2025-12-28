@@ -1,276 +1,439 @@
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/models/line_item.dart';
-import 'package:ceiling_crm/services/database_helper.dart';
-import 'package:ceiling_crm/screens/proposal_detail_screen.dart';
+import 'package:ceiling_crm/repositories/quote_repository.dart';
 import 'package:ceiling_crm/screens/quick_add_screen.dart';
+import 'package:ceiling_crm/screens/edit_position_modal.dart';
+import 'package:intl/intl.dart';
 
 class QuoteEditScreen extends StatefulWidget {
-  final int? quoteId;
-
-  const QuoteEditScreen({super.key, this.quoteId});
-
+  final Quote? quote;
+  
+  QuoteEditScreen({this.quote});
+  
   @override
-  State<QuoteEditScreen> createState() => _QuoteEditScreenState();
+  _QuoteEditScreenState createState() => _QuoteEditScreenState();
 }
 
 class _QuoteEditScreenState extends State<QuoteEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  late Quote _quote;
+  final QuoteRepository _quoteRepo = QuoteRepository();
+  
+  // Контроллеры для формы
+  final TextEditingController _clientNameController = TextEditingController();
+  final TextEditingController _clientPhoneController = TextEditingController();
+  final TextEditingController _objectAddressController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+  
+  // Данные КП
+  Quote? _currentQuote;
+  List<LineItem> _lineItems = [];
   bool _isLoading = true;
-  bool _isNew = true;
-
-  final _clientNameController = TextEditingController();
-  final _clientAddressController = TextEditingController();
-  final _clientPhoneController = TextEditingController();
-  final _clientEmailController = TextEditingController();
-  final _notesController = TextEditingController();
-
+  bool _isSaving = false;
+  double _quoteTotal = 0.0;
+  double _vatRate = 20.0;
+  
   @override
   void initState() {
     super.initState();
-    _loadQuote();
+    _loadData();
   }
-
-  Future<void> _loadQuote() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+  
+  Future<void> _loadData() async {
     try {
-      if (widget.quoteId != null && widget.quoteId! > 0) {
-        final dbHelper = DatabaseHelper.instance;
-        final quote = await dbHelper.getQuote(widget.quoteId!);
+      if (widget.quote != null) {
+        // Редактирование существующего КП
+        _currentQuote = widget.quote;
+        _lineItems = await _quoteRepo.getLineItems(_currentQuote!.id!);
+        _vatRate = _currentQuote!.vatRate;
         
-        if (quote != null) {
-          _quote = quote;
-          _isNew = false;
-          _clientNameController.text = quote.clientName;
-          _clientAddressController.text = quote.clientAddress;
-          _clientPhoneController.text = quote.clientPhone;
-          _clientEmailController.text = quote.clientEmail;
-          _notesController.text = quote.notes;
-        } else {
-          _createNewQuote();
-        }
+        // Заполняем контроллеры
+        _clientNameController.text = _currentQuote!.clientName;
+        _clientPhoneController.text = _currentQuote!.clientPhone;
+        _objectAddressController.text = _currentQuote!.objectAddress;
+        _notesController.text = _currentQuote!.notes ?? '';
+        
+        // Рассчитываем итог
+        _calculateTotal();
       } else {
-        _createNewQuote();
+        // Создание нового КП
+        _currentQuote = null;
+        _lineItems = [];
+        _quoteTotal = 0.0;
       }
     } catch (e) {
-      print('Ошибка загрузки КП: $e');
-      _createNewQuote();
+      print('Ошибка загрузки данных: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка загрузки данных: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       setState(() {
         _isLoading = false;
       });
     }
   }
-
-  void _createNewQuote() {
-    _quote = Quote(
-      id: 0,
-      clientName: '',
-      clientAddress: '',
-      clientPhone: '',
-      clientEmail: '',
-      notes: '',
-      items: [],
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    _isNew = true;
+  
+  void _calculateTotal() {
+    double total = 0;
+    for (var item in _lineItems) {
+      total += item.total;
+    }
+    setState(() {
+      _quoteTotal = total;
+    });
   }
-
+  
   Future<void> _saveQuote() async {
-    if (_formKey.currentState!.validate()) {
-      final updatedQuote = Quote(
-        id: _isNew ? 0 : _quote.id,
-        clientName: _clientNameController.text.trim(),
-        clientAddress: _clientAddressController.text.trim(),
-        clientPhone: _clientPhoneController.text.trim(),
-        clientEmail: _clientEmailController.text.trim(),
-        notes: _notesController.text.trim(),
-        items: _quote.items,
-        createdAt: _isNew ? DateTime.now() : _quote.createdAt,
-        updatedAt: DateTime.now(),
-      );
-
-      try {
-        final dbHelper = DatabaseHelper.instance;
-        
-        if (_isNew) {
-          final newId = await dbHelper.insertQuote(updatedQuote);
-          _quote = updatedQuote.copyWith(id: newId);
-          _isNew = false;
-        } else {
-          await dbHelper.updateQuote(updatedQuote);
-          _quote = updatedQuote;
-        }
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_isNew ? 'КП создано' : 'КП обновлено'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          
-          // После сохранения можно перейти к добавлению позиций
-          _navigateToProposalDetail();
-        }
-      } catch (e) {
-        print('Ошибка сохранения: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Ошибка сохранения: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
-  }
-
-  void _navigateToProposalDetail() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ProposalDetailScreen(quote: _quote),
-      ),
-    );
-  }
-
-  void _managePositions() {
-    if (!_isNew && _quote.id > 0) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ProposalDetailScreen(quote: _quote),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Сначала сохраните КП'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
-  }
-
-  void _quickAddPositions() async {
-    if (!_isNew && _quote.id > 0) {
-      final selectedItems = await Navigator.push<List<LineItem>>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => QuickAddScreen(
-            existingItems: _quote.items,
-          ),
-        ),
-      );
-
-      if (selectedItems != null && selectedItems.isNotEmpty) {
-        await _addItemsToQuote(selectedItems);
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Сначала сохраните КП'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
-  }
-
-  Future<void> _addItemsToQuote(List<LineItem> items) async {
+    
+    setState(() {
+      _isSaving = true;
+    });
+    
     try {
-      final updatedItems = List<LineItem>.from(_quote.items);
-      
-      // Находим максимальный ID среди существующих позиций
-      int maxId = updatedItems.isNotEmpty 
-          ? updatedItems.map((i) => i.id).reduce((a, b) => a > b ? a : b) 
-          : 0;
-      
-      // Добавляем новые позиции с уникальными ID
-      for (var item in items) {
-        if (!updatedItems.any((existing) => existing.name == item.name && existing.unit == item.unit)) {
-          maxId++;
-          updatedItems.add(item.copyWith(id: maxId));
+      if (_currentQuote == null) {
+        // Создаем новый КП
+        final quoteId = await _quoteRepo.createQuote(
+          clientName: _clientNameController.text.trim(),
+          clientPhone: _clientPhoneController.text.trim(),
+          objectAddress: _objectAddressController.text.trim(),
+          notes: _notesController.text.trim(),
+          vatRate: _vatRate,
+        );
+        
+        // Добавляем позиции если есть
+        if (_lineItems.isNotEmpty) {
+          for (var item in _lineItems) {
+            await _quoteRepo.addLineItem(
+              quoteId: quoteId,
+              name: item.name,
+              description: item.description,
+              quantity: item.quantity,
+              unit: item.unit,
+              price: item.price,
+            );
+          }
         }
-      }
-
-      final updatedQuote = _quote.copyWith(
-        items: updatedItems,
-        updatedAt: DateTime.now(),
-      );
-
-      final dbHelper = DatabaseHelper.instance;
-      await dbHelper.updateQuote(updatedQuote);
-      
-      if (mounted) {
-        setState(() {
-          _quote = updatedQuote;
-        });
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Добавлено ${items.length} позиций'),
+            content: Text('КП успешно создано'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        // Обновляем существующий КП
+        final updatedQuote = _currentQuote!.copyWith(
+          clientName: _clientNameController.text.trim(),
+          clientPhone: _clientPhoneController.text.trim(),
+          objectAddress: _objectAddressController.text.trim(),
+          notes: _notesController.text.trim(),
+          vatRate: _vatRate,
+          total: _quoteTotal,
+          updatedAt: DateTime.now(),
+        );
+        
+        await _quoteRepo.updateQuote(updatedQuote);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('КП успешно обновлено'),
             backgroundColor: Colors.green,
           ),
         );
       }
+      
+      // Возвращаемся на предыдущий экран
+      Navigator.pop(context, true);
+      
     } catch (e) {
-      print('Ошибка добавления позиций: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ошибка: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      print('Ошибка сохранения: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка сохранения: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isSaving = false;
+      });
     }
   }
-
-  @override
-  void dispose() {
-    _clientNameController.dispose();
-    _clientAddressController.dispose();
-    _clientPhoneController.dispose();
-    _clientEmailController.dispose();
-    _notesController.dispose();
-    super.dispose();
+  
+  Future<void> _addPosition() async {
+    final result = await showModalBottomSheet<LineItem>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => EditPositionModal(),
+    );
+    
+    if (result != null) {
+      setState(() {
+        _lineItems.add(result);
+      });
+      _calculateTotal();
+    }
   }
-
+  
+  Future<void> _editPosition(int index) async {
+    final item = _lineItems[index];
+    
+    final result = await showModalBottomSheet<LineItem>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => EditPositionModal(lineItem: item),
+    );
+    
+    if (result != null) {
+      setState(() {
+        _lineItems[index] = result;
+      });
+      _calculateTotal();
+    }
+  }
+  
+  Future<void> _deletePosition(int index) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Удалить позицию?'),
+        content: Text('Вы уверены, что хотите удалить "${_lineItems[index].name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Удалить'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      setState(() {
+        _lineItems.removeAt(index);
+      });
+      _calculateTotal();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Позиция удалена'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+  
+  Future<void> _quickAddPositions() async {
+    final result = await Navigator.push<List<LineItem>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuickAddScreen(
+          quoteId: _currentQuote?.id,
+        ),
+      ),
+    );
+    
+    if (result != null && result.isNotEmpty) {
+      setState(() {
+        _lineItems.addAll(result);
+      });
+      _calculateTotal();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Добавлено ${result.length} позиций'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+  
+  Widget _buildPositionCard(LineItem item, int index) {
+    return Card(
+      margin: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      child: ListTile(
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: Colors.blueGrey[100],
+          child: Text(
+            '${index + 1}',
+            style: TextStyle(
+              color: Colors.blueGrey[800],
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Text(
+          item.name,
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (item.description != null && item.description!.isNotEmpty)
+              Text(
+                item.description!,
+                style: TextStyle(fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            SizedBox(height: 4),
+            Row(
+              children: [
+                Text(
+                  '${item.quantity} ${item.unit}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  '×',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(item.price),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(item.total),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.green[700],
+              ),
+            ),
+            SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.edit, size: 18),
+                  onPressed: () => _editPosition(index),
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(),
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete, size: 18, color: Colors.red),
+                  onPressed: () => _deletePosition(index),
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(),
+                ),
+              ],
+            ),
+          ],
+        ),
+        onTap: () => _editPosition(index),
+      ),
+    );
+  }
+  
+  Widget _buildTotalSection() {
+    final vatAmount = _quoteTotal * (_vatRate / 100);
+    final totalWithVat = _quoteTotal + vatAmount;
+    
+    return Card(
+      color: Colors.blueGrey[50],
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Итого без НДС:',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(_quoteTotal),
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'НДС ${_vatRate}%:',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(vatAmount),
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            Divider(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'ИТОГО:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.blueGrey[800],
+                  ),
+                ),
+                Text(
+                  NumberFormat.currency(locale: 'ru_RU', symbol: '₽').format(totalWithVat),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: Colors.green[700],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Загрузка...')),
-        body: const Center(child: CircularProgressIndicator()),
+        appBar: AppBar(
+          title: Text('Загрузка...'),
+          backgroundColor: Colors.blueGrey[800],
+        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
-
+    
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isNew ? 'Новое КП' : 'Редактировать КП'),
+        title: Text(_currentQuote == null ? 'Новое КП' : 'Редактирование КП'),
+        backgroundColor: Colors.blueGrey[800],
         actions: [
-          if (!_isNew) ...[
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: _quickAddPositions,
-              tooltip: 'Быстрое добавление',
-            ),
-            IconButton(
-              icon: const Icon(Icons.list),
-              onPressed: _managePositions,
-              tooltip: 'Управление позициями',
-            ),
-          ],
           IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveQuote,
+            icon: Icon(_isSaving ? Icons.hourglass_top : Icons.save),
+            onPressed: _isSaving ? null : _saveQuote,
             tooltip: 'Сохранить',
           ),
         ],
@@ -278,27 +441,32 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       body: Form(
         key: _formKey,
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ListView(
+          padding: EdgeInsets.all(16),
+          child: Column(
             children: [
+              // Секция с основными данными
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Информация о клиенте',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      Text(
+                        'Данные клиента',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueGrey[800],
+                        ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       
                       TextFormField(
                         controller: _clientNameController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Имя клиента *',
+                          prefixIcon: Icon(Icons.person),
                           border: OutlineInputBorder(),
-                          hintText: 'Иван Иванов',
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
@@ -307,230 +475,184 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       
                       TextFormField(
-                        controller: _clientAddressController,
-                        decoration: const InputDecoration(
-                          labelText: 'Адрес *',
+                        controller: _clientPhoneController,
+                        decoration: InputDecoration(
+                          labelText: 'Телефон *',
+                          prefixIcon: Icon(Icons.phone),
                           border: OutlineInputBorder(),
-                          hintText: 'Москва, ул. Примерная, д. 1',
                         ),
+                        keyboardType: TextInputType.phone,
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Введите адрес';
+                            return 'Введите телефон клиента';
                           }
                           return null;
                         },
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       
+                      TextFormField(
+                        controller: _objectAddressController,
+                        decoration: InputDecoration(
+                          labelText: 'Адрес объекта *',
+                          prefixIcon: Icon(Icons.location_on),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Введите адрес объекта';
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: 12),
+                      
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: InputDecoration(
+                          labelText: 'Примечания',
+                          prefixIcon: Icon(Icons.note),
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              SizedBox(height: 16),
+              
+              // Секция с позициями
+              Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _clientPhoneController,
-                              decoration: const InputDecoration(
-                                labelText: 'Телефон *',
-                                border: OutlineInputBorder(),
-                                hintText: '+7 (999) 123-45-67',
-                              ),
-                              keyboardType: TextInputType.phone,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Введите телефон';
-                                }
-                                return null;
-                              },
+                          Text(
+                            'Позиции',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueGrey[800],
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _clientEmailController,
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                border: OutlineInputBorder(),
-                                hintText: 'client@example.com',
-                              ),
-                              keyboardType: TextInputType.emailAddress,
+                          Text(
+                            '${_lineItems.length} шт.',
+                            style: TextStyle(
+                              color: Colors.grey[600],
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Примечания',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 16),
                       
-                      TextFormField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Дополнительная информация',
-                          border: OutlineInputBorder(),
-                          hintText: 'Особые пожелания, условия монтажа и т.д.',
-                        ),
-                        maxLines: 4,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Информация о предложении',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      
-                      if (!_isNew) ...[
-                        Row(
-                          children: [
-                            const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Создано: ${_quote.createdAt.day}.${_quote.createdAt.month}.${_quote.createdAt.year}',
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        
-                        Row(
-                          children: [
-                            const Icon(Icons.update, size: 16, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Обновлено: ${_quote.updatedAt.day}.${_quote.updatedAt.month}.${_quote.updatedAt.year}',
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        
-                        Row(
-                          children: [
-                            const Icon(Icons.list, size: 16, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Позиций: ${_quote.items.length}',
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _quickAddPositions,
-                                icon: const Icon(Icons.add_circle),
-                                label: const Text('Быстрое добавление'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange,
-                                  minimumSize: const Size(double.infinity, 48),
-                                ),
+                      // Кнопки добавления
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _quickAddPositions,
+                              icon: Icon(Icons.bolt),
+                              label: Text('Быстрое добавление'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                padding: EdgeInsets.symmetric(vertical: 12),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _managePositions,
-                                icon: const Icon(Icons.list_alt),
-                                label: const Text('Все позиции'),
-                                style: ElevatedButton.styleFrom(
-                                  minimumSize: const Size(double.infinity, 48),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        Row(
-                          children: [
-                            const Icon(Icons.add_circle, size: 16, color: Colors.green),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Новое коммерческое предложение',
-                              style: TextStyle(color: Colors.green),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        
-                        const Text(
-                          'После сохранения вы сможете добавить позиции',
-                          style: TextStyle(color: Colors.grey, fontSize: 14),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        ElevatedButton.icon(
-                          onPressed: _saveQuote,
-                          icon: const Icon(Icons.save),
-                          label: const Text('Сохранить и перейти к позициям'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            minimumSize: const Size(double.infinity, 48),
                           ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _addPosition,
+                              icon: Icon(Icons.add),
+                              label: Text('Добавить позицию'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      SizedBox(height: 16),
+                      
+                      // Список позиций
+                      if (_lineItems.isEmpty)
+                        Container(
+                          padding: EdgeInsets.all(32),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.list_alt,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Нет добавленных позиций',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Нажмите "Добавить позицию" или "Быстрое добавление"',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[500],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Column(
+                          children: [
+                            ...List.generate(_lineItems.length, (index) {
+                              return _buildPositionCard(_lineItems[index], index);
+                            }),
+                            SizedBox(height: 16),
+                            _buildTotalSection(),
+                          ],
                         ),
-                      ],
                     ],
                   ),
                 ),
               ),
               
-              const SizedBox(height: 32),
+              Spacer(),
               
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[300],
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text('Отмена', style: TextStyle(color: Colors.black87)),
-                    ),
+              // Кнопка сохранения
+              Container(
+                padding: EdgeInsets.only(top: 16, bottom: 8),
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _saveQuote,
+                  child: _isSaving
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(color: Colors.white),
+                            SizedBox(width: 12),
+                            Text('Сохранение...'),
+                          ],
+                        )
+                      : Text('СОХРАНИТЬ КП'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    minimumSize: Size(double.infinity, 50),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _saveQuote,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: Text(
-                        _isNew ? 'Создать КП' : 'Сохранить изменения',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
