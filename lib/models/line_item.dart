@@ -3,9 +3,9 @@ class LineItem {
   final int quoteId;
   final String name;
   final String unit;
-  final double price; // Цена за единицу
+  final double price;
   final double quantity;
-  final double? total; // Итоговая сумма (price * quantity)
+  final double total; // Убираем optional, вычисляем внутри
 
   LineItem({
     this.id,
@@ -14,8 +14,8 @@ class LineItem {
     required this.unit,
     required this.price,
     required this.quantity,
-    this.total,
-  }) : total = total ?? price * quantity;
+    double? total, // Делаем параметр необязательным
+  }) : total = total ?? price * quantity; // Вычисляем если не передано
 
   // Фабричный конструктор из Map
   factory LineItem.fromMap(Map<String, dynamic> map) {
