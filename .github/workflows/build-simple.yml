@@ -28,3 +28,8 @@ jobs:
     
     - name: Build APK
       run: flutter build apk --release --no-tree-shake-icons
+
+    - name: Clean Gradle cache
+      run: |
+        rm -rf ~/.gradle/caches/
+        ./gradlew clean
