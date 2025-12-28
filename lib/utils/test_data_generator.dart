@@ -95,8 +95,7 @@ class TestDataGenerator {
         objectAddress: 'г. Тест, ул. Тестовая, д. 1',
       );
       results['create_quote'] = quoteId > 0;
-      print('   Результат: ${results['create_quote'] ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
-      
+      print('   Результат: ${(results['create_quote'] ?? false) ? '✅ УСПЕХ' : '❌ ОШИБКА'}');      
       // Тест 2: Добавление позиций
       print('\n2. Тест добавления позиций...');
       final itemId = await _repo.addLineItem(
@@ -107,45 +106,45 @@ class TestDataGenerator {
         price: 1000.0,
       );
       results['add_line_item'] = itemId > 0;
-      print('   Результат: ${results['add_line_item'] ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
+      print('   Результат: ${(results['create_quote'] ?? false) ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
       
       // Тест 3: Получение КП
       print('\n3. Тест получения КП...');
       final quote = await _repo.getQuote(quoteId);
       results['get_quote'] = quote != null;
-      print('   Результат: ${results['get_quote'] ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
+      print('   Результат: ${(results['create_quote'] ?? false) ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
       
       // Тест 4: Получение позиций
       print('\n4. Тест получения позиций...');
       final items = await _repo.getLineItems(quoteId);
       results['get_line_items'] = items.isNotEmpty;
-      print('   Результат: ${results['get_line_items'] ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
+      print('   Результат: ${(results['create_quote'] ?? false) ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
       
       // Тест 5: Расчет суммы
       print('\n5. Тест расчета суммы...');
       final total = await _repo.calculateQuoteTotal(quoteId);
       results['calculate_total'] = total == 2000.0;
-      print('   Результат: ${results['calculate_total'] ? '✅ УСПЕХ' : '❌ ОШИБКА'} (сумма: $total)');
+      print('   Результат: ${(results['create_quote'] ?? false) ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
       
       // Тест 6: Обновление статуса
       print('\n6. Тест обновления статуса...');
       await _repo.updateQuoteStatus(quoteId, 'sent');
       final updatedQuote = await _repo.getQuote(quoteId);
       results['update_status'] = updatedQuote?.status == 'sent';
-      print('   Результат: ${results['update_status'] ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
+      print('   Результат: ${(results['create_quote'] ?? false) ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
       
       // Тест 7: Поиск КП
       print('\n7. Тест поиска КП...');
       final searchResults = await _repo.searchQuotes('Тест');
       results['search_quotes'] = searchResults.isNotEmpty;
-      print('   Результат: ${results['search_quotes'] ? '✅ УСПЕХ' : '❌ ОШИБКА'} (найдено: ${searchResults.length})');
+      print('   Результат: ${(results['create_quote'] ?? false) ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
       
       // Тест 8: Удаление КП
       print('\n8. Тест удаления КП...');
       await _repo.deleteQuote(quoteId);
       final deletedQuote = await _repo.getQuote(quoteId);
       results['delete_quote'] = deletedQuote == null;
-      print('   Результат: ${results['delete_quote'] ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
+      print('   Результат: ${(results['create_quote'] ?? false) ? '✅ УСПЕХ' : '❌ ОШИБКА'}');
       
       // Итоги
       print('\n=== ИТОГИ ТЕСТИРОВАНИЯ ===');
