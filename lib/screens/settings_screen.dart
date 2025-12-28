@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // ДОЛЖЕН БЫТЬ
 import 'package:ceiling_crm/models/company_profile.dart';
 
 class SettingsScreen extends StatefulWidget {
