@@ -205,9 +205,9 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => PdfPreviewScreen(
+          builder: (coninetext) => PdfPreviewScreen(
             quote: quoteSummary['quote'] as Quote,
-            lineItems: quoteSummary['line_items'] as List<LineItem>,
+            lineItems: (quoteSummary['line_items'] as List).cast<LineItem>(),
             subtotal: quoteSummary['subtotal'] as double,
             vatAmount: quoteSummary['vat_amount'] as double,
             total: quoteSummary['total'] as double,
@@ -622,13 +622,8 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
         // В actions AppBar добавляем:
         actions: [
           // Секретная кнопка отладки (удерживать 3 секунды)
-          IconButton(
-            icon: Icon(Icons.bug_report),
-            onPressed: () {
-              // Обычное нажатие ничего не делает
-            },
+          GestureDetector(
             onLongPress: () {
-              // Долгое нажатие открывает экран отладки
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -636,7 +631,13 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
                 ),
               );
             },
-            tooltip: 'Удерживайте для отладки',
+            child: IconButton(
+              icon: Icon(Icons.bug_report),
+              onPressed: () {
+                // Обычное нажатие ничего не делает
+              },
+              tooltip: 'Удерживайте 3 секунды для отладки',
+            ),
           ),
           IconButton(
             icon: Icon(Icons.settings),
