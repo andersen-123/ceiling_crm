@@ -20,8 +20,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Увеличиваем версию для миграции
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -39,6 +40,13 @@ class DatabaseHelper {
         updatedAt TEXT NOT NULL
       )
     ''');
+  }
+
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Миграция для будущих изменений
+      // Можно добавить новые поля или таблицы
+    }
   }
 
   Future<int> insertQuote(Quote quote) async {
