@@ -1,250 +1,382 @@
 import 'package:flutter/material.dart';
-import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/models/line_item.dart';
-import 'package:ceiling_crm/screens/edit_position_modal.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 
 class QuickAddScreen extends StatefulWidget {
-  final Function(List<LineItem>)? onItemsSelected;
-  final List<LineItem>? existingItems;
-
-  const QuickAddScreen({
-    super.key,
-    this.onItemsSelected,
-    this.existingItems,
-  });
-
+  final int? quoteId;
+  
+  QuickAddScreen({this.quoteId});
+  
   @override
-  State<QuickAddScreen> createState() => _QuickAddScreenState();
+  _QuickAddScreenState createState() => _QuickAddScreenState();
 }
 
 class _QuickAddScreenState extends State<QuickAddScreen> {
-  List<LineItem> _selectedItems = [];
-  List<LineItem> _standardPositions = [];
+  List<Map<String, dynamic>> _standardPositions = [];
+  List<bool> _selectedPositions = [];
   bool _isLoading = true;
+  final Map<int, TextEditingController> _quantityControllers = {};
+  final Map<int, TextEditingController> _priceControllers = {};
 
   @override
   void initState() {
     super.initState();
     _loadStandardPositions();
-    if (widget.existingItems != null) {
-      _selectedItems.addAll(widget.existingItems!);
-    }
   }
 
   Future<void> _loadStandardPositions() async {
     try {
-      final positions = await Quote.loadStandardPositions();
+      final jsonString = await rootBundle.loadString('assets/standard_positions.json');
+      final List<dynamic> jsonList = json.decode(jsonString);
+      
       setState(() {
-        _standardPositions = positions;
+        _standardPositions = List<Map<String, dynamic>>.from(jsonList);
+        _selectedPositions = List<bool>.filled(_standardPositions.length, false);
+        
+        // Создаем контроллеры для редактирования
+        for (int i = 0; i < _standardPositions.length; i++) {
+          final position = _standardPositions[i];
+          _quantityControllers[i] = TextEditingController(
+            text: (position['quantity'] ?? 1.0).toString(),
+          );
+          _priceControllers[i] = TextEditingController(
+            text: (position['price'] ?? 0.0).toString(),
+          );
+        }
+        
         _isLoading = false;
       });
     } catch (e) {
-      print('Ошибка загрузки позиций: $e');
+      print('Ошибка загрузки стандартных позиций: $e');
+      
+      // Заглушка если файл не найден
       setState(() {
+        _standardPositions = [
+          {
+            'name': 'Монтаж натяжного потолка',
+            'description': 'Монтаж потолка стандартной сложности',
+            'unit': 'м²',
+            'quantity': 1.0,
+            'price': 1200.0,
+          },
+          {
+            'name': 'Точечный светильник',
+            'description': 'Установка светильника с подготовкой отверстия',
+            'unit': 'шт.',
+            'quantity': 1.0,
+            'price': 800.0,
+          },
+          {
+            'name': 'Люстра',
+            'description': 'Монтаж люстры с креплением',
+            'unit': 'шт.',
+            'quantity': 1.0,
+            'price': 1500.0,
+          },
+        ];
+        _selectedPositions = List<bool>.filled(_standardPositions.length, false);
+        
+        for (int i = 0; i < _standardPositions.length; i++) {
+          final position = _standardPositions[i];
+          _quantityControllers[i] = TextEditingController(
+            text: (position['quantity'] ?? 1.0).toString(),
+          );
+          _priceControllers[i] = TextEditingController(
+            text: (position['price'] ?? 0.0).toString(),
+          );
+        }
+        
         _isLoading = false;
       });
     }
   }
 
-  void _toggleItemSelection(LineItem item) {
+  void _toggleSelection(int index) {
     setState(() {
-      final existingIndex = _selectedItems.indexWhere(
-        (selected) => selected.name == item.name && selected.unit == item.unit
-      );
+      _selectedPositions[index] = !_selectedPositions[index];
+    });
+  }
 
-      if (existingIndex != -1) {
-        _selectedItems.removeAt(existingIndex);
-      } else {
-        final newItem = LineItem(
-          id: 0,
-          name: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-          price: item.price,
-          description: item.description,
-        );
-        _selectedItems.add(newItem);
+  void _selectAll() {
+    setState(() {
+      for (int i = 0; i < _selectedPositions.length; i++) {
+        _selectedPositions[i] = true;
       }
     });
   }
 
-  void _editItem(LineItem item) async {
-    final editedItem = await showModalBottomSheet<LineItem>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => EditPositionModal(
-        initialItem: item,
-        onSave: (editedItem) => editedItem,
-      ),
-    );
-
-    if (editedItem != null) {
-      setState(() {
-        final index = _selectedItems.indexOf(item);
-        if (index != -1) {
-          _selectedItems[index] = editedItem;
-        }
-      });
-    }
+  void _deselectAll() {
+    setState(() {
+      for (int i = 0; i < _selectedPositions.length; i++) {
+        _selectedPositions[i] = false;
+      }
+    });
   }
 
-  void _addCustomItem() async {
-    final newItem = await showModalBottomSheet<LineItem>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => EditPositionModal(
-        onSave: (item) => item,
-      ),
-    );
-
-    if (newItem != null) {
-      setState(() {
-        _selectedItems.add(newItem);
-      });
+  List<LineItem> _getSelectedItems() {
+    final List<LineItem> selectedItems = [];
+    
+    for (int i = 0; i < _standardPositions.length; i++) {
+      if (_selectedPositions[i]) {
+        final position = _standardPositions[i];
+        
+        // Получаем значения из контроллеров
+        final quantity = double.tryParse(_quantityControllers[i]!.text) ?? position['quantity'] ?? 1.0;
+        final price = double.tryParse(_priceControllers[i]!.text) ?? position['price'] ?? 0.0;
+        
+        final lineItem = LineItem(
+          quoteId: widget.quoteId ?? 0,
+          name: position['name'] ?? '',
+          description: position['description'],
+          quantity: quantity,
+          unit: position['unit'] ?? 'шт.',
+          price: price,
+          total: price * quantity,
+          sortOrder: i,
+          createdAt: DateTime.now(),
+        );
+        
+        selectedItems.add(lineItem);
+      }
     }
+    
+    return selectedItems;
   }
 
-  void _saveAndReturn() {
-    if (widget.onItemsSelected != null) {
-      widget.onItemsSelected!(_selectedItems);
-    }
-    Navigator.of(context).pop(_selectedItems);
+  int get _selectedCount {
+    return _selectedPositions.where((selected) => selected).length;
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Загрузка...'),
+          backgroundColor: Colors.blueGrey[800],
+        ),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Быстрое добавление позиций'),
+        title: Text('Быстрое добавление'),
+        backgroundColor: Colors.blueGrey[800],
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _addCustomItem,
-            tooltip: 'Добавить свою позицию',
+            icon: Icon(Icons.select_all),
+            onPressed: _selectAll,
+            tooltip: 'Выбрать все',
           ),
           IconButton(
-            icon: const Icon(Icons.done),
-            onPressed: _selectedItems.isNotEmpty ? _saveAndReturn : null,
-            tooltip: 'Добавить выбранные',
+            icon: Icon(Icons.deselect),
+            onPressed: _deselectAll,
+            tooltip: 'Снять выделение',
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
+        children: [
+          // Панель информации
+          Container(
+            padding: EdgeInsets.all(16),
+            color: Colors.blueGrey[50],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: Colors.blue[50],
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Выбрано позиций: ${_selectedItems.length}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 8),
-                      if (_selectedItems.isNotEmpty)
-                        Text(
-                          'Итого: ${_calculateTotal()} ₽',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green[700]),
-                        ),
-                      const SizedBox(height: 10),
-                      ElevatedButton(
-                        onPressed: _saveAndReturn,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: const Text('Добавить выбранные позиции'),
-                      ),
-                    ],
+                Text(
+                  'Выбрано: $_selectedCount',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueGrey[800],
                   ),
                 ),
+                if (_selectedCount > 0)
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final selectedItems = _getSelectedItems();
+                      Navigator.pop(context, selectedItems);
+                    },
+                    icon: Icon(Icons.check),
+                    label: Text('Добавить выбранное'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          
+          // Список позиций
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.all(8),
+              itemCount: _standardPositions.length,
+              itemBuilder: (context, index) {
+                final position = _standardPositions[index];
+                final isSelected = _selectedPositions[index];
                 
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _standardPositions.length,
-                    itemBuilder: (context, index) {
-                      final item = _standardPositions[index];
-                      final isSelected = _selectedItems.any(
-                        (selected) => selected.name == item.name && selected.unit == item.unit
-                      );
-                      
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        color: isSelected ? Colors.green[50] : null,
-                        elevation: 2,
-                        child: ListTile(
-                          title: Text(
-                            item.name,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              color: isSelected ? Colors.green[800] : null,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Text(
-                                    '${item.price} ₽',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.blue[700],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '/ ${item.unit}',
-                                    style: TextStyle(color: Colors.grey[600]),
-                                  ),
-                                ],
-                              ),
-                              if (item.description.isNotEmpty) 
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    item.description,
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
+                return Card(
+                  margin: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                  color: isSelected ? Colors.blueGrey[50] : null,
+                  child: InkWell(
+                    onTap: () => _toggleSelection(index),
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
                               Checkbox(
                                 value: isSelected,
-                                onChanged: (_) => _toggleItemSelection(item),
+                                onChanged: (_) => _toggleSelection(index),
                               ),
-                              if (isSelected)
-                                IconButton(
-                                  icon: const Icon(Icons.edit, size: 20, color: Colors.blue),
-                                  onPressed: () => _editItem(item),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  position['name'] ?? 'Без названия',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 16,
+                                  ),
                                 ),
+                              ),
                             ],
                           ),
-                          onTap: () => _toggleItemSelection(item),
-                          onLongPress: () => _editItem(item),
-                        ),
-                      );
-                    },
+                          
+                          if (position['description'] != null)
+                            Padding(
+                              padding: EdgeInsets.only(left: 40, top: 4),
+                              child: Text(
+                                position['description']!,
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          
+                          SizedBox(height: 12),
+                          
+                          // Поля для редактирования количества и цены
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _quantityControllers[index],
+                                  decoration: InputDecoration(
+                                    labelText: 'Количество',
+                                    border: OutlineInputBorder(),
+                                    prefixIcon: Icon(Icons.numbers, size: 20),
+                                  ),
+                                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                  onChanged: (_) {
+                                    // Обновляем состояние при изменении
+                                    setState(() {});
+                                  },
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                child: Text(
+                                  position['unit'] ?? 'шт.',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.blueGrey[800],
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _priceControllers[index],
+                                  decoration: InputDecoration(
+                                    labelText: 'Цена',
+                                    border: OutlineInputBorder(),
+                                    prefixIcon: Icon(Icons.attach_money, size: 20),
+                                  ),
+                                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                  onChanged: (_) {
+                                    // Обновляем состояние при изменении
+                                    setState(() {});
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          SizedBox(height: 8),
+                          
+                          // Предпросмотр суммы
+                          Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Сумма:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  '${_calculateItemTotal(index)} ₽',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                );
+              },
             ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context, []);
+            },
+            icon: Icon(Icons.close),
+            label: Text('Отмена'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[600],
+              padding: EdgeInsets.symmetric(vertical: 16),
+              minimumSize: Size(double.infinity, 50),
+            ),
+          ),
+        ),
+      ),
     );
   }
-
-  String _calculateTotal() {
-    final total = _selectedItems.fold(
-      0.0, 
-      (sum, item) => sum + (item.quantity * item.price)
-    );
-    return total.toStringAsFixed(2);
+  
+  String _calculateItemTotal(int index) {
+    try {
+      final quantity = double.tryParse(_quantityControllers[index]!.text) ?? 
+                      _standardPositions[index]['quantity'] ?? 1.0;
+      final price = double.tryParse(_priceControllers[index]!.text) ?? 
+                   _standardPositions[index]['price'] ?? 0.0;
+      final total = quantity * price;
+      return total.toStringAsFixed(2);
+    } catch (e) {
+      return '0.00';
+    }
   }
 }
