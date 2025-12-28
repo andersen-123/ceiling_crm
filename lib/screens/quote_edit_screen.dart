@@ -380,8 +380,8 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
 
   Widget _buildLineItemCard(LineItem item, int index) {
     final nameController = TextEditingController(text: item.name);
-    final descriptionController = TextEditingController(text: item.description);
-    final priceController = TextEditingController(text: item.unitPrice.toString());
+    final descriptionController = TextEditingController(text: item.description ?? '');
+    final priceController = TextEditingController(text: item.price.toString());
     final quantityController = TextEditingController(text: item.quantity.toString());
     final unitController = TextEditingController(text: item.unit);
 
@@ -504,7 +504,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                 ),
                 child: Text(
                   'Сумма: ${item.totalPrice.toStringAsFixed(2)} руб.',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.blue[900],
@@ -530,13 +530,11 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           item = item.copyWith(description: value as String);
           break;
         case 'unitPrice':
-          item = item.copyWith(unitPrice: value as double);
+        case 'price': // Добавить эту строку
+          item = item.copyWith(price: value as double);
           break;
         case 'quantity':
           item = item.copyWith(quantity: value as int);
-          break;
-        case 'unit':
-          item = item.copyWith(unit: value as String);
           break;
       }
       
@@ -549,8 +547,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       _quote.addItem(LineItem(
         quoteId: _quote.id ?? 0,
         name: 'Новая позиция',
-        description: '',
-        unitPrice: 0.0,
+        price: 0.0,
         quantity: 1,
         unit: 'шт.',
       ));
