@@ -71,7 +71,7 @@ class DatabaseHelper {
     ''');
 
     // Добавляем запись по умолчанию
-    await db.insert('company_profile', CompanyProfile().toMap());
+    await db.insert('company_profile', CompanyProfile.defaultProfile().toMap());
   }
 
   // ========== CRUD для Quotes ==========
@@ -173,7 +173,7 @@ class DatabaseHelper {
     final List<Map<String, dynamic>> maps = await db.query('company_profile');
     
     if (maps.isEmpty) {
-      final defaultProfile = CompanyProfile();
+      final defaultProfile = CompanyProfile.defaultProfile();
       await db.insert('company_profile', defaultProfile.toMap());
       return defaultProfile;
     }
