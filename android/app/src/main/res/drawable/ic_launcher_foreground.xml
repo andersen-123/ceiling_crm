@@ -1,12 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#2196F3"
-        android:pathData="M0,0h108v108h-108z"/>
+    
+    <!-- Фон круга -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,32l8,24h26l-20,14l8,24l-22-16l-22,16l8-24l-20-14h26z"/>
+        android:pathData="M54,54m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0"/>
+    
+    <!-- Иконка потолка -->
+    <path
+        android:fillColor="#2196F3"
+        android:pathData="M24,36h60c2.2,0 4,1.8 4,4v28c0,2.2 -1.8,4 -4,4H24c-2.2,0 -4,-1.8 -4,-4V40c0,-2.2 1.8,-4 4,-4z"/>
+    
+    <!-- Светильник 1 -->
+    <circle
+        android:fillColor="#FFFFFF"
+        android:cx="36"
+        android:cy="54"
+        android:r="4"/>
+    
+    <!-- Светильник 2 -->
+    <circle
+        android:fillColor="#FFFFFF"
+        android:cx="54"
+        android:cy="54"
+        android:r="4"/>
+    
+    <!-- Светильник 3 -->
+    <circle
+        android:fillColor="#FFFFFF"
+        android:cx="72"
+        android:cy="54"
+        android:r="4"/>
+    
+    <!-- Текст CRM -->
+    <path
+        android:fillColor="#2196F3"
+        android:pathData="M30,74h8v8h-8z M40,74h8v8h-8z M50,74h8v8h-8z"/>
 </vector>
