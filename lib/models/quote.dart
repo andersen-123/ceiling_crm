@@ -1,88 +1,132 @@
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
 
 class Quote {
   int? id;
+  String title;
   String clientName;
-  String clientPhone;
-  String objectAddress;
-  String? notes;
-  String status; // draft, sent, accepted, rejected
+  String? clientPhone;
+  String? clientEmail;
+  String? clientAddress;
   DateTime createdAt;
-  DateTime? updatedAt;
-  double total;
-  double vatRate;
+  DateTime? validUntil;
+  String notes;
+  double totalPrice;
   
+  // НОВОЕ ПОЛЕ: статус КП
+  String status; // 'draft', 'sent', 'accepted', 'rejected', 'expired'
+  DateTime? statusChangedAt;
+  String? statusComment;
+  
+  // Конструктор
   Quote({
     this.id,
+    required this.title,
     required this.clientName,
-    required this.clientPhone,
-    required this.objectAddress,
-    this.notes,
-    this.status = 'draft',
+    this.clientPhone,
+    this.clientEmail,
+    this.clientAddress,
     required this.createdAt,
-    this.updatedAt,
-    this.total = 0.0,
-    this.vatRate = 20.0,
+    this.validUntil,
+    this.notes = '',
+    required this.totalPrice,
+    this.status = 'draft',
+    this.statusChangedAt,
+    this.statusComment,
   });
 
+  // Конвертация в Map для SQLite
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'title': title,
       'client_name': clientName,
       'client_phone': clientPhone,
-      'object_address': objectAddress,
-      'notes': notes,
-      'status': status,
+      'client_email': clientEmail,
+      'client_address': clientAddress,
       'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
-      'total': total,
-      'vat_rate': vatRate,
+      'valid_until': validUntil?.toIso8601String(),
+      'notes': notes,
+      'total_price': totalPrice,
+      // НОВЫЕ ПОЛЯ
+      'status': status,
+      'status_changed_at': statusChangedAt?.toIso8601String(),
+      'status_comment': statusComment,
     };
   }
 
+  // Создание объекта из Map
   factory Quote.fromMap(Map<String, dynamic> map) {
     return Quote(
       id: map['id'],
-      clientName: map['client_name'] ?? '',
-      clientPhone: map['client_phone'] ?? '',
-      objectAddress: map['object_address'] ?? '',
-      notes: map['notes'],
-      status: map['status'] ?? 'draft',
+      title: map['title'],
+      clientName: map['client_name'],
+      clientPhone: map['client_phone'],
+      clientEmail: map['client_email'],
+      clientAddress: map['client_address'],
       createdAt: DateTime.parse(map['created_at']),
-      updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
-      total: map['total']?.toDouble() ?? 0.0,
-      vatRate: map['vat_rate']?.toDouble() ?? 20.0,
+      validUntil: map['valid_until'] != null ? DateTime.parse(map['valid_until']) : null,
+      notes: map['notes'] ?? '',
+      totalPrice: map['total_price'],
+      // НОВЫЕ ПОЛЯ
+      status: map['status'] ?? 'draft',
+      statusChangedAt: map['status_changed_at'] != null 
+          ? DateTime.parse(map['status_changed_at']) 
+          : null,
+      statusComment: map['status_comment'],
     );
   }
 
-  @override
-  String toString() {
-    return 'Quote(id: $id, client: $clientName, total: $total, status: $status)';
+  // Конвертация в JSON
+  String toJson() => json.encode(toMap());
+
+  // Создание из JSON
+  factory Quote.fromJson(String source) => Quote.fromMap(json.decode(source));
+
+  // Методы для изменения статуса
+  void markAsSent() {
+    status = 'sent';
+    statusChangedAt = DateTime.now();
   }
 
-  Quote copyWith({
-    int? id,
-    String? clientName,
-    String? clientPhone,
-    String? objectAddress,
-    String? notes,
-    String? status,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    double? total,
-    double? vatRate,
-  }) {
-    return Quote(
-      id: id ?? this.id,
-      clientName: clientName ?? this.clientName,
-      clientPhone: clientPhone ?? this.clientPhone,
-      objectAddress: objectAddress ?? this.objectAddress,
-      notes: notes ?? this.notes,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      total: total ?? this.total,
-      vatRate: vatRate ?? this.vatRate,
-    );
+  void markAsAccepted({String? comment}) {
+    status = 'accepted';
+    statusChangedAt = DateTime.now();
+    statusComment = comment;
+  }
+
+  void markAsRejected({String? comment}) {
+    status = 'rejected';
+    statusChangedAt = DateTime.now();
+    statusComment = comment;
+  }
+
+  // Геттер для отображения статуса
+  String get statusDisplay {
+    switch (status) {
+      case 'draft': return 'Черновик';
+      case 'sent': return 'Отправлен';
+      case 'accepted': return 'Принят';
+      case 'rejected': return 'Отклонен';
+      case 'expired': return 'Просрочен';
+      default: return 'Черновик';
+    }
+  }
+
+  // Проверка статусов
+  bool get isDraft => status == 'draft';
+  bool get isSent => status == 'sent';
+  bool get isAccepted => status == 'accepted';
+  bool get isRejected => status == 'rejected';
+  
+  // Цвет статуса для UI
+  Color get statusColor {
+    switch (status) {
+      case 'draft': return Colors.grey;
+      case 'sent': return Colors.blue;
+      case 'accepted': return Colors.green;
+      case 'rejected': return Colors.red;
+      case 'expired': return Colors.orange;
+      default: return Colors.grey;
+    }
   }
 }
