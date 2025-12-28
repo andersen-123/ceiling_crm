@@ -95,7 +95,7 @@ class PdfService {
                 pw.Text('Адрес: ${company.address}', style: normalStyle),
                 pw.Text('Телефон: ${company.phone}', style: normalStyle),
                 pw.Text('Email: ${company.email}', style: normalStyle),
-                if (company.website.isNotEmpty)
+                if (company.website?.isNotEmpty ?? false)
                   pw.Text('Сайт: ${company.website}', style: normalStyle),
               ],
             ),
@@ -202,10 +202,10 @@ class PdfService {
               headers: ['Наименование', 'Описание', 'Кол-во', 'Ед.', 'Цена', 'Сумма'],
               data: quote.items.map((item) => [
                 item.name,
-                item.description,
+                item.description ?? '',
                 item.quantity.toString(),
                 item.unit,
-                '${_formatCurrency(item.unitPrice)} руб.',
+                '${_formatCurrency(item.price)} руб.',
                 '${_formatCurrency(item.totalPrice)} руб.',
               ]).toList(),
             ),
@@ -265,7 +265,7 @@ class PdfService {
               children: [
                 pw.Text('БАНКОВСКИЕ РЕКВИЗИТЫ', style: subtitleStyle),
                 pw.SizedBox(height: 10),
-                pw.Text(company.bankDetails, style: normalStyle),
+                pw.Text(company.bankDetails ?? '', style: normalStyle),
                 pw.SizedBox(height: 15),
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -274,7 +274,7 @@ class PdfService {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text('Директор', style: normalStyle.copyWith(fontWeight: pw.FontWeight.bold)),
-                        pw.Text(company.directorName, style: normalStyle),
+                        pw.Text(company.directorName ?? '', style: normalStyle),
                       ],
                     ),
                     pw.Column(
