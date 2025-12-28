@@ -4,13 +4,13 @@ import 'package:ceiling_crm/models/line_item.dart';
 import 'package:ceiling_crm/screens/edit_position_modal.dart';
 
 class QuickAddScreen extends StatefulWidget {
-  final Function(List<LineItem>) onItemsSelected;
-  final List<LineItem> existingItems;
+  final Function(List<LineItem>)? onItemsSelected;
+  final List<LineItem>? existingItems;
 
   const QuickAddScreen({
     super.key,
-    required this.onItemsSelected,
-    required this.existingItems,
+    this.onItemsSelected,
+    this.existingItems,
   });
 
   @override
@@ -26,6 +26,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   void initState() {
     super.initState();
     _loadStandardPositions();
+    if (widget.existingItems != null) {
+      _selectedItems.addAll(widget.existingItems!);
+    }
   }
 
   Future<void> _loadStandardPositions() async {
@@ -102,8 +105,10 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   }
 
   void _saveAndReturn() {
-    widget.onItemsSelected(_selectedItems);
-    Navigator.of(context).pop();
+    if (widget.onItemsSelected != null) {
+      widget.onItemsSelected!(_selectedItems);
+    }
+    Navigator.of(context).pop(_selectedItems);
   }
 
   @override
