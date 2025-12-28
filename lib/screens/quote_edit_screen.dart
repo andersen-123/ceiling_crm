@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/models/line_item.dart';
 import 'package:ceiling_crm/services/database_helper.dart';
+import 'package:ceiling_crm/screens/quick_add_screen.dart';
 
 class QuoteEditScreen extends StatefulWidget {
   final int? quoteId;
@@ -169,10 +170,20 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Добавить'),
-                    onPressed: _addNewItem,
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.bolt, size: 16),
+                        label: const Text('Быстрое'),
+                        onPressed: _openQuickAdd,
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Добавить'),
+                        onPressed: _addNewItem,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -189,6 +200,11 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                           Icon(Icons.list, size: 48, color: Colors.grey),
                           SizedBox(height: 16),
                           Text('Нет добавленных позиций'),
+                          SizedBox(height: 8),
+                          Text(
+                            'Используйте кнопки выше для добавления позиций',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                         ],
                       ),
                     ),
@@ -240,10 +256,18 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   }
 
   Widget _buildLineItemCard(LineItem item, int index) {
+    final nameController = TextEditingController(text: item.name);
+    final descriptionController = TextEditingController(text: item.description);
+    final priceController = TextEditingController(text: item.unitPrice.toString());
+    final quantityController = TextEditingController(text: item.quantity.toString());
+    final unitController = TextEditingController(text: item.unit);
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      key: ValueKey(item.hashCode),
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -251,46 +275,59 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
-                    item.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  child: TextFormField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Наименование',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
+                    onChanged: (value) {
+                      _updateItemField(index, 'name', value);
+                    },
                   ),
                 ),
+                const SizedBox(width: 12),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: () => _removeItem(index),
+                  tooltip: 'Удалить позицию',
                 ),
               ],
             ),
             
-            if (item.description.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(item.description),
-              ),
+            const SizedBox(height: 12),
             
-            const SizedBox(height: 8),
+            TextFormField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Описание',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              maxLines: 2,
+              onChanged: (value) {
+                _updateItemField(index, 'description', value);
+              },
+            ),
+            
+            const SizedBox(height: 16),
             
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
-                    initialValue: item.unitPrice.toString(),
+                    controller: priceController,
                     decoration: const InputDecoration(
                       labelText: 'Цена за единицу',
                       border: OutlineInputBorder(),
                       prefixText: '₽ ',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     keyboardType: TextInputType.number,
                     onChanged: (value) {
                       final price = double.tryParse(value) ?? 0.0;
-                      setState(() {
-                        _quote.items[index] = item.copyWith(unitPrice: price);
-                        _quote._calculateTotal();
-                      });
+                      _updateItemField(index, 'unitPrice', price);
                     },
                   ),
                 ),
@@ -299,18 +336,16 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                 
                 Expanded(
                   child: TextFormField(
-                    initialValue: item.quantity.toString(),
+                    controller: quantityController,
                     decoration: const InputDecoration(
                       labelText: 'Количество',
                       border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     keyboardType: TextInputType.number,
                     onChanged: (value) {
                       final quantity = int.tryParse(value) ?? 1;
-                      setState(() {
-                        _quote.items[index] = item.copyWith(quantity: quantity);
-                        _quote._calculateTotal();
-                      });
+                      _updateItemField(index, 'quantity', quantity);
                     },
                   ),
                 ),
@@ -318,33 +353,39 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                 const SizedBox(width: 16),
                 
                 SizedBox(
-                  width: 100,
+                  width: 120,
                   child: TextFormField(
-                    initialValue: item.unit,
+                    controller: unitController,
                     decoration: const InputDecoration(
                       labelText: 'Ед. изм.',
                       border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     onChanged: (value) {
-                      setState(() {
-                        _quote.items[index] = item.copyWith(unit: value);
-                      });
+                      _updateItemField(index, 'unit', value);
                     },
                   ),
                 ),
               ],
             ),
             
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             
             Align(
               alignment: Alignment.centerRight,
-              child: Text(
-                '${item.totalPrice.toStringAsFixed(2)} руб.',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Сумма: ${item.totalPrice.toStringAsFixed(2)} руб.',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[900],
+                  ),
                 ),
               ),
             ),
@@ -354,21 +395,92 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     );
   }
 
+  void _updateItemField(int index, String field, dynamic value) {
+    setState(() {
+      var item = _quote.items[index];
+      
+      switch (field) {
+        case 'name':
+          item = item.copyWith(name: value as String);
+          break;
+        case 'description':
+          item = item.copyWith(description: value as String);
+          break;
+        case 'unitPrice':
+          item = item.copyWith(unitPrice: value as double);
+          break;
+        case 'quantity':
+          item = item.copyWith(quantity: value as int);
+          break;
+        case 'unit':
+          item = item.copyWith(unit: value as String);
+          break;
+      }
+      
+      _quote.updateItem(index, item);
+    });
+  }
+
   void _addNewItem() {
     setState(() {
       _quote.addItem(LineItem(
         quoteId: _quote.id ?? 0,
         name: 'Новая позиция',
+        description: '',
         unitPrice: 0.0,
         quantity: 1,
+        unit: 'шт.',
       ));
     });
   }
 
   void _removeItem(int index) {
-    setState(() {
-      _quote.removeItem(index);
-    });
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить позицию?'),
+        content: Text('Вы уверены, что хотите удалить "${_quote.items[index].name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _quote.removeItem(index);
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openQuickAdd() async {
+    final selectedItems = await Navigator.push<List<LineItem>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuickAddScreen(
+          onItemsSelected: (items) => items,
+        ),
+      ),
+    );
+    
+    if (selectedItems != null && selectedItems.isNotEmpty) {
+      setState(() {
+        _quote.addItems(selectedItems);
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Добавлено ${selectedItems.length} позиций'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _saveQuote() async {
@@ -386,8 +498,9 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('КП ${_isNewQuote ? 'создано' : 'обновлено'}'),
+            content: Text('КП для "${_quote.clientName}" ${_isNewQuote ? 'создано' : 'обновлено'}'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
           ),
         );
       } catch (e) {
@@ -395,9 +508,17 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           SnackBar(
             content: Text('Ошибка сохранения: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Пожалуйста, заполните обязательные поля'),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
   }
 
