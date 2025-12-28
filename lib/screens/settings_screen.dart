@@ -1,3 +1,6 @@
+import 'package:ceiling_crm/models/quote.dart';
+import 'package:ceiling_crm/models/line_item.dart';
+import 'package:ceiling_crm/services/pdf_service.dart';
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/company_profile.dart';
 import 'package:ceiling_crm/services/database_helper.dart';
@@ -37,12 +40,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       
       // Инициализируем контроллеры
       _companyNameController.text = _companyProfile.companyName;
-      _addressController.text = _companyProfile.address;
-      _phoneController.text = _companyProfile.phone;
-      _emailController.text = _companyProfile.email;
-      _websiteController.text = _companyProfile.website;
-      _bankDetailsController.text = _companyProfile.bankDetails;
-      _directorNameController.text = _companyProfile.directorName;
+      _addressController.text = _companyProfile.address ?? '';
+      _phoneController.text = _companyProfile.phone ?? '';
+      _emailController.text = _companyProfile.email ?? '';
+      _websiteController.text = _companyProfile.website ?? '';
+      _bankDetailsController.text = _companyProfile.bankDetails ?? '';
+      _directorNameController.text = _companyProfile.directorName ?? '';
       
       setState(() => _isLoading = false);
     } catch (e) {
@@ -184,7 +187,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                         return null;
                       },
-                      onChanged: (value) => _companyProfile.companyName = value,
+                      onChanged: (value) => _companyProfile = _companyProfile.copyWith(companyName: value),
                     ),
                     
                     const SizedBox(height: 12),
@@ -197,7 +200,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         prefixIcon: Icon(Icons.location_on),
                       ),
                       maxLines: 2,
-                      onChanged: (value) => _companyProfile.address = value,
+                      onChanged: (value) => _companyProfile = _companyProfile.copyWith(companyName: value),
                     ),
                     
                     const SizedBox(height: 12),
@@ -210,7 +213,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         prefixIcon: Icon(Icons.phone),
                       ),
                       keyboardType: TextInputType.phone,
-                      onChanged: (value) => _companyProfile.phone = value,
+                      onChanged: (value) => _companyProfile = _companyProfile.copyWith(companyName: value),
                     ),
                     
                     const SizedBox(height: 12),
@@ -223,7 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         prefixIcon: Icon(Icons.email),
                       ),
                       keyboardType: TextInputType.emailAddress,
-                      onChanged: (value) => _companyProfile.email = value,
+                      onChanged: (value) => _companyProfile = _companyProfile.copyWith(companyName: value),
                     ),
                     
                     const SizedBox(height: 12),
@@ -236,7 +239,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         prefixIcon: Icon(Icons.language),
                       ),
                       keyboardType: TextInputType.url,
-                      onChanged: (value) => _companyProfile.website = value,
+                      onChanged: (value) => _companyProfile = _companyProfile.copyWith(companyName: value),
                     ),
                   ],
                 ),
@@ -271,7 +274,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         helperText: 'Банк, расчетный счет, БИК, корр. счет',
                       ),
                       maxLines: 6,
-                      onChanged: (value) => _companyProfile.bankDetails = value,
+                      onChanged: (value) => _companyProfile = _companyProfile.copyWith(companyName: value),
                     ),
                     
                     const SizedBox(height: 12),
@@ -283,7 +286,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.person),
                       ),
-                      onChanged: (value) => _companyProfile.directorName = value,
+                      onChanged: (value) => _companyProfile = _companyProfile.copyWith(companyName: value),
                     ),
                   ],
                 ),
@@ -451,7 +454,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () {
-              final defaultProfile = CompanyProfile();
+              final defaultProfile = CompanyProfile.defaultProfile();
               
               setState(() {
                 _companyProfile = defaultProfile;
