@@ -1,617 +1,482 @@
+import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
-import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // ДОБАВЛЕНО
-import 'package:ceiling_crm/models/quote.dart';
-import 'package:ceiling_crm/models/line_item.dart';
-import 'package:ceiling_crm/models/company_profile.dart';
+import 'package:open_file/open_file.dart';
+import 'package:share_plus/share_plus.dart';
+import '../models/quote.dart';
+import '../models/company_profile.dart';
+import '../models/line_item.dart';
 
 class PdfService {
-  static Future<Uint8List> generateQuotePdfFromModels({
-    required Quote quote,
-    required List<LineItem> lineItems,
-    required CompanyProfile companyProfile,
-  }) async {
+  // Загружаем шрифт Roboto из assets
+  static Future<pw.Font> _loadRobotoFont() async {
+    final ByteData fontData = await rootBundle.load('fonts/Roboto-Regular.ttf');
+    final Uint8List fontBytes = fontData.buffer.asUint8List();
+    return pw.Font.ttf(fontBytes);
+  }
+
+  static Future<pw.Font> _loadRobotoBoldFont() async {
+    final ByteData fontData = await rootBundle.load('fonts/Roboto-Bold.ttf');
+    final Uint8List fontBytes = fontData.buffer.asUint8List();
+    return pw.Font.ttf(fontBytes);
+  }
+
+  static Future<Uint8List> generateQuotePdf(
+    Quote quote, 
+    List<LineItem> items, 
+    CompanyProfile company
+  ) async {
+    // Загружаем шрифты
+    final robotoFont = await _loadRobotoFont();
+    final robotoBoldFont = await _loadRobotoBoldFont();
+    
     final pdf = pw.Document();
     
-    // Форматируем дату
-    final dateFormat = DateFormat('dd.MM.yyyy');
-    final createdDate = quote.createdAt;
-    
-    // Рассчитываем итоги
-    double subtotal = 0;
-    for (var item in lineItems) {
-      subtotal += item.total;
-    }
-    
-    final vatRate = quote.vatRate;
-    final vatAmount = subtotal * (vatRate / 100);
-    final total = subtotal + vatAmount;
-    
-    // Форматируем валюту
-    final currencyFormat = NumberFormat.currency(
-      locale: 'ru_RU',
-      symbol: '₽',
-      decimalDigits: 2,
+    // Стили для текста
+    final headerStyle = pw.TextStyle(
+      font: robotoBoldFont,
+      fontSize: 16,
+      color: PdfColors.black,
     );
     
-    // Создаем PDF
+    final titleStyle = pw.TextStyle(
+      font: robotoBoldFont,
+      fontSize: 20,
+      color: PdfColors.black,
+    );
+    
+    final normalStyle = pw.TextStyle(
+      font: robotoFont,
+      fontSize: 11,
+      color: PdfColors.black,
+    );
+    
+    final smallStyle = pw.TextStyle(
+      font: robotoFont,
+      fontSize: 10,
+      color: PdfColors.grey700,
+    );
+    
+    final tableHeaderStyle = pw.TextStyle(
+      font: robotoBoldFont,
+      fontSize: 11,
+      color: PdfColors.white,
+    );
+    
+    // Форматирование чисел
+    String formatCurrency(double value) {
+      return '${value.toStringAsFixed(2).replaceAll('.', ',')} ₽';
+    }
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: pw.EdgeInsets.all(32),
         build: (pw.Context context) {
-          return _buildPdfContent(
-            quote: quote,
-            lineItems: lineItems,
-            companyProfile: companyProfile,
-            dateFormat: dateFormat,
-            createdDate: createdDate,
-            subtotal: subtotal,
-            vatRate: vatRate,
-            vatAmount: vatAmount,
-            total: total,
-            currencyFormat: currencyFormat,
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Шапка с логотипом и контактами
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        company.companyName,
+                        style: titleStyle,
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        company.address ?? '',
+                        style: normalStyle,
+                      ),
+                      pw.Text(
+                        'Тел: ${company.phone ?? '+7 (999) 123-45-67'}',
+                        style: normalStyle,
+                      ),
+                      pw.Text(
+                        'Email: ${company.email ?? 'info@company.ru'}',
+                        style: normalStyle,
+                      ),
+                    ],
+                  ),
+                  // Здесь можно добавить логотип если есть
+                  // pw.Image(pw.MemoryImage(logoBytes), width: 100, height: 50),
+                ],
+              ),
+              
+              pw.Divider(height: 20, thickness: 2),
+              
+              // Заголовок КП и статус
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ',
+                        style: headerStyle,
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        '№ ${quote.id?.toString().padLeft(6, '0') ?? 'Новый'}',
+                        style: pw.TextStyle(
+                          font: robotoBoldFont,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Блок статуса
+                  pw.Container(
+                    padding: pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      color: _getStatusColor(quote.status),
+                      borderRadius: pw.BorderRadius.circular(4),
+                    ),
+                    child: pw.Text(
+                      quote.statusDisplay.toUpperCase(),
+                      style: pw.TextStyle(
+                        font: robotoBoldFont,
+                        fontSize: 10,
+                        color: PdfColors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              
+              pw.SizedBox(height: 20),
+              
+              // Информация о клиенте
+              pw.Container(
+                padding: pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey300, width: 1),
+                  borderRadius: pw.BorderRadius.circular(4),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Клиент:',
+                      style: pw.TextStyle(
+                        font: robotoBoldFont,
+                        fontSize: 12,
+                      ),
+                    ),
+                    pw.SizedBox(height: 8),
+                    pw.Row(
+                      children: [
+                        pw.Text('Название: ', style: pw.TextStyle(font: robotoBoldFont, fontSize: 11)),
+                        pw.Text(quote.clientName, style: normalStyle),
+                      ],
+                    ),
+                    if (quote.clientPhone != null && quote.clientPhone!.isNotEmpty)
+                      pw.Row(
+                        children: [
+                          pw.Text('Телефон: ', style: pw.TextStyle(font: robotoBoldFont, fontSize: 11)),
+                          pw.Text(quote.clientPhone!, style: normalStyle),
+                        ],
+                      ),
+                    if (quote.clientEmail != null && quote.clientEmail!.isNotEmpty)
+                      pw.Row(
+                        children: [
+                          pw.Text('Email: ', style: pw.TextStyle(font: robotoBoldFont, fontSize: 11)),
+                          pw.Text(quote.clientEmail!, style: normalStyle),
+                        ],
+                      ),
+                    pw.Row(
+                      children: [
+                        pw.Text('Дата создания: ', style: pw.TextStyle(font: robotoBoldFont, fontSize: 11)),
+                        pw.Text(
+                          '${quote.createdAt.day.toString().padLeft(2, '0')}.${quote.createdAt.month.toString().padLeft(2, '0')}.${quote.createdAt.year}',
+                          style: normalStyle,
+                        ),
+                      ],
+                    ),
+                    if (quote.validUntil != null)
+                      pw.Row(
+                        children: [
+                          pw.Text('Действует до: ', style: pw.TextStyle(font: robotoBoldFont, fontSize: 11)),
+                          pw.Text(
+                            '${quote.validUntil!.day.toString().padLeft(2, '0')}.${quote.validUntil!.month.toString().padLeft(2, '0')}.${quote.validUntil!.year}',
+                            style: normalStyle,
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              
+              pw.SizedBox(height: 20),
+              
+              // Таблица с позициями
+              pw.Text(
+                'Спецификация:',
+                style: pw.TextStyle(
+                  font: robotoBoldFont,
+                  fontSize: 14,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey300, width: 1),
+                columnWidths: {
+                  0: pw.FlexColumnWidth(1),
+                  1: pw.FlexColumnWidth(3),
+                  2: pw.FlexColumnWidth(1),
+                  3: pw.FlexColumnWidth(1.5),
+                  4: pw.FlexColumnWidth(1.5),
+                },
+                children: [
+                  // Заголовок таблицы
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(color: PdfColors.blue700),
+                    children: [
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('#', style: tableHeaderStyle, textAlign: pw.TextAlign.center),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('Наименование', style: tableHeaderStyle),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('Кол-во', style: tableHeaderStyle, textAlign: pw.TextAlign.center),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('Цена', style: tableHeaderStyle, textAlign: pw.TextAlign.right),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('Сумма', style: tableHeaderStyle, textAlign: pw.TextAlign.right),
+                      ),
+                    ],
+                  ),
+                  
+                  // Позиции
+                  for (var i = 0; i < items.length; i++)
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            (i + 1).toString(),
+                            style: normalStyle,
+                            textAlign: pw.TextAlign.center,
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(items[i].description, style: normalStyle),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            items[i].quantity.toStringAsFixed(2).replaceAll('.', ','),
+                            style: normalStyle,
+                            textAlign: pw.TextAlign.center,
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            formatCurrency(items[i].unitPrice),
+                            style: normalStyle,
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            formatCurrency(items[i].totalPrice),
+                            style: normalStyle,
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+              
+              pw.SizedBox(height: 20),
+              
+              // Итого
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.end,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Row(
+                        children: [
+                          pw.Text(
+                            'Итого: ',
+                            style: pw.TextStyle(
+                              font: robotoBoldFont,
+                              fontSize: 12,
+                            ),
+                          ),
+                          pw.Text(
+                            formatCurrency(quote.totalPrice),
+                            style: pw.TextStyle(
+                              font: robotoBoldFont,
+                              fontSize: 14,
+                              color: PdfColors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'Без НДС',
+                        style: smallStyle,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              
+              pw.SizedBox(height: 30),
+              
+              // Примечания и подписи
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (quote.notes.isNotEmpty)
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Примечания:',
+                          style: pw.TextStyle(
+                            font: robotoBoldFont,
+                            fontSize: 12,
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(quote.notes, style: normalStyle),
+                        pw.SizedBox(height: 16),
+                      ],
+                    ),
+                  
+                  // Блок подписей
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('Подготовил:', style: normalStyle),
+                          pw.SizedBox(height: 20),
+                          pw.Container(
+                            width: 200,
+                            child: pw.Divider(color: PdfColors.black),
+                          ),
+                          pw.Text('${company.managerName ?? 'Менеджер'} / ${company.position ?? 'Должность'}', style: smallStyle),
+                        ],
+                      ),
+                      
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('Согласовано:', style: normalStyle),
+                          pw.SizedBox(height: 20),
+                          pw.Container(
+                            width: 200,
+                            child: pw.Divider(color: PdfColors.black),
+                          ),
+                          pw.Text('Клиент', style: smallStyle),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              
+              pw.SizedBox(height: 30),
+              
+              // Статус и комментарий (если есть)
+              if (quote.statusComment != null && quote.statusComment!.isNotEmpty)
+                pw.Container(
+                  padding: pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Комментарий к статусу:',
+                        style: pw.TextStyle(
+                          font: robotoBoldFont,
+                          fontSize: 12,
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(quote.statusComment!, style: normalStyle),
+                    ],
+                  ),
+                ),
+            ],
           );
         },
       ),
     );
-    
+
     return pdf.save();
   }
-
-  // Основной метод для совместимости со старой версией
-  static Future<Uint8List> generateQuotePdf(Map<String, dynamic> quoteMap) async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Загружаем настройки компании
-    final companyProfile = CompanyProfile.fromMap({
-      'name': prefs.getString('company_name') ?? 'Моя Компания',
-      'phone': prefs.getString('company_phone') ?? '+7 (999) 123-45-67',
-      'email': prefs.getString('company_email') ?? 'info@company.ru',
-      'address': prefs.getString('company_address') ?? 'г. Москва, ул. Примерная, д. 1',
-      'vat_rate': prefs.getDouble('vat_rate') ?? 20.0,
-      'default_margin': prefs.getDouble('default_margin') ?? 30.0,
-      'currency': '₽',
-    });
-    
-    // Создаем модель Quote из Map
-    final quote = Quote(
-      id: quoteMap['id'],
-      clientName: quoteMap['client_name'] ?? '',
-      clientPhone: quoteMap['client_phone'] ?? '',
-      objectAddress: quoteMap['object_address'] ?? '',
-      notes: quoteMap['notes'],
-      status: quoteMap['status'] ?? 'draft',
-      createdAt: DateTime.parse(quoteMap['created_at']),
-      updatedAt: quoteMap['updated_at'] != null 
-          ? DateTime.parse(quoteMap['updated_at']) 
-          : null,
-      total: (quoteMap['total'] as num?)?.toDouble() ?? 0.0,
-      vatRate: (quoteMap['vat_rate'] as num?)?.toDouble() ?? 20.0,
-    );
-    
-    // Создаем модели LineItem из positions
-    final List<LineItem> lineItems = [];
-    final positions = List<Map<String, dynamic>>.from(quoteMap['positions'] ?? []);
-    
-    for (var position in positions) {
-      final lineItem = LineItem(
-        id: position['id'],
-        quoteId: quote.id ?? 0,
-        name: position['name'] ?? '',
-        description: position['description'],
-        quantity: (position['quantity'] as num?)?.toDouble() ?? 1.0,
-        unit: position['unit'] ?? 'шт.',
-        price: (position['price'] as num?)?.toDouble() ?? 0.0,
-        total: (position['total'] as num?)?.toDouble() ?? 0.0,
-        sortOrder: position['sort_order'] ?? 0,
-        createdAt: position['created_at'] != null
-            ? DateTime.parse(position['created_at'])
-            : DateTime.now(),
-      );
-      lineItems.add(lineItem);
-    }
-    
-    return await generateQuotePdfFromModels(
-      quote: quote,
-      lineItems: lineItems,
-      companyProfile: companyProfile,
-    );
-  }
-
-  static pw.Widget _buildPdfContent({
-    required Quote quote,
-    required List<LineItem> lineItems,
-    required CompanyProfile companyProfile,
-    required DateFormat dateFormat,
-    required DateTime createdDate,
-    required double subtotal,
-    required double vatRate,
-    required double vatAmount,
-    required double total,
-    required NumberFormat currencyFormat,
-  }) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        // ШАПКА КОМПАНИИ
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  companyProfile.name,
-                  style: pw.TextStyle(
-                    fontSize: 20,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  companyProfile.address,
-                  style: pw.TextStyle(fontSize: 10),
-                ),
-                pw.Text(
-                  'Тел: ${companyProfile.phone} | Email: ${companyProfile.email}',
-                  style: pw.TextStyle(fontSize: 10),
-                ),
-                if (companyProfile.website != null && companyProfile.website!.isNotEmpty)
-                  pw.Text(
-                    'Сайт: ${companyProfile.website}',
-                    style: pw.TextStyle(fontSize: 10),
-                  ),
-              ],
-            ),
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.end,
-              children: [
-                pw.Text(
-                  'КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  '№ ${quote.id}',
-                  style: pw.TextStyle(fontSize: 12),
-                ),
-                pw.Text(
-                  'от ${dateFormat.format(createdDate)}',
-                  style: pw.TextStyle(fontSize: 10),
-                ),
-                pw.SizedBox(height: 8),
-                pw.Container(
-                  padding: pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: pw.BoxDecoration(
-                    color: _getStatusColor(quote.status),
-                    borderRadius: pw.BorderRadius.circular(4),
-                  ),
-                  child: pw.Text(
-                    _getStatusLabel(quote.status),
-                    style: pw.TextStyle(
-                      fontSize: 10,
-                      color: PdfColors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        
-        pw.Divider(thickness: 2),
-        pw.SizedBox(height: 20),
-        
-        // ДАННЫЕ КЛИЕНТА
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'КЛИЕНТ:',
-                    style: pw.TextStyle(
-                      fontSize: 12,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.Text(
-                    quote.clientName,
-                    style: pw.TextStyle(fontSize: 14),
-                  ),
-                  pw.SizedBox(height: 8),
-                  pw.Text(
-                    'ТЕЛЕФОН:',
-                    style: pw.TextStyle(
-                      fontSize: 12,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.Text(
-                    quote.clientPhone,
-                    style: pw.TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'АДРЕС ОБЪЕКТА:',
-                    style: pw.TextStyle(
-                      fontSize: 12,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.Text(
-                    quote.objectAddress,
-                    style: pw.TextStyle(fontSize: 14),
-                  ),
-                  pw.SizedBox(height: 8),
-                  pw.Text(
-                    'ПРИМЕЧАНИЕ:',
-                    style: pw.TextStyle(
-                      fontSize: 12,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.Text(
-                    quote.notes ?? 'Не указано',
-                    style: pw.TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        
-        pw.SizedBox(height: 30),
-        
-        // ТАБЛИЦА ПОЗИЦИЙ
-        pw.Text(
-          'СПЕЦИФИКАЦИЯ РАБОТ И МАТЕРИАЛОВ',
-          style: pw.TextStyle(
-            fontSize: 14,
-            fontWeight: pw.FontWeight.bold,
-          ),
-        ),
-        pw.SizedBox(height: 10),
-        
-        _buildPositionsTable(lineItems, currencyFormat),
-        
-        pw.SizedBox(height: 30),
-        
-        // ИТОГИ
-        _buildTotalsSection(
-          subtotal: subtotal,
-          vatRate: vatRate,
-          vatAmount: vatAmount,
-          total: total,
-          currencyFormat: currencyFormat,
-        ),
-        
-        pw.SizedBox(height: 40),
-        
-        // ПОДПИСИ
-        _buildSignaturesSection(quote, companyProfile),
-        
-        pw.SizedBox(height: 20),
-        
-        // ПРИМЕЧАНИЕ
-        _buildFooterNote(),
-      ],
-    );
-  }
-
-  static pw.Widget _buildPositionsTable(List<LineItem> lineItems, NumberFormat currencyFormat) {
-    return pw.Table(
-      border: pw.TableBorder.all(),
-      columnWidths: {
-        0: pw.FlexColumnWidth(0.5),  // №
-        1: pw.FlexColumnWidth(3.0),  // Наименование
-        2: pw.FlexColumnWidth(0.8),  // Кол-во
-        3: pw.FlexColumnWidth(1.2),  // Ед.
-        4: pw.FlexColumnWidth(1.5),  // Цена
-        5: pw.FlexColumnWidth(1.5),  // Сумма
-      },
-      children: [
-        // Заголовок таблицы
-        pw.TableRow(
-          decoration: pw.BoxDecoration(color: PdfColors.grey300),
-          children: [
-            pw.Padding(
-              child: pw.Text(
-                '№',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                textAlign: pw.TextAlign.center,
-              ),
-              padding: pw.EdgeInsets.all(6),
-            ),
-            pw.Padding(
-              child: pw.Text(
-                'Наименование',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              ),
-              padding: pw.EdgeInsets.all(6),
-            ),
-            pw.Padding(
-              child: pw.Text(
-                'Кол-во',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                textAlign: pw.TextAlign.center,
-              ),
-              padding: pw.EdgeInsets.all(6),
-            ),
-            pw.Padding(
-              child: pw.Text(
-                'Ед.',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                textAlign: pw.TextAlign.center,
-              ),
-              padding: pw.EdgeInsets.all(6),
-            ),
-            pw.Padding(
-              child: pw.Text(
-                'Цена',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                textAlign: pw.TextAlign.center,
-              ),
-              padding: pw.EdgeInsets.all(6),
-            ),
-            pw.Padding(
-              child: pw.Text(
-                'Сумма',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                textAlign: pw.TextAlign.center,
-              ),
-              padding: pw.EdgeInsets.all(6),
-            ),
-          ],
-        ),
-        
-        // Позиции
-        for (int i = 0; i < lineItems.length; i++)
-          pw.TableRow(
-            children: [
-              pw.Padding(
-                child: pw.Text(
-                  '${i + 1}',
-                  textAlign: pw.TextAlign.center,
-                ),
-                padding: pw.EdgeInsets.all(6),
-              ),
-              pw.Padding(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(lineItems[i].name),
-                    if (lineItems[i].description != null && lineItems[i].description!.isNotEmpty)
-                      pw.Text(
-                        lineItems[i].description!,
-                        style: pw.TextStyle(fontSize: 8),
-                      ),
-                  ],
-                ),
-                padding: pw.EdgeInsets.all(6),
-              ),
-              pw.Padding(
-                child: pw.Text(
-                  lineItems[i].quantity.toStringAsFixed(2),
-                  textAlign: pw.TextAlign.center,
-                ),
-                padding: pw.EdgeInsets.all(6),
-              ),
-              pw.Padding(
-                child: pw.Text(
-                  lineItems[i].unit,
-                  textAlign: pw.TextAlign.center,
-                ),
-                padding: pw.EdgeInsets.all(6),
-              ),
-              pw.Padding(
-                child: pw.Text(
-                  currencyFormat.format(lineItems[i].price),
-                  textAlign: pw.TextAlign.center,
-                ),
-                padding: pw.EdgeInsets.all(6),
-              ),
-              pw.Padding(
-                child: pw.Text(
-                  currencyFormat.format(lineItems[i].total),
-                  textAlign: pw.TextAlign.center,
-                ),
-                padding: pw.EdgeInsets.all(6),
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-
-  static pw.Widget _buildTotalsSection({
-    required double subtotal,
-    required double vatRate,
-    required double vatAmount,
-    required double total,
-    required NumberFormat currencyFormat,
-  }) {
-    return pw.Align(
-      alignment: pw.Alignment.centerRight,
-      child: pw.Container(
-        width: 300,
-        child: pw.Table(
-          border: pw.TableBorder.all(),
-          columnWidths: {
-            0: pw.FlexColumnWidth(2),
-            1: pw.FlexColumnWidth(1),
-          },
-          children: [
-            pw.TableRow(
-              children: [
-                pw.Padding(
-                  child: pw.Text('Сумма без НДС:'),
-                  padding: pw.EdgeInsets.all(8),
-                ),
-                pw.Padding(
-                  child: pw.Text(
-                    currencyFormat.format(subtotal),
-                    textAlign: pw.TextAlign.right,
-                  ),
-                  padding: pw.EdgeInsets.all(8),
-                ),
-              ],
-            ),
-            pw.TableRow(
-              children: [
-                pw.Padding(
-                  child: pw.Text('НДС ${vatRate.toStringAsFixed(1)}%:'),
-                  padding: pw.EdgeInsets.all(8),
-                ),
-                pw.Padding(
-                  child: pw.Text(
-                    currencyFormat.format(vatAmount),
-                    textAlign: pw.TextAlign.right,
-                  ),
-                  padding: pw.EdgeInsets.all(8),
-                ),
-              ],
-            ),
-            pw.TableRow(
-              decoration: pw.BoxDecoration(color: PdfColors.grey200),
-              children: [
-                pw.Padding(
-                  child: pw.Text(
-                    'ИТОГО:',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                  ),
-                  padding: pw.EdgeInsets.all(8),
-                ),
-                pw.Padding(
-                  child: pw.Text(
-                    currencyFormat.format(total),
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                    textAlign: pw.TextAlign.right,
-                  ),
-                  padding: pw.EdgeInsets.all(8),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static pw.Widget _buildSignaturesSection(Quote quote, CompanyProfile companyProfile) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              'От компании:',
-              style: pw.TextStyle(fontSize: 10),
-            ),
-            pw.SizedBox(height: 40),
-            pw.Text(
-              '_________________ / ${companyProfile.name} /',
-              style: pw.TextStyle(fontSize: 10),
-            ),
-            pw.SizedBox(height: 4),
-            pw.Text(
-              'М.П.',
-              style: pw.TextStyle(fontSize: 10),
-            ),
-          ],
-        ),
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              'Принял(а):',
-              style: pw.TextStyle(fontSize: 10),
-            ),
-            pw.SizedBox(height: 40),
-            pw.Text(
-              '_________________ / ${quote.clientName} /',
-              style: pw.TextStyle(fontSize: 10),
-            ),
-            pw.SizedBox(height: 4),
-            pw.Text(
-              '${quote.clientPhone}',
-              style: pw.TextStyle(fontSize: 10),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  static pw.Widget _buildFooterNote() {
-    return pw.Container(
-      padding: pw.EdgeInsets.all(12),
-      decoration: pw.BoxDecoration(
-        color: PdfColors.grey100,
-        borderRadius: pw.BorderRadius.circular(4),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            'Примечание:',
-            style: pw.TextStyle(
-              fontSize: 10,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-          pw.SizedBox(height: 4),
-          pw.Text(
-            '1. Данное коммерческое предложение действительно в течение 30 дней с даты составления.',
-            style: pw.TextStyle(fontSize: 9),
-          ),
-          pw.Text(
-            '2. Окончательная стоимость может быть скорректирована после замера объекта.',
-            style: pw.TextStyle(fontSize: 9),
-          ),
-          pw.Text(
-            '3. Все цены указаны в рублях, включая НДС (если применимо).',
-            style: pw.TextStyle(fontSize: 9),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Вспомогательные методы для статусов
-  static String _getStatusLabel(String status) {
-    switch (status) {
-      case 'draft': return 'ЧЕРНОВИК';
-      case 'sent': return 'ОТПРАВЛЕН';
-      case 'accepted': return 'ПРИНЯТ';
-      case 'rejected': return 'ОТКЛОНЕН';
-      default: return 'ЧЕРНОВИК';
-    }
-  }
-
+  
+  // Цвет статуса для PDF
   static PdfColor _getStatusColor(String status) {
     switch (status) {
       case 'draft': return PdfColors.grey;
       case 'sent': return PdfColors.blue;
       case 'accepted': return PdfColors.green;
       case 'rejected': return PdfColors.red;
+      case 'expired': return PdfColors.orange;
       default: return PdfColors.grey;
     }
+  }
+
+  // Сохранение PDF в файл
+  static Future<File> savePdfToFile(Uint8List pdfBytes, String fileName) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/$fileName.pdf');
+    await file.writeAsBytes(pdfBytes);
+    return file;
+  }
+
+  // Предпросмотр PDF
+  static Future<void> previewPdf(Uint8List pdfBytes, BuildContext context) async {
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdfBytes,
+    );
+  }
+
+  // Поделиться PDF
+  static Future<void> sharePdf(Uint8List pdfBytes, String fileName, BuildContext context) async {
+    final directory = await getTemporaryDirectory();
+    final file = File('${directory.path}/$fileName.pdf');
+    await file.writeAsBytes(pdfBytes);
+    
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      subject: 'Коммерческое предложение $fileName',
+      text: 'Отправляю коммерческое предложение $fileName',
+    );
   }
 }
