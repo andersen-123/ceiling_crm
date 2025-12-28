@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // ДОЛЖЕН БЫТЬ
 import 'package:ceiling_crm/models/company_profile.dart';
+import 'package:ceiling_crm/services/database_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({Key? key}) : super(key: key);
+
   @override
   _SettingsScreenState createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
   final _formKey = GlobalKey<FormState>();
-  late CompanyProfile _companyProfile;
-  bool _isLoading = true;
   
-  // Контроллеры
-  late TextEditingController _nameController;
+  late TextEditingController _companyNameController;
+  late TextEditingController _managerNameController;
+  late TextEditingController _positionController;
   late TextEditingController _phoneController;
   late TextEditingController _emailController;
   late TextEditingController _addressController;
@@ -22,15 +24,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _marginController;
   late TextEditingController _currencyController;
 
+  CompanyProfile? _companyProfile;
+
   @override
   void initState() {
     super.initState();
-    _initControllers();
-    _loadSettings();
-  }
-
-  void _initControllers() {
-    _nameController = TextEditingController();
+    
+    _companyNameController = TextEditingController();
+    _managerNameController = TextEditingController();
+    _positionController = TextEditingController();
     _phoneController = TextEditingController();
     _emailController = TextEditingController();
     _addressController = TextEditingController();
@@ -38,460 +40,287 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _vatController = TextEditingController();
     _marginController = TextEditingController();
     _currencyController = TextEditingController();
+    
+    _loadCompanyProfile();
   }
 
-  Future<void> _loadSettings() async {
+  @override
+  void dispose() {
+    _companyNameController.dispose();
+    _managerNameController.dispose();
+    _positionController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _addressController.dispose();
+    _websiteController.dispose();
+    _vatController.dispose();
+    _marginController.dispose();
+    _currencyController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCompanyProfile() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      // Загружаем настройки или используем значения по умолчанию
-      _companyProfile = CompanyProfile.fromMap({
-        'name': prefs.getString('company_name'),
-        'phone': prefs.getString('company_phone'),
-        'email': prefs.getString('company_email'),
-        'address': prefs.getString('company_address'),
-        'website': prefs.getString('company_website'),
-        'vat_rate': prefs.getDouble('vat_rate'),
-        'default_margin': prefs.getDouble('default_margin'),
-        'currency': prefs.getString('company_currency'),
-      });
-      
-      // Заполняем контроллеры
-      _nameController.text = _companyProfile.name;
-      _phoneController.text = _companyProfile.phone;
-      _emailController.text = _companyProfile.email;
-      _addressController.text = _companyProfile.address;
-      _websiteController.text = _companyProfile.website ?? '';
-      _vatController.text = _companyProfile.vatRate.toString();
-      _marginController.text = _companyProfile.defaultMargin.toString();
-      _currencyController.text = _companyProfile.currency;
-      
-    } catch (e) {
-      print('Ошибка загрузки настроек: $e');
-      // Используем профиль по умолчанию
-      _companyProfile = CompanyProfile.defaultProfile;
-      _updateControllersFromProfile();
-    } finally {
+      final profile = await _dbHelper.getCompanyProfile();
       setState(() {
-        _isLoading = false;
+        _companyProfile = profile;
       });
-    }
-  }
-
-  void _updateControllersFromProfile() {
-    _nameController.text = _companyProfile.name;
-    _phoneController.text = _companyProfile.phone;
-    _emailController.text = _companyProfile.email;
-    _addressController.text = _companyProfile.address;
-    _websiteController.text = _companyProfile.website ?? '';
-    _vatController.text = _companyProfile.vatRate.toString();
-    _marginController.text = _companyProfile.defaultMargin.toString();
-    _currencyController.text = _companyProfile.currency;
-  }
-
-  Future<void> _saveSettings() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
       
-      // Создаем обновленный профиль
-      final updatedProfile = CompanyProfile(
-        name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-        address: _addressController.text.trim(),
-        website: _websiteController.text.trim().isNotEmpty 
-            ? _websiteController.text.trim() 
-            : null,
-        vatRate: double.parse(_vatController.text),
-        defaultMargin: double.parse(_marginController.text),
+      if (_companyProfile != null) {
+        _companyNameController.text = _companyProfile!.companyName;
+        _managerNameController.text = _companyProfile!.managerName;
+        _positionController.text = _companyProfile!.position;
+        _phoneController.text = _companyProfile!.phone ?? '';
+        _emailController.text = _companyProfile!.email ?? '';
+        _addressController.text = _companyProfile!.address ?? '';
+        _websiteController.text = _companyProfile!.website ?? '';
+        _vatController.text = _companyProfile!.vatRate.toString();
+        _marginController.text = _companyProfile!.defaultMargin.toString();
+        _currencyController.text = _companyProfile!.currency;
+      } else {
+        // Если профиля нет, создаем пустой
+        _companyProfile = CompanyProfile.defaultProfile();
+        _companyNameController.text = _companyProfile!.companyName;
+        _managerNameController.text = _companyProfile!.managerName;
+        _positionController.text = _companyProfile!.position;
+        _phoneController.text = _companyProfile!.phone ?? '';
+        _emailController.text = _companyProfile!.email ?? '';
+        _addressController.text = _companyProfile!.address ?? '';
+        _websiteController.text = _companyProfile!.website ?? '';
+        _vatController.text = _companyProfile!.vatRate.toString();
+        _marginController.text = _companyProfile!.defaultMargin.toString();
+        _currencyController.text = _companyProfile!.currency;
+      }
+    } catch (e) {
+      print('Ошибка загрузки профиля: $e');
+      // Создаем профиль по умолчанию при ошибке
+      _companyProfile = CompanyProfile.defaultProfile();
+      _companyNameController.text = _companyProfile!.companyName;
+      _managerNameController.text = _companyProfile!.managerName;
+      _positionController.text = _companyProfile!.position;
+      _phoneController.text = _companyProfile!.phone ?? '';
+      _emailController.text = _companyProfile!.email ?? '';
+      _addressController.text = _companyProfile!.address ?? '';
+    }
+  }
+
+  Future<void> _saveCompanyProfile() async {
+    if (_formKey.currentState!.validate()) {
+      final newProfile = CompanyProfile(
+        id: _companyProfile?.id,
+        companyName: _companyNameController.text.trim(),
+        managerName: _managerNameController.text.trim(),
+        position: _positionController.text.trim(),
+        phone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
+        email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        address: _addressController.text.trim().isNotEmpty ? _addressController.text.trim() : null,
+        website: _websiteController.text.trim().isNotEmpty ? _websiteController.text.trim() : null,
+        vatRate: double.tryParse(_vatController.text) ?? 0.0,
+        defaultMargin: double.tryParse(_marginController.text) ?? 0.0,
         currency: _currencyController.text.trim(),
       );
-      
-      // Сохраняем в SharedPreferences
-      await prefs.setString('company_name', updatedProfile.name);
-      await prefs.setString('company_phone', updatedProfile.phone);
-      await prefs.setString('company_email', updatedProfile.email);
-      await prefs.setString('company_address', updatedProfile.address);
-      if (updatedProfile.website != null) {
-        await prefs.setString('company_website', updatedProfile.website!);
-      } else {
-        await prefs.remove('company_website');
+
+      try {
+        if (_companyProfile?.id != null) {
+          await _dbHelper.updateCompanyProfile(newProfile);
+        } else {
+          await _dbHelper.insertCompanyProfile(newProfile);
+        }
+        
+        setState(() {
+          _companyProfile = newProfile;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Профиль компании сохранен')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка сохранения: $e')),
+        );
       }
-      await prefs.setDouble('vat_rate', updatedProfile.vatRate);
-      await prefs.setDouble('default_margin', updatedProfile.defaultMargin);
-      await prefs.setString('company_currency', updatedProfile.currency);
-      
-      // Обновляем текущий профиль
-      setState(() {
-        _companyProfile = updatedProfile;
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Настройки успешно сохранены'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      
-    } catch (e) {
-      print('Ошибка сохранения настроек: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка сохранения: $e'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
     }
   }
 
-  Future<void> _resetSettings() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Сбросить настройки?'),
-        content: Text('Все настройки будут сброшены к значениям по умолчанию. Продолжить?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Отмена'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Сбросить'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      
-      setState(() {
-        _companyProfile = CompanyProfile.defaultProfile;
-        _updateControllersFromProfile();
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Настройки сброшены к значениям по умолчанию'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
-  }
-
-  Future<void> _exportSettings() async {
-    // В будущем можно добавить экспорт настроек в файл
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Экспорт настроек будет реализован в следующей версии'),
-        backgroundColor: Colors.blue,
-      ),
-    );
-  }
-
-  Widget _buildSection({
-    required String title,
-    required List<Widget> children,
-  }) {
-    return Card(
-      margin: EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.blueGrey[800],
-              ),
-            ),
-            SizedBox(height: 16),
-            ...children,
-          ],
-        ),
-      ),
-    );
+  void _resetToDefaults() {
+    setState(() {
+      _companyProfile = CompanyProfile.defaultProfile();
+      _companyNameController.text = _companyProfile!.companyName;
+      _managerNameController.text = _companyProfile!.managerName;
+      _positionController.text = _companyProfile!.position;
+      _phoneController.text = _companyProfile!.phone ?? '';
+      _emailController.text = _companyProfile!.email ?? '';
+      _addressController.text = _companyProfile!.address ?? '';
+      _websiteController.text = _companyProfile!.website ?? '';
+      _vatController.text = _companyProfile!.vatRate.toString();
+      _marginController.text = _companyProfile!.defaultMargin.toString();
+      _currencyController.text = _companyProfile!.currency;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text('Загрузка настроек...'),
-          backgroundColor: Colors.blueGrey[800],
-        ),
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Настройки компании'),
-        backgroundColor: Colors.blueGrey[800],
-        elevation: 0,
+        title: const Text('Настройки компании'),
         actions: [
           IconButton(
-            icon: Icon(Icons.save),
-            onPressed: _saveSettings,
-            tooltip: 'Сохранить настройки',
+            icon: const Icon(Icons.save),
+            onPressed: _saveCompanyProfile,
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Информация о компании
-              _buildSection(
-                title: 'Информация о компании',
-                children: [
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Название компании *',
-                      prefixIcon: Icon(Icons.business),
-                      border: OutlineInputBorder(),
+      body: _companyProfile == null
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildSectionHeader('Информация о компании'),
+                    _buildTextField(
+                      controller: _companyNameController,
+                      label: 'Название компании',
+                      icon: Icons.business,
+                      required: true,
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Введите название компании';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 12),
-                  TextFormField(
-                    controller: _phoneController,
-                    decoration: InputDecoration(
-                      labelText: 'Телефон *',
-                      prefixIcon: Icon(Icons.phone),
-                      border: OutlineInputBorder(),
+                    _buildTextField(
+                      controller: _managerNameController,
+                      label: 'Имя менеджера',
+                      icon: Icons.person,
                     ),
-                    keyboardType: TextInputType.phone,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Введите телефон компании';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 12),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email *',
-                      prefixIcon: Icon(Icons.email),
-                      border: OutlineInputBorder(),
+                    _buildTextField(
+                      controller: _positionController,
+                      label: 'Должность',
+                      icon: Icons.work,
                     ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Введите email компании';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Введите корректный email';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 12),
-                  TextFormField(
-                    controller: _addressController,
-                    decoration: InputDecoration(
-                      labelText: 'Адрес *',
-                      prefixIcon: Icon(Icons.location_on),
-                      border: OutlineInputBorder(),
+                    _buildTextField(
+                      controller: _phoneController,
+                      label: 'Телефон',
+                      icon: Icons.phone,
+                      keyboardType: TextInputType.phone,
                     ),
-                    maxLines: 2,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Введите адрес компании';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 12),
-                  TextFormField(
-                    controller: _websiteController,
-                    decoration: InputDecoration(
-                      labelText: 'Веб-сайт',
-                      prefixIcon: Icon(Icons.public),
-                      border: OutlineInputBorder(),
+                    _buildTextField(
+                      controller: _emailController,
+                      label: 'Email',
+                      icon: Icons.email,
+                      keyboardType: TextInputType.emailAddress,
                     ),
-                    keyboardType: TextInputType.url,
-                  ),
-                ],
-              ),
-
-              // Настройки расчетов
-              _buildSection(
-                title: 'Настройки расчетов',
-                children: [
-                  TextFormField(
-                    controller: _vatController,
-                    decoration: InputDecoration(
-                      labelText: 'Ставка НДС (%) *',
-                      prefixIcon: Icon(Icons.percent),
-                      border: OutlineInputBorder(),
-                      suffixText: '%',
+                    _buildTextField(
+                      controller: _addressController,
+                      label: 'Адрес',
+                      icon: Icons.location_on,
                     ),
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Введите ставку НДС';
-                      }
-                      final val = double.tryParse(value);
-                      if (val == null || val < 0 || val > 100) {
-                        return 'Введите значение от 0 до 100';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 12),
-                  TextFormField(
-                    controller: _marginController,
-                    decoration: InputDecoration(
-                      labelText: 'Наценка по умолчанию (%) *',
-                      prefixIcon: Icon(Icons.trending_up),
-                      border: OutlineInputBorder(),
-                      suffixText: '%',
+                    _buildTextField(
+                      controller: _websiteController,
+                      label: 'Веб-сайт',
+                      icon: Icons.language,
+                      keyboardType: TextInputType.url,
                     ),
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Введите наценку по умолчанию';
-                      }
-                      final val = double.tryParse(value);
-                      if (val == null || val < 0 || val > 500) {
-                        return 'Введите значение от 0 до 500';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 12),
-                  TextFormField(
-                    controller: _currencyController,
-                    decoration: InputDecoration(
-                      labelText: 'Валюта *',
-                      prefixIcon: Icon(Icons.currency_ruble),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Введите символ валюты';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-
-              // Кнопки действий
-              Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _saveSettings,
-                          icon: Icon(Icons.save),
-                          label: Text('Сохранить все настройки'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            padding: EdgeInsets.symmetric(vertical: 16),
+                    
+                    const SizedBox(height: 24),
+                    _buildSectionHeader('Финансовые настройки'),
+                    
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _vatController,
+                            label: 'НДС, %',
+                            icon: Icons.percent,
+                            keyboardType: TextInputType.number,
                           ),
                         ),
-                      ),
-                      SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _resetSettings,
-                              icon: Icon(Icons.restore),
-                              label: Text('Сбросить'),
-                              style: OutlinedButton.styleFrom(
-                                padding: EdgeInsets.symmetric(vertical: 14),
-                                side: BorderSide(color: Colors.orange),
-                              ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _marginController,
+                            label: 'Наценка, %',
+                            icon: Icons.attach_money,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    _buildTextField(
+                      controller: _currencyController,
+                      label: 'Валюта',
+                      icon: Icons.money,
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _saveCompanyProfile,
+                            icon: const Icon(Icons.save),
+                            label: const Text('Сохранить'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
                           ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _exportSettings,
-                              icon: Icon(Icons.file_download),
-                              label: Text('Экспорт'),
-                              style: OutlinedButton.styleFrom(
-                                padding: EdgeInsets.symmetric(vertical: 14),
-                                side: BorderSide(color: Colors.blue),
-                              ),
-                            ),
+                        ),
+                        const SizedBox(width: 16),
+                        OutlinedButton.icon(
+                          onPressed: _resetToDefaults,
+                          icon: const Icon(Icons.restore),
+                          label: const Text('По умолчанию'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Информация о приложении
-              SizedBox(height: 20),
-              Center(
-                child: Column(
-                  children: [
-                    Text(
-                      'Ceiling CRM v1.0',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 16,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Система управления коммерческими предложениями',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Разработано для компаний по натяжным потолкам',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 10,
-                      ),
-                      textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 20),
-            ],
-          ),
+            ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16, top: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.blue,
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool required = false,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          border: const OutlineInputBorder(),
+          filled: true,
+          fillColor: Colors.grey[50],
+        ),
+        keyboardType: keyboardType,
+        validator: (value) {
+          if (required && (value == null || value.trim().isEmpty)) {
+            return 'Это поле обязательно для заполнения';
+          }
+          return null;
+        },
       ),
     );
   }
