@@ -21,9 +21,15 @@ class PdfService {
   Future<Uint8List> generateQuotePdf(Quote quote) async {
     final pdf = pw.Document();
 
+    // Используем стандартные шрифты, поддерживающие кириллицу
+    final font = await _getPdfFont();
+    
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(
+          base: font,
+        ),
         build: (pw.Context context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -46,6 +52,17 @@ class PdfService {
     );
 
     return pdf.save();
+  }
+
+  // Метод для получения шрифта (используем встроенный или пытаемся загрузить)
+  Future<pw.Font> _getPdfFont() async {
+    try {
+      // Пытаемся использовать Helvetica, который поддерживает кириллицу в PDF
+      return pw.Font.helvetica();
+    } catch (e) {
+      // Если не сработало, используем стандартный
+      return pw.Font.courier();
+    }
   }
 
   pw.Widget _buildHeader(Quote quote) {
@@ -226,8 +243,10 @@ class PdfService {
     try {
       final pdfBytes = await generateQuotePdf(quote);
       
+      // Используем предпросмотр с возможностью сохранения
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdfBytes,
+        name: 'КП_${quote.id}_${quote.clientName}',
       );
     } catch (e) {
       print('Ошибка предпросмотра PDF: $e');
@@ -263,12 +282,17 @@ class PdfService {
       final pdfBytes = await generateQuotePdf(quote);
       
       final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/КП_${quote.id}_${quote.clientName}.pdf');
+      final fileName = 'КП_${quote.id}_${quote.clientName.replaceAll(RegExp(r'[^\w\s]'), '_')}.pdf';
+      final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(pdfBytes);
 
       if (context.mounted) {
         Navigator.of(context).pop();
-        await Share.shareFiles([file.path], text: 'Коммерческое предложение для ${quote.clientName}');
+        await Share.shareFiles(
+          [file.path],
+          text: 'Коммерческое предложение для ${quote.clientName}',
+          subject: 'КП №${quote.id}',
+        );
       }
     } catch (e) {
       print('Ошибка шаринга PDF: $e');
@@ -281,6 +305,25 @@ class PdfService {
           ),
         );
       }
+    }
+  }
+
+  // Альтернативный метод для прямого сохранения PDF
+  Future<String?> savePdf(BuildContext context, Quote quote) async {
+    try {
+      final pdfBytes = await generateQuotePdf(quote);
+      
+      final downloadsDir = await getDownloadsDirectory();
+      if (downloadsDir != null) {
+        final fileName = 'КП_${quote.id}_${quote.clientName.replaceAll(RegExp(r'[^\w\s]'), '_')}.pdf';
+        final file = File('${downloadsDir.path}/$fileName');
+        await file.writeAsBytes(pdfBytes);
+        return file.path;
+      }
+      return null;
+    } catch (e) {
+      print('Ошибка сохранения PDF: $e');
+      return null;
     }
   }
 }
