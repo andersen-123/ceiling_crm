@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:ceiling_crm/screens/quote_edit_screen.dart';
 import 'package:ceiling_crm/screens/settings_screen.dart';
 import 'package:ceiling_crm/screens/pdf_preview_screen.dart';
-import 'package:ceiling_crm/screens/debug_screen.dart'; // ДОБАВЛЕНО
-import 'package:ceiling_crm/models/quote.dart'; // ДОБАВЛЕНО
-import 'package:ceiling_crm/models/line_item.dart'; // ДОБАВЛЕНО
+import 'package:ceiling_crm/screens/debug_screen.dart';
+import 'package:ceiling_crm/models/quote.dart';
+import 'package:ceiling_crm/models/line_item.dart';
 import 'package:ceiling_crm/repositories/quote_repository.dart';
 import 'package:ceiling_crm/services/pdf_service.dart';
 import 'package:intl/intl.dart';
@@ -206,7 +206,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (coninetext) => PdfPreviewScreen(
+          builder: (context) => PdfPreviewScreen(
             quote: quoteSummary['quote'] as Quote,
             lineItems: (quoteSummary['line_items'] as List).cast<LineItem>(),
             subtotal: quoteSummary['subtotal'] as double,
@@ -240,7 +240,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
       // Получаем данные для PDF
       final quoteSummary = await _quoteRepo.getQuoteSummary(quote.id!);
       final quoteData = quoteSummary['quote'] as Quote;
-      final lineItems = quoteSummary['line_items'] as List<LineItem>;
+      final lineItems = (quoteSummary['line_items'] as List).cast<LineItem>();
       
       // Создаем Map для совместимости со старой версией PdfService
       final quoteMap = {
@@ -620,9 +620,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
         title: Text('Коммерческие предложения'),
         backgroundColor: Colors.blueGrey[800],
         elevation: 2,
-        // В actions AppBar добавляем:
         actions: [
-          // Секретная кнопка отладки (удерживать 3 секунды)
           GestureDetector(
             onLongPress: () {
               Navigator.push(
@@ -640,20 +638,6 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
               tooltip: 'Удерживайте 3 секунды для отладки',
             ),
           ),
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SettingsScreen(),
-                ),
-              );
-            },
-            tooltip: 'Настройки компании',
-          ),
-        ],
-        actions: [
           IconButton(
             icon: Icon(Icons.settings),
             onPressed: () {
