@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/models/quote.dart';
+import 'package:ceiling_crm/models/line_item.dart';
 import 'package:ceiling_crm/services/database_helper.dart';
 import 'package:ceiling_crm/screens/proposal_detail_screen.dart';
+import 'package:ceiling_crm/screens/quick_add_screen.dart';
 
 class QuoteEditScreen extends StatefulWidget {
   final int? quoteId;
@@ -157,6 +159,80 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     }
   }
 
+  void _quickAddPositions() async {
+    if (!_isNew && _quote.id > 0) {
+      final selectedItems = await Navigator.push<List<LineItem>>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuickAddScreen(
+            existingItems: _quote.items,
+          ),
+        ),
+      );
+
+      if (selectedItems != null && selectedItems.isNotEmpty) {
+        await _addItemsToQuote(selectedItems);
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Сначала сохраните КП'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  Future<void> _addItemsToQuote(List<LineItem> items) async {
+    try {
+      final updatedItems = List<LineItem>.from(_quote.items);
+      
+      // Находим максимальный ID среди существующих позиций
+      int maxId = updatedItems.isNotEmpty 
+          ? updatedItems.map((i) => i.id).reduce((a, b) => a > b ? a : b) 
+          : 0;
+      
+      // Добавляем новые позиции с уникальными ID
+      for (var item in items) {
+        if (!updatedItems.any((existing) => existing.name == item.name && existing.unit == item.unit)) {
+          maxId++;
+          updatedItems.add(item.copyWith(id: maxId));
+        }
+      }
+
+      final updatedQuote = _quote.copyWith(
+        items: updatedItems,
+        updatedAt: DateTime.now(),
+      );
+
+      final dbHelper = DatabaseHelper.instance;
+      await dbHelper.updateQuote(updatedQuote);
+      
+      if (mounted) {
+        setState(() {
+          _quote = updatedQuote;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Добавлено ${items.length} позиций'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Ошибка добавления позиций: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _clientNameController.dispose();
@@ -180,12 +256,18 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       appBar: AppBar(
         title: Text(_isNew ? 'Новое КП' : 'Редактировать КП'),
         actions: [
-          if (!_isNew)
+          if (!_isNew) ...[
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: _quickAddPositions,
+              tooltip: 'Быстрое добавление',
+            ),
             IconButton(
               icon: const Icon(Icons.list),
               onPressed: _managePositions,
               tooltip: 'Управление позициями',
             ),
+          ],
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveQuote,
@@ -360,13 +442,31 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                         ),
                         const SizedBox(height: 12),
                         
-                        ElevatedButton.icon(
-                          onPressed: _managePositions,
-                          icon: const Icon(Icons.add_circle),
-                          label: const Text('Добавить/редактировать позиции'),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 48),
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _quickAddPositions,
+                                icon: const Icon(Icons.add_circle),
+                                label: const Text('Быстрое добавление'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  minimumSize: const Size(double.infinity, 48),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _managePositions,
+                                icon: const Icon(Icons.list_alt),
+                                label: const Text('Все позиции'),
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size(double.infinity, 48),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ] else ...[
                         Row(
