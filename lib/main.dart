@@ -14,7 +14,7 @@ class CeilingCRMApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blueGrey,
-        fontFamily: 'Roboto',
+        // УБРАНО: fontFamily: 'Roboto',
         appBarTheme: AppBarTheme(
           backgroundColor: Colors.blueGrey[800],
           elevation: 2,
