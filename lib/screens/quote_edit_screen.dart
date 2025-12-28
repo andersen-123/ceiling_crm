@@ -41,16 +41,40 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     super.dispose();
   }
   
-  Future<void> _generateAndSharePdf() async {
+  Future<void> _exportToPdf() async {
+    if (_currentQuote == null) return;
+  
     try {
-      // Временная заглушка для тестирования
+      // Показываем индикатор загрузки
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PDF экспорт временно отключен для исправления ошибок')),
+        const SnackBar(
+          content: Text('Генерируем PDF...'),
+          duration: Duration(seconds: 2),
+        ),
       );
-      // TODO: Восстановить вызов PdfService после исправления
+    
+      // Создаем обновленный quote с актуальными данными
+      final updatedQuote = _currentQuote!.copyWith(
+        total: _calculateTotal(),
+        vatAmount: _calculateVatAmount(),
+        totalWithVat: _calculateTotalWithVat(),
+        vatRate: _vatRate,
+      );
+    
+      // Генерируем и делимся PDF
+      await PdfService.generateAndShareQuote(
+        quote: updatedQuote,
+        lineItems: _lineItems,
+        context: context,
+      );
+    
     } catch (e) {
+      print('❌ Ошибка PDF: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка генерации PDF: $e')),
+        SnackBar(
+          content: Text('Ошибка при создании PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
