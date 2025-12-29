@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/data/database_helper.dart';
 import 'package:ceiling_crm/models/quote.dart';
@@ -106,8 +107,14 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   }
 
   Future<void> _saveQuote() async {
+    // Валидация
     if (_clientNameController.text.isEmpty) {
-      _showError('Введите имя клиента');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Введите имя клиента'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
@@ -116,7 +123,9 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     });
 
     try {
-      // Обновляем данные
+      print('💾 Начинаю сохранение КП...');
+    
+      // 1. Обновляем объект Quote из контроллеров
       _quote.clientName = _clientNameController.text;
       _quote.clientEmail = _clientEmailController.text;
       _quote.clientPhone = _clientPhoneController.text;
@@ -126,43 +135,75 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       _quote.notes = _notesController.text;
       _quote.updatedAt = DateTime.now();
 
-      // Рассчитываем общую сумму
-      _quote.totalAmount = _quote.items.fold(0.0, (sum, item) => sum + item.totalPrice);
+      // 2. Рассчитываем общую сумму
+      _quote.totalAmount = _quote.items.fold(0.0, (sum, item) {
+        return sum + (item.quantity * item.price);
+      });
+    
+      print('📊 Данные КП подготовлены: ${_quote.clientName}, сумма: ${_quote.totalAmount}');
 
       if (_quote.id == null) {
-        // Новая цитата
-        final id = await _dbHelper.insertQuote(_quote);
-        _quote.id = id;
-        
+        // СОЗДАНИЕ НОВОГО КП
+        print('🆕 Создаю новое КП...');
+        final quoteId = await _dbHelper.insertQuote(_quote);
+        _quote.id = quoteId;
+        print('✅ КП создано с ID: $quoteId');
+
         // Сохраняем позиции
+        print('📦 Сохраняю позиции...');
         for (final item in _quote.items) {
-          item.quoteId = id;
-          await _dbHelper.insertLineItem(item);
+          item.quoteId = quoteId;
+          final itemId = await _dbHelper.insertLineItem(item);
+          item.id = itemId;
+          print('  ✅ Позиция: ${item.description} (ID: $itemId)');
         }
       } else {
-        // Обновление существующей
+        // ОБНОВЛЕНИЕ СУЩЕСТВУЮЩЕГО КП
+        print('✏️ Обновляю существующее КП ID: ${_quote.id}');
         await _dbHelper.updateQuote(_quote);
-        
-        // Обновляем позиции (удаляем старые, добавляем новые)
-        final existingItems = await _dbHelper.getLineItemsForQuote(_quote.id!);
-        for (final item in existingItems) {
-          await _dbHelper.deleteLineItem(item.id!);
-        }
-        
+      
+        // Удаляем старые позиции
+        print('🗑️ Удаляю старые позиции...');
+        await _dbHelper.deleteLineItemsForQuote(_quote.id!);
+      
+        // Добавляем новые позиции
+        print('📦 Добавляю новые позиции...');
         for (final item in _quote.items) {
           item.quoteId = _quote.id!;
-          await _dbHelper.insertLineItem(item);
+          final itemId = await _dbHelper.insertLineItem(item);
+          item.id = itemId;
+          print('  ✅ Позиция: ${item.description}');
         }
       }
 
-      _showSuccess('КП сохранено');
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          Navigator.pop(context, true);
-        }
-      });
+      print('🎉 КП успешно сохранено!');
+    
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ КП успешно сохранено'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Возвращаемся назад через секунду
+      await Future.delayed(const Duration(seconds: 1));
+    
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+
     } catch (e) {
-      _showError('Ошибка сохранения: $e');
+      print('❌ ОШИБКА СОХРАНЕНИЯ: $e');
+      log('Ошибка сохранения', error: e, stackTrace: StackTrace.current);
+    
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Ошибка сохранения: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
