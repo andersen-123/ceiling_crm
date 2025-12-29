@@ -232,7 +232,7 @@ class TemplateService {
     
     final lowerQuery = query.toLowerCase();
     return allTemplates.where((template) {
-      return template.name.toLowerCase().contains(lowerQuery) ||
+      return template.name?.toLowerCase().contains(lowerQuery) ?? false ||
              (template.description ?? '').toLowerCase().contains(lowerQuery);
     }).toList();
   }
@@ -253,7 +253,7 @@ class TemplateService {
   }
 
   String _determineCategory(LineItem item) {
-    final name = item.name.toLowerCase();
+    final name = item.name?.toLowerCase() ?? '';
     
     if (name.contains('полотно') || name.contains('потолок')) {
       return 'Основные работы';
