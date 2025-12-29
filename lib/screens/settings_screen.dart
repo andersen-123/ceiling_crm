@@ -108,9 +108,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveProfile() async {
     try {
+      print('💾 Сохраняю профиль компании...');
+    
       final newProfile = CompanyProfile(
         id: 1,
-        name: _nameController.text.isEmpty ? 'Моя компания' : _nameController.text,
+        name: _nameController.text.isNotEmpty ? _nameController.text : 'Моя компания',
         email: _emailController.text,
         phone: _phoneController.text,
         address: _addressController.text,
@@ -120,19 +122,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
         createdAt: DateTime.now(),
       );
 
-      await _dbHelper.saveCompanyProfile(newProfile);
-
+      print('📝 Данные профиля: ${newProfile.name}, ${newProfile.email}');
+    
+      final result = await _dbHelper.saveCompanyProfile(newProfile);
+    
+      print('✅ Профиль сохранен, результат: $result');
+    
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Настройки сохранены'),
+          content: Text('✅ Настройки компании сохранены'),
           backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
         ),
       );
+
     } catch (e) {
+      print('❌ Ошибка сохранения профиля: $e');
+    
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Ошибка: $e'),
+          content: Text('❌ Ошибка сохранения: ${e.toString()}'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
         ),
       );
     }
