@@ -88,7 +88,15 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   
   void _addNewItem() {
     setState(() {
-      _items.add(LineItem(description: '', quantity: 1, pricePerUnit: 0));
+      _items.add(LineItem(
+        quoteId: widget.quote?.id ?? 0,
+        name: '',
+        description: '',
+        quantity: 1,
+        unit: 'м²',
+        pricePerUnit: 0,
+      ));
+
       _itemFormKeys.add(GlobalKey<FormState>());
       _itemControllers.add({
         'description': TextEditingController(),
