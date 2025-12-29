@@ -238,4 +238,8 @@ class DatabaseHelper {
       'total': 4800,
     });
   }
+  /// Сохранение профиля компании (alias для updateCompanyProfile)
+  Future<void> saveCompanyProfile(CompanyProfile profile) async {
+    await updateCompanyProfile(profile);
+  }
 }
