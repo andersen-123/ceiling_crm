@@ -84,98 +84,40 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
 
   Future<void> _createTestData() async {
     try {
-      // Создаем тестовое КП
-      final testQuote = Quote(
-        clientName: 'Тестовый клиент',
-        clientEmail: 'test@example.com',
-        clientPhone: '+7 (999) 123-45-67',
-        clientAddress: 'г. Москва, ул. Тестовая, д. 1',
-        projectName: 'Тестовый проект: Натяжные потолки в квартире',
-        projectDescription: 'Установка натяжных потолков в 3-х комнатной квартире',
-        totalAmount: 0.0, // Будет рассчитано автоматически
-        status: 'черновик',
-        notes: 'Тестовое КП для проверки функционала приложения',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      final quoteId = await _dbHelper.insertQuote(testQuote);
-
-      // Создаем тестовые позиции из стандартных шаблонов
-      final testItems = [
-        LineItem(
-          quoteId: quoteId,
-          description: 'Натяжной потолок ПВХ глянцевый (Германия)',
-          quantity: 25.5,
-          price: 610.0,
-          unit: 'м²',
-          name: 'Потолок глянцевый',
-        ),
-        LineItem(
-          quoteId: quoteId,
-          description: 'Точечный светильник LED (хром)',
-          quantity: 12.0,
-          price: 450.0,
-          unit: 'шт',
-          name: 'Светильник LED',
-        ),
-        LineItem(
-          quoteId: quoteId,
-          description: 'Монтаж светильника (проход через полотно)',
-          quantity: 12.0,
-          price: 300.0,
-          unit: 'шт',
-          name: 'Монтаж светильника',
-        ),
-        LineItem(
-          quoteId: quoteId,
-          description: 'Демонтаж старого потолка (под ключ)',
-          quantity: 1.0,
-          price: 3500.0,
-          unit: 'комплект',
-          name: 'Демонтаж',
-        ),
-      ];
-
-      // Вставляем позиции и рассчитываем общую сумму
-      double totalAmount = 0.0;
-      for (final item in testItems) {
-        await _dbHelper.insertLineItem(item);
-        totalAmount += item.totalPrice;
-      }
-
-      // Обновляем цитату с правильной суммой
-      final updatedQuote = Quote(
-        id: quoteId,
-        clientName: testQuote.clientName,
-        clientEmail: testQuote.clientEmail,
-        clientPhone: testQuote.clientPhone,
-        clientAddress: testQuote.clientAddress,
-        projectName: testQuote.projectName,
-        projectDescription: testQuote.projectDescription,
-        totalAmount: totalAmount,
-        status: testQuote.status,
-        notes: testQuote.notes,
-        createdAt: testQuote.createdAt,
-        updatedAt: DateTime.now(),
-      );
-
-      await _dbHelper.updateQuote(updatedQuote);
-
+      print('🔄 Запускаю создание тестовых данных...');
+    
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✅ Тестовые данные созданы! Проверьте список КП'),
+          content: Text('Создаю тестовые данные...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      await _dbHelper.createTestData();
+    
+      print('✅ Тестовые данные созданы, обновляю список...');
+    
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Тестовые данные успешно созданы!'),
+          backgroundColor: Colors.green,
           duration: Duration(seconds: 3),
         ),
       );
 
+      // Обновляем список
       await _loadQuotes();
+    
+      print('🎉 Процесс завершен успешно!');
+
     } catch (e) {
-      print('Ошибка создания тестовых данных: $e');
+      print('❌ Ошибка в _createTestData: $e');
+    
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('❌ Ошибка: ${e.toString()}'),
-          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     }
