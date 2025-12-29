@@ -1,3 +1,5 @@
+import 'line_item.dart';  // ДОБАВЛЕНО
+
 class Quote {
   int? id;
   String clientName;
@@ -11,7 +13,7 @@ class Quote {
   String notes;
   DateTime createdAt;
   DateTime updatedAt;
-  List<LineItem> items;  // ДОБАВЛЕНО
+  List<LineItem> items;
 
   Quote({
     this.id,
@@ -26,10 +28,9 @@ class Quote {
     required this.notes,
     required this.createdAt,
     required this.updatedAt,
-    this.items = const [],  // ДОБАВЛЕНО
+    this.items = const [],
   });
 
-  // Методы для управления позициями
   void addItem(LineItem item) {
     items.add(item);
     _calculateTotal();
@@ -89,7 +90,7 @@ class Quote {
       notes: map['notes'] ?? '',
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
-      items: [],  // items загружаются отдельно
+      items: [],
     );
   }
 
