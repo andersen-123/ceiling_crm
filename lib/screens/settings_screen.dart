@@ -29,7 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _taxIdController;
   String? _logoPath;
   bool _isLoading = true;
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
   @override
   void initState() {
