@@ -45,7 +45,7 @@ class DatabaseHelper {
         client_address TEXT,
         project_name TEXT,
         project_description TEXT,
-        total_amount REAL NOT NULL,
+        total_amount REAL NOT NULL DEFAULT 0,
         status TEXT DEFAULT 'черновик',
         notes TEXT,
         created_at TEXT NOT NULL,
@@ -59,8 +59,8 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         quote_id INTEGER NOT NULL,
         description TEXT NOT NULL,
-        quantity REAL NOT NULL,
-        price REAL NOT NULL,
+        quantity REAL NOT NULL DEFAULT 1,
+        price REAL NOT NULL DEFAULT 0,
         unit TEXT DEFAULT 'шт',
         name TEXT,
         FOREIGN KEY (quote_id) REFERENCES quotes (id) ON DELETE CASCADE
@@ -70,14 +70,14 @@ class DatabaseHelper {
     // Таблица профиля компании
     await db.execute('''
       CREATE TABLE company_profile (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT,
-        phone TEXT,
-        address TEXT,
-        website TEXT,
-        tax_id TEXT,
-        logo_path TEXT,
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        name TEXT DEFAULT 'Моя компания',
+        email TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        address TEXT DEFAULT '',
+        website TEXT DEFAULT '',
+        tax_id TEXT DEFAULT '',
+        logo_path TEXT DEFAULT '',
         created_at TEXT NOT NULL
       )
     ''');
@@ -85,12 +85,12 @@ class DatabaseHelper {
     // Вставляем профиль компании по умолчанию
     final defaultProfile = CompanyProfile(
       id: 1,
-      name: 'Ваша компания',
-      email: 'info@company.com',
-      phone: '+7 (999) 123-45-67',
-      address: 'г. Москва, ул. Примерная, д. 1',
-      website: 'www.company.com',
-      taxId: '1234567890',
+      name: 'Моя компания',
+      email: '',
+      phone: '',
+      address: '',
+      website: '',
+      taxId: '',
       logoPath: '',
       createdAt: DateTime.now(),
     );
@@ -98,7 +98,7 @@ class DatabaseHelper {
     await db.insert('company_profile', defaultProfile.toMap());
   }
 
-  // CRUD для Quote
+  // ========== CRUD ДЛЯ QUOTE ==========
   Future<int> insertQuote(Quote quote) async {
     final db = await database;
     return await db.insert('quotes', quote.toMap());
@@ -107,7 +107,9 @@ class DatabaseHelper {
   Future<List<Quote>> getAllQuotes() async {
     final db = await database;
     final maps = await db.query('quotes', orderBy: 'created_at DESC');
-    return maps.map((map) => Quote.fromMap(map)).toList();
+    return List.generate(maps.length, (i) {
+      return Quote.fromMap(maps[i]);
+    });
   }
 
   Future<Quote?> getQuote(int id) async {
@@ -143,7 +145,7 @@ class DatabaseHelper {
     );
   }
 
-  // CRUD для LineItem
+  // ========== CRUD ДЛЯ LINE ITEM ==========
   Future<int> insertLineItem(LineItem item) async {
     final db = await database;
     return await db.insert('line_items', item.toMap());
@@ -157,7 +159,9 @@ class DatabaseHelper {
       whereArgs: [quoteId],
       orderBy: 'id',
     );
-    return maps.map((map) => LineItem.fromMap(map)).toList();
+    return List.generate(maps.length, (i) {
+      return LineItem.fromMap(maps[i]);
+    });
   }
 
   Future<int> updateLineItem(LineItem item) async {
@@ -179,7 +183,7 @@ class DatabaseHelper {
     );
   }
 
-  // CompanyProfile
+  // ========== COMPANY PROFILE ==========
   Future<int> saveCompanyProfile(CompanyProfile profile) async {
     final db = await database;
     return await db.insert(
@@ -191,88 +195,70 @@ class DatabaseHelper {
 
   Future<CompanyProfile?> getCompanyProfile() async {
     final db = await database;
-    final maps = await db.query(
-      'company_profile',
-      where: 'id = ?',
-      whereArgs: [1],
-    );
-
+    final maps = await db.query('company_profile');
+    
     if (maps.isNotEmpty) {
       return CompanyProfile.fromMap(maps.first);
     }
     return null;
   }
 
-  // Резервное копирование
-  Future<File> exportDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final source = File(join(dbPath, 'ceiling_crm.db'));
-    final tempDir = await getTemporaryDirectory();
-    final destination = File(join(tempDir.path, 'ceiling_crm_backup_${DateTime.now().millisecondsSinceEpoch}.db'));
-    
-    if (await source.exists()) {
-      await source.copy(destination.path);
-    }
-    
-    return destination;
-  }
-
-  Future<void> importDatabase(File sourceFile) async {
-    final dbPath = await getDatabasesPath();
-    final destination = File(join(dbPath, 'ceiling_crm.db'));
-    
-    if (await sourceFile.exists()) {
-      await sourceFile.copy(destination.path);
-    }
-  }
-
-  // Тестовые данные
+  // ========== ТЕСТОВЫЕ ДАННЫЕ ==========
   Future<void> createTestData() async {
-    final quote = Quote(
-      clientName: 'Тестовый клиент',
-      clientEmail: 'test@example.com',
-      clientPhone: '+7 (999) 123-45-67',
-      clientAddress: 'г. Москва, ул. Тестовая, д. 1',
-      projectName: 'Тестовый проект',
-      projectDescription: 'Натяжные потолки в квартире',
-      totalAmount: 25000.0,
-      status: 'черновик',
-      notes: 'Тестовое КП',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+    try {
+      final quote = Quote(
+        clientName: 'Иванов Иван',
+        clientEmail: 'ivanov@example.com',
+        clientPhone: '+7 (999) 123-45-67',
+        clientAddress: 'г. Москва, ул. Ленина, д. 1',
+        projectName: 'Натяжные потолки в 3-х комнатной квартире',
+        projectDescription: 'Установка глянцевых потолков в зале и спальнях',
+        totalAmount: 0.0,
+        status: 'черновик',
+        notes: 'Тестовое КП',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
-    final quoteId = await insertQuote(quote);
-    
-    final items = [
-      LineItem(
-        quoteId: quoteId,
-        description: 'Натяжной потолок глянцевый',
-        quantity: 20.0,
-        price: 850.0,
-        unit: 'м²',
-        name: 'Потолок глянцевый',
-      ),
-      LineItem(
-        quoteId: quoteId,
-        description: 'Монтаж светильников',
-        quantity: 8.0,
-        price: 500.0,
-        unit: 'шт',
-        name: 'Светильники',
-      ),
-      LineItem(
-        quoteId: quoteId,
-        description: 'Демонтаж старого потолка',
-        quantity: 1.0,
-        price: 3000.0,
-        unit: 'комплект',
-        name: 'Демонтаж',
-      ),
-    ];
+      final quoteId = await insertQuote(quote);
+      
+      // Простые тестовые позиции
+      final testItems = [
+        LineItem(
+          quoteId: quoteId,
+          description: 'Натяжной потолок глянцевый белый',
+          quantity: 25.0,
+          price: 610.0,
+          unit: 'м²',
+          name: 'Потолок глянцевый',
+        ),
+        LineItem(
+          quoteId: quoteId,
+          description: 'Монтаж светильника LED',
+          quantity: 8.0,
+          price: 300.0,
+          unit: 'шт',
+          name: 'Светильник',
+        ),
+      ];
 
-    for (final item in items) {
-      await insertLineItem(item);
+      for (final item in testItems) {
+        await insertLineItem(item);
+      }
+
+      // Обновляем общую сумму
+      final items = await getLineItemsForQuote(quoteId);
+      double total = 0;
+      for (final item in items) {
+        total += item.totalPrice;
+      }
+      
+      final updatedQuote = quote.copyWith(id: quoteId, totalAmount: total);
+      await updateQuote(updatedQuote);
+
+    } catch (e) {
+      print('Ошибка создания тестовых данных: $e');
+      rethrow;
     }
   }
 }
