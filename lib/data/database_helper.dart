@@ -7,12 +7,9 @@ import '../models/line_item.dart';
 import '../models/company_profile.dart';
 
 class DatabaseHelper {
+  // Singleton pattern
   static final DatabaseHelper _instance = DatabaseHelper._internal();
-  
-  factory DatabaseHelper() {
-    return _instance;
-  }
-  
+  factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
   
   static Database? _database;
@@ -26,7 +23,7 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-
+    
     return await openDatabase(
       path,
       version: 1,
@@ -35,7 +32,7 @@ class DatabaseHelper {
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // Таблица коммерческих предложений
+    // Таблица quotes с ВСЕМИ полями
     await db.execute('''
       CREATE TABLE quotes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +50,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Таблица позиций в КП
+    // Таблица line_items с ВСЕМИ полями
     await db.execute('''
       CREATE TABLE line_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,22 +64,22 @@ class DatabaseHelper {
       )
     ''');
 
-    // Таблица профиля компании
+    // Таблица company_profile с ВСЕМИ полями
     await db.execute('''
       CREATE TABLE company_profile (
         id INTEGER PRIMARY KEY CHECK (id = 1),
-        name TEXT DEFAULT 'Моя компания',
-        email TEXT DEFAULT '',
-        phone TEXT DEFAULT '',
-        address TEXT DEFAULT '',
-        website TEXT DEFAULT '',
-        tax_id TEXT DEFAULT '',
-        logo_path TEXT DEFAULT '',
+        name TEXT NOT NULL DEFAULT 'Моя компания',
+        email TEXT,
+        phone TEXT,
+        address TEXT,
+        website TEXT,
+        tax_id TEXT,
+        logo_path TEXT,
         created_at TEXT NOT NULL
       )
     ''');
 
-    // Вставляем профиль компании по умолчанию
+    // Инициализируем профиль компании
     final defaultProfile = CompanyProfile(
       id: 1,
       name: 'Моя компания',
@@ -94,7 +91,7 @@ class DatabaseHelper {
       logoPath: '',
       createdAt: DateTime.now(),
     );
-
+    
     await db.insert('company_profile', defaultProfile.toMap());
   }
 
@@ -106,7 +103,10 @@ class DatabaseHelper {
 
   Future<List<Quote>> getAllQuotes() async {
     final db = await database;
-    final maps = await db.query('quotes', orderBy: 'created_at DESC');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'quotes',
+      orderBy: 'created_at DESC'
+    );
     return List.generate(maps.length, (i) {
       return Quote.fromMap(maps[i]);
     });
@@ -114,12 +114,11 @@ class DatabaseHelper {
 
   Future<Quote?> getQuote(int id) async {
     final db = await database;
-    final maps = await db.query(
+    final List<Map<String, dynamic>> maps = await db.query(
       'quotes',
       where: 'id = ?',
       whereArgs: [id],
     );
-
     if (maps.isNotEmpty) {
       return Quote.fromMap(maps.first);
     }
@@ -153,7 +152,7 @@ class DatabaseHelper {
 
   Future<List<LineItem>> getLineItemsForQuote(int quoteId) async {
     final db = await database;
-    final maps = await db.query(
+    final List<Map<String, dynamic>> maps = await db.query(
       'line_items',
       where: 'quote_id = ?',
       whereArgs: [quoteId],
@@ -183,6 +182,15 @@ class DatabaseHelper {
     );
   }
 
+  Future<int> deleteLineItemsForQuote(int quoteId) async {
+    final db = await database;
+    return await db.delete(
+      'line_items',
+      where: 'quote_id = ?',
+      whereArgs: [quoteId],
+    );
+  }
+
   // ========== COMPANY PROFILE ==========
   Future<int> saveCompanyProfile(CompanyProfile profile) async {
     final db = await database;
@@ -195,8 +203,7 @@ class DatabaseHelper {
 
   Future<CompanyProfile?> getCompanyProfile() async {
     final db = await database;
-    final maps = await db.query('company_profile');
-    
+    final List<Map<String, dynamic>> maps = await db.query('company_profile');
     if (maps.isNotEmpty) {
       return CompanyProfile.fromMap(maps.first);
     }
@@ -206,97 +213,143 @@ class DatabaseHelper {
   // ========== ТЕСТОВЫЕ ДАННЫЕ ==========
   Future<void> createTestData() async {
     try {
+      print('🔄 Начинаю создание тестовых данных...');
+      
+      // 1. Создаем тестовое КП
       final quote = Quote(
-        clientName: 'Иванов Иван',
-        clientEmail: 'ivanov@example.com',
+        clientName: 'Тестовый клиент',
+        clientEmail: 'test@example.com',
         clientPhone: '+7 (999) 123-45-67',
-        clientAddress: 'г. Москва, ул. Ленина, д. 1',
+        clientAddress: 'г. Москва, ул. Тестовая, д. 1',
         projectName: 'Натяжные потолки в 3-х комнатной квартире',
         projectDescription: 'Установка глянцевых потолков в зале и спальнях',
         totalAmount: 0.0,
         status: 'черновик',
-        notes: 'Тестовое КП',
+        notes: 'Тестовое КП для проверки',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
+      print('📝 Создаю КП...');
       final quoteId = await insertQuote(quote);
-      
-      // Простые тестовые позиции
+      print('✅ КП создано с ID: $quoteId');
+
+      // 2. Создаем тестовые позиции
       final testItems = [
         LineItem(
           quoteId: quoteId,
-          description: 'Натяжной потолок глянцевый белый',
-          quantity: 25.0,
+          description: 'Натяжной потолок ПВХ глянцевый (Германия)',
+          quantity: 25.5,
           price: 610.0,
           unit: 'м²',
           name: 'Потолок глянцевый',
         ),
         LineItem(
           quoteId: quoteId,
-          description: 'Монтаж светильника LED',
+          description: 'Точечный светильник LED (хром)',
+          quantity: 8.0,
+          price: 450.0,
+          unit: 'шт',
+          name: 'Светильник LED',
+        ),
+        LineItem(
+          quoteId: quoteId,
+          description: 'Монтаж светильника (проход через полотно)',
           quantity: 8.0,
           price: 300.0,
           unit: 'шт',
-          name: 'Светильник',
+          name: 'Монтаж светильника',
         ),
       ];
 
+      print('📦 Добавляю позиции...');
       for (final item in testItems) {
         await insertLineItem(item);
       }
+      print('✅ Позиции добавлены');
 
-      // Обновляем общую сумму
+      // 3. Рассчитываем и обновляем общую сумму
       final items = await getLineItemsForQuote(quoteId);
       double total = 0;
       for (final item in items) {
-        total += item.totalPrice;
+        total += (item.quantity * item.price);
       }
       
-      final updatedQuote = quote.copyWith(id: quoteId, totalAmount: total);
+      print('💰 Рассчитываю сумму: $total руб.');
+      
+      final updatedQuote = Quote(
+        id: quoteId,
+        clientName: quote.clientName,
+        clientEmail: quote.clientEmail,
+        clientPhone: quote.clientPhone,
+        clientAddress: quote.clientAddress,
+        projectName: quote.projectName,
+        projectDescription: quote.projectDescription,
+        totalAmount: total,
+        status: quote.status,
+        notes: quote.notes,
+        createdAt: quote.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
       await updateQuote(updatedQuote);
+      print('🎉 Тестовые данные успешно созданы!');
 
     } catch (e) {
-      print('Ошибка создания тестовых данных: $e');
+      print('❌ Ошибка создания тестовых данных: $e');
       rethrow;
     }
   }
-    // ========== ЭКСПОРТ/ИМПОРТ БАЗЫ ==========
+
+  // ========== ЭКСПОРТ/ИМПОРТ ==========
   Future<File> exportDatabase() async {
     try {
       final dbPath = await getDatabasesPath();
       final source = File(join(dbPath, 'ceiling_crm.db'));
       
       if (await source.exists()) {
+        print('📁 Файл базы найден: ${source.path}');
         return source;
+      } else {
+        throw Exception('Файл базы данных не найден по пути: ${source.path}');
       }
-      throw Exception('Файл базы данных не найден');
     } catch (e) {
-      print('Ошибка экспорта: $e');
+      print('❌ Ошибка экспорта: $e');
       rethrow;
     }
   }
 
   Future<void> importDatabase(File sourceFile) async {
     try {
-      if (await sourceFile.exists()) {
-        final dbPath = await getDatabasesPath();
-        final destination = File(join(dbPath, 'ceiling_crm.db'));
-        
-        // Закрываем текущее соединение
-        if (_database != null) {
-          await _database!.close();
-          _database = null;
-        }
-        
-        // Копируем файл
-        await sourceFile.copy(destination.path);
-        
-        // Переоткрываем базу
-        await database;
+      if (!await sourceFile.exists()) {
+        throw Exception('Исходный файл не существует');
       }
+
+      final dbPath = await getDatabasesPath();
+      final destination = File(join(dbPath, 'ceiling_crm.db'));
+      
+      print('🔄 Начинаю импорт базы...');
+      print('📥 Источник: ${sourceFile.path}');
+      print('📤 Назначение: ${destination.path}');
+
+      // Закрываем текущее соединение
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+
+      // Копируем файл
+      await sourceFile.copy(destination.path);
+      
+      print('✅ Файл скопирован успешно');
+      
+      // Переоткрываем базу
+      await database;
+      
+      print('🎉 Импорт базы завершен успешно!');
+
     } catch (e) {
-      print('Ошибка импорта: $e');
+      print('❌ Ошибка импорта: $e');
       rethrow;
     }
   }
