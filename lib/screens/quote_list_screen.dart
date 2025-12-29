@@ -1,11 +1,12 @@
+// ИСПРАВЛЕННЫЕ ИМПОРТЫ:
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/screens/quote_edit_screen.dart';
 import 'package:ceiling_crm/screens/quick_add_screen.dart';
 import 'package:ceiling_crm/screens/settings_screen.dart';
-import 'package:ceiling_crm/data/database_helper.dart';
+import 'package:ceiling_crm/data/database_helper.dart';  // ИЗМЕНЕНО: из services в data
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/models/line_item.dart';
-import 'package:ceiling_crm/services/pdf_service.dart';
+import 'package:ceiling_crm/services/pdf_service.dart';  // ОСТАЕТСЯ в services
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
