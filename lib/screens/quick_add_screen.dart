@@ -63,7 +63,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                       });
                     },
                     title: Text(
-                      item.name,
+                      item.name ?? '',  // БЫЛО: item.name,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Column(
