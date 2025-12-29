@@ -1,3 +1,4 @@
+import 'package:ceiling_crm/screens/quick_add_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/data/database_helper.dart';  // ДОЛЖНО БЫТЬ ТАК
 import 'package:ceiling_crm/models/quote.dart';
@@ -38,10 +39,13 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
 
   Future<void> _loadQuote() async {
     if (widget.quoteId != null) {
-      final existingQuote = await _dbHelper.getQuoteById(widget.quoteId!);
+      final existingQuote = await _dbHelper.getQuote(widget.quoteId!);
       if (existingQuote != null) {
         _quote = existingQuote;
-        _isNewQuote = false;
+        // Загружаем позиции из базы данных
+        final lineItems = await _dbHelper.getLineItemsForQuote(widget.quoteId!);
+        _quote.items = lineItems;
+        _updateControllers();
       } else {
         _createNewQuote();
       }
@@ -66,7 +70,6 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       notes: '',
       totalAmount: 0.0,
       createdAt: DateTime.now(),
-      items: [],
     );
     _isNewQuote = true;
   }
@@ -657,7 +660,9 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     setState(() => _isGeneratingPdf = true);
     
     try {
-      await _pdfService.previewPdf(_quote);
+      final lineItems = await _dbHelper.getLineItemsForQuote(_quote.id!);
+      final pdfBytes = await _pdfService.generateQuotePdf(_quote, lineItems);
+      await Printing.layoutPdf(onLayout: (format) async => pdfBytes);
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -695,7 +700,14 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     setState(() => _isGeneratingPdf = true);
     
     try {
-      await _pdfService.sharePdf(_quote);
+      final lineItems = await _dbHelper.getLineItemsForQuote(_quote.id!);
+      final pdfBytes = await _pdfService.generateQuotePdf(_quote, lineItems);
+      // Здесь будет логика шаринга
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Шаринг PDF будет реализован в следующем обновлении'),
+        ),
+      );
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
