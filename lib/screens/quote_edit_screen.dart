@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:ceiling_crm/data/database_helper.dart';  // ДОЛЖНО БЫТЬ ТАК
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/models/line_item.dart';
-import 'package:ceiling_crm/data/database_helper.dart';
 import 'package:ceiling_crm/services/pdf_service.dart';
-import 'package:ceiling_crm/screens/quick_add_screen.dart';
+import 'package:printing/printing.dart';
+import 'package:intl/intl.dart';
 
 class QuoteEditScreen extends StatefulWidget {
   final int? quoteId;
