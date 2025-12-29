@@ -1,8 +1,9 @@
+import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:ceiling_crm/models/quote.dart';
-import 'package:ceiling_crm/models/line_item.dart';
-import 'package:ceiling_crm/models/company_profile.dart';
+import '../models/quote.dart';
+import '../models/line_item.dart';
+import '../models/company_profile.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
