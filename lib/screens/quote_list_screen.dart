@@ -126,7 +126,13 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
   Future<void> _exportQuoteAsPdf(Quote quote) async {
     try {
       final lineItems = await _dbHelper.getLineItemsForQuote(quote.id!);
-      final pdfBytes = await _pdfService.generateQuotePdf(quote, lineItems);
+      final companyProfile = await _dbHelper.getCompanyProfile();
+      if (companyProfile != null) {
+        final pdfFile = await _pdfService.generateQuotePdf(
+          quote: quote,
+          items: lineItems,
+          companyProfile: companyProfile,
+        );
       
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
@@ -144,7 +150,13 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
   Future<void> _shareQuote(Quote quote) async {
     try {
       final lineItems = await _dbHelper.getLineItemsForQuote(quote.id!);
-      final pdfBytes = await _pdfService.generateQuotePdf(quote, lineItems);
+      final companyProfile = await _dbHelper.getCompanyProfile();
+      if (companyProfile != null) {
+        final pdfFile = await _pdfService.generateQuotePdf(
+          quote: quote,
+          items: lineItems,
+          companyProfile: companyProfile,
+        );
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -210,7 +222,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => QuoteEditScreen(quoteId: quote.id),
+              builder: (context) => QuoteEditScreen(quote: quote),
             ),
           ).then((_) => _loadQuotes());
         },
