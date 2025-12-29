@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -8,9 +8,9 @@ import '../models/company_profile.dart';
 import '../data/database_helper.dart';
 
 class PdfService {
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
-  Future<List<int>> generateQuotePdf(Quote quote, List<LineItem> items) async {
+  Future<Uint8List> generateQuotePdf(Quote quote, List<LineItem> items) async {
     final pdf = pw.Document();
     final company = await _dbHelper.getCompanyProfile() ?? CompanyProfile(
       id: 1,
@@ -145,7 +145,7 @@ class PdfService {
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
-                    if (quote.clientPhone.isNotEmpty)
+                    if (quote.clientEmail.isNotEmpty)
                       pw.Text(
                         'Телефон: ${quote.clientPhone}',
                         style: pw.TextStyle(fontSize: 10),
@@ -280,7 +280,7 @@ class PdfService {
                         padding: const pw.EdgeInsets.all(4),
                         child: pw.Text(
                           'Цена',
-                          style: pwStyle(
+                          style: pw.TextStyle(  // ИСПРАВЛЕНО: было pwStyle
                             fontSize: 9,
                             fontWeight: pw.FontWeight.bold,
                           ),
@@ -316,7 +316,7 @@ class PdfService {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(4),
                           child: pw.Text(
-                            items[i].description,
+                            items[i].description,  // ИСПРАВЛЕНО: убрали !
                             style: pw.TextStyle(fontSize: 9),
                           ),
                         ),
