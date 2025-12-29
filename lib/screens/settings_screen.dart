@@ -1,9 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ceiling_crm/data/database_helper.dart';  // ИЗМЕНЕНО: из services в data
+import 'package:ceiling_crm/data/database_helper.dart';
 import 'package:ceiling_crm/models/company_profile.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
@@ -142,7 +141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _exportDatabase() async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Экспорт базы данных будет доступен в следующем обновлении'),
+        content: Text('Экспорт/импорт будет в следующем обновлении'),
         duration: Duration(seconds: 2),
       ),
     );
@@ -151,7 +150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _importDatabase() async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Импорт базы данных будет доступен в следующем обновлении'),
+        content: Text('Экспорт/импорт будет в следующем обновлении'),
         duration: Duration(seconds: 2),
       ),
     );
@@ -298,11 +297,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Создайте резервную копию всех данных приложения для восстановления в случае проблем.',
+              'Функция будет доступна в следующем обновлении.',
               style: TextStyle(color: Colors.black54),
             ),
             const SizedBox(height: 16),
-            /*
             Row(
               children: [
                 Expanded(
@@ -328,13 +326,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            */
           ],
         ),
       ),
     );
   }
-  
+
   Widget _buildAppInfoSection() {
     return Card(
       child: Padding(
@@ -351,19 +348,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: const Icon(Icons.info),
               title: const Text('Версия'),
               subtitle: const Text('1.0.0'),
-              onTap: () {},
             ),
             ListTile(
               leading: const Icon(Icons.update),
               title: const Text('Дата сборки'),
-              subtitle: Text(DateTime.now().toString()),
-              onTap: () {},
+              subtitle: Text(DateTime.now().toString().substring(0, 10)),
             ),
             ListTile(
               leading: const Icon(Icons.code),
               title: const Text('Лицензия'),
               subtitle: const Text('MIT License'),
-              onTap: () {},
             ),
             ListTile(
               leading: const Icon(Icons.bug_report),
@@ -469,7 +463,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 32),
-                    /*
+                    
                     // Кнопки действий
                     Row(
                       children: [
@@ -497,7 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                     const SizedBox(height: 32),
-                    /*
+                    
                     // Резервное копирование
                     _buildBackupSection(),
                     const SizedBox(height: 24),
