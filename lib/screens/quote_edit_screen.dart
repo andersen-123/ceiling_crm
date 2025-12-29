@@ -498,18 +498,25 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                   'Позиции',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     OutlinedButton.icon(
                       onPressed: _showQuickAdd,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Быстрое добавление'),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Быстрое добавление', style: TextStyle(fontSize: 14)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
                     ),
-                    const SizedBox(width: 8),
                     ElevatedButton.icon(
                       onPressed: _addNewItem,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Добавить позицию'),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Добавить позицию', style: TextStyle(fontSize: 14)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
                     ),
                   ],
                 ),
