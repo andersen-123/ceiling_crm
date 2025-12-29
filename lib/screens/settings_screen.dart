@@ -1,12 +1,15 @@
+// ИСПРАВЛЕННЫЕ ИМПОРТЫ:
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ceiling_crm/data/database_helper.dart';
+import 'package:ceiling_crm/data/database_helper.dart';  // ИЗМЕНЕНО: из services в data
 import 'package:ceiling_crm/models/company_profile.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
