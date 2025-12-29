@@ -161,7 +161,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                 name: nameController.text,
                 description: descriptionController.text,
                 price: double.tryParse(priceController.text) ?? item.price,
-                quantity: int.tryParse(quantityController.text) ?? item.quantity,
+                quantity: double.tryParse(quantityController.text) ?? item.quantity,  // БЫЛО: int.tryParse
                 unit: unitController.text,
               );
               Navigator.pop(context, editedItem);
