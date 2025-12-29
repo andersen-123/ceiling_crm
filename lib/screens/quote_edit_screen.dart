@@ -61,15 +61,30 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     
     setState(() => _isLoading = false);
   }
-
+  
+  void _updateControllers() {
+    _clientNameController.text = _quote.clientName;
+    _clientEmailController.text = _quote.clientEmail;
+    _clientPhoneController.text = _quote.clientPhone;
+    _clientAddressController.text = _quote.clientAddress;
+    _projectNameController.text = _quote.projectName;
+    _projectDescriptionController.text = _quote.projectDescription;
+    _notesController.text = _quote.notes;
+  }
+  
   void _createNewQuote() {
     _quote = Quote(
-      clientName: 'Новый клиент',
+      clientName: '',
+      clientEmail: '',
       clientPhone: '',
       clientAddress: '',
-      notes: '',
+      projectName: '',
+      projectDescription: '',
       totalAmount: 0.0,
+      status: 'черновик',
+      notes: '',
       createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
     _isNewQuote = true;
   }
@@ -550,10 +565,11 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     setState(() {
       _quote.addItem(LineItem(
         quoteId: _quote.id ?? 0,
-        name: 'Новая позиция',
+        description: 'Новая позиция',
+        quantity: 1.0,
         price: 0.0,
-        quantity: 1,
-        unit: 'шт.',
+        unit: 'шт',
+        name: 'Новая позиция',
       ));
     });
   }
