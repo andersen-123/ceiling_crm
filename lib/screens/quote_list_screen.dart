@@ -90,61 +90,91 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
         clientEmail: 'test@example.com',
         clientPhone: '+7 (999) 123-45-67',
         clientAddress: 'г. Москва, ул. Тестовая, д. 1',
-        projectName: 'Тестовый проект: Натяжные потолки',
-        projectDescription: 'Установка натяжных потолков в квартире',
-        totalAmount: 13750.0,
+        projectName: 'Тестовый проект: Натяжные потолки в квартире',
+        projectDescription: 'Установка натяжных потолков в 3-х комнатной квартире',
+        totalAmount: 0.0, // Будет рассчитано автоматически
         status: 'черновик',
-        notes: 'Тестовое КП для проверки функционала',
+        notes: 'Тестовое КП для проверки функционала приложения',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
       final quoteId = await _dbHelper.insertQuote(testQuote);
 
-      // Создаем тестовые позиции
-      final lineItems = [
+      // Создаем тестовые позиции из стандартных шаблонов
+      final testItems = [
         LineItem(
           quoteId: quoteId,
-          description: 'Натяжной потолок "Премиум" (белый глянец)',
-          quantity: 15.0,
-          price: 850.0,
+          description: 'Натяжной потолок ПВХ глянцевый (Германия)',
+          quantity: 25.5,
+          price: 610.0,
           unit: 'м²',
-          name: 'Потолок Премиум',
+          name: 'Потолок глянцевый',
         ),
         LineItem(
           quoteId: quoteId,
-          description: 'Установка светильников (точечные, LED)',
-          quantity: 8.0,
+          description: 'Точечный светильник LED (хром)',
+          quantity: 12.0,
           price: 450.0,
           unit: 'шт',
-          name: 'Светильники LED',
+          name: 'Светильник LED',
         ),
         LineItem(
           quoteId: quoteId,
-          description: 'Монтаж карниза ПВХ',
+          description: 'Монтаж светильника (проход через полотно)',
           quantity: 12.0,
           price: 300.0,
-          unit: 'м.п.',
-          name: 'Карниз ПВХ',
+          unit: 'шт',
+          name: 'Монтаж светильника',
+        ),
+        LineItem(
+          quoteId: quoteId,
+          description: 'Демонтаж старого потолка (под ключ)',
+          quantity: 1.0,
+          price: 3500.0,
+          unit: 'комплект',
+          name: 'Демонтаж',
         ),
       ];
 
-      for (final item in lineItems) {
+      // Вставляем позиции и рассчитываем общую сумму
+      double totalAmount = 0.0;
+      for (final item in testItems) {
         await _dbHelper.insertLineItem(item);
+        totalAmount += item.totalPrice;
       }
+
+      // Обновляем цитату с правильной суммой
+      final updatedQuote = Quote(
+        id: quoteId,
+        clientName: testQuote.clientName,
+        clientEmail: testQuote.clientEmail,
+        clientPhone: testQuote.clientPhone,
+        clientAddress: testQuote.clientAddress,
+        projectName: testQuote.projectName,
+        projectDescription: testQuote.projectDescription,
+        totalAmount: totalAmount,
+        status: testQuote.status,
+        notes: testQuote.notes,
+        createdAt: testQuote.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      await _dbHelper.updateQuote(updatedQuote);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✅ Тестовые данные созданы!'),
+          content: Text('✅ Тестовые данные созданы! Проверьте список КП'),
           duration: Duration(seconds: 3),
         ),
       );
 
       await _loadQuotes();
     } catch (e) {
+      print('Ошибка создания тестовых данных: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Ошибка создания тестовых данных: $e'),
+          content: Text('❌ Ошибка: ${e.toString()}'),
           duration: const Duration(seconds: 3),
         ),
       );
