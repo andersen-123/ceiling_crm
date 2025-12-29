@@ -203,4 +203,39 @@ class DatabaseHelper {
     final db = await database;
     await db.close();
   }
+    // Метод для создания тестовых данных (удалите если не нужен)
+  Future<void> createTestData() async {
+    final db = await database;
+    
+    // Тестовый квоут
+    final quote = Quote(
+      clientName: 'Тестовый клиент',
+      address: 'г. Москва, ул. Тестовая, д. 1',
+      phone: '+7 (999) 999-99-99',
+      email: 'test@test.com',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    
+    final quoteId = await insertQuote(quote);
+    
+    // Тестовые позиции
+    await db.insert('line_items', {
+      'quote_id': quoteId,
+      'description': 'Натяжной потолок ПВХ',
+      'quantity': 20,
+      'price_per_unit': 450,
+      'unit': 'м²',
+      'total': 9000,
+    });
+    
+    await db.insert('line_items', {
+      'quote_id': quoteId,
+      'description': 'Профиль пристенный',
+      'quantity': 40,
+      'price_per_unit': 120,
+      'unit': 'м.п.',
+      'total': 4800,
+    });
+  }
 }
