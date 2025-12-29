@@ -25,6 +25,9 @@ dependencies:
   # Удобства
   intl: ^0.19.0
   
+  # Работа с файлами
+  path_provider: ^2.1.1  # ДОБАВЛЕНО
+  
   # Excel (если нужно)
   excel: ^2.0.0
 
