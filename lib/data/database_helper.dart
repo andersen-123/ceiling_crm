@@ -261,4 +261,43 @@ class DatabaseHelper {
       rethrow;
     }
   }
+    // ========== ЭКСПОРТ/ИМПОРТ БАЗЫ ==========
+  Future<File> exportDatabase() async {
+    try {
+      final dbPath = await getDatabasesPath();
+      final source = File(join(dbPath, 'ceiling_crm.db'));
+      
+      if (await source.exists()) {
+        return source;
+      }
+      throw Exception('Файл базы данных не найден');
+    } catch (e) {
+      print('Ошибка экспорта: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> importDatabase(File sourceFile) async {
+    try {
+      if (await sourceFile.exists()) {
+        final dbPath = await getDatabasesPath();
+        final destination = File(join(dbPath, 'ceiling_crm.db'));
+        
+        // Закрываем текущее соединение
+        if (_database != null) {
+          await _database!.close();
+          _database = null;
+        }
+        
+        // Копируем файл
+        await sourceFile.copy(destination.path);
+        
+        // Переоткрываем базу
+        await database;
+      }
+    } catch (e) {
+      print('Ошибка импорта: $e');
+      rethrow;
+    }
+  }
 }
