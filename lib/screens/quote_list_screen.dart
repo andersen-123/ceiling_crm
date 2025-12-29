@@ -1,12 +1,12 @@
-// ИСПРАВЛЕННЫЕ ИМПОРТЫ:
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:ceiling_crm/screens/quote_edit_screen.dart';
 import 'package:ceiling_crm/screens/quick_add_screen.dart';
 import 'package:ceiling_crm/screens/settings_screen.dart';
-import 'package:ceiling_crm/data/database_helper.dart';  // ИЗМЕНЕНО: из services в data
+import 'package:ceiling_crm/data/database_helper.dart';
 import 'package:ceiling_crm/models/quote.dart';
 import 'package:ceiling_crm/models/line_item.dart';
-import 'package:ceiling_crm/services/pdf_service.dart';  // ОСТАЕТСЯ в services
+import 'package:ceiling_crm/services/pdf_service.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -21,7 +21,7 @@ class QuoteListScreen extends StatefulWidget {
 class _QuoteListScreenState extends State<QuoteListScreen> {
   List<Quote> _quotes = [];
   bool _isLoading = true;
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final DatabaseHelper _dbHelper = DatabaseHelper();
   final PdfService _pdfService = PdfService();
 
   @override
@@ -86,7 +86,6 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     try {
       // Создаем тестовое КП
       final testQuote = Quote(
-        id: 0,
         clientName: 'Тестовый клиент',
         clientEmail: 'test@example.com',
         clientPhone: '+7 (999) 123-45-67',
@@ -94,10 +93,10 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
         projectName: 'Тестовый проект: Натяжные потолки',
         projectDescription: 'Установка натяжных потолков в квартире',
         totalAmount: 13750.0,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
         status: 'черновик',
         notes: 'Тестовое КП для проверки функционала',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
       final quoteId = await _dbHelper.insertQuote(testQuote);
@@ -110,6 +109,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
           quantity: 15.0,
           price: 850.0,
           unit: 'м²',
+          name: 'Потолок Премиум',
         ),
         LineItem(
           quoteId: quoteId,
@@ -117,6 +117,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
           quantity: 8.0,
           price: 450.0,
           unit: 'шт',
+          name: 'Светильники LED',
         ),
         LineItem(
           quoteId: quoteId,
@@ -124,6 +125,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
           quantity: 12.0,
           price: 300.0,
           unit: 'м.п.',
+          name: 'Карниз ПВХ',
         ),
       ];
 
@@ -155,7 +157,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
       final pdfBytes = await _pdfService.generateQuotePdf(quote, lineItems);
       
       await Printing.layoutPdf(
-        onLayout: (format) => pdfBytes,
+        onLayout: (format) async => pdfBytes,
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -171,9 +173,6 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
     try {
       final lineItems = await _dbHelper.getLineItemsForQuote(quote.id!);
       final pdfBytes = await _pdfService.generateQuotePdf(quote, lineItems);
-      
-      // Сохраняем временный файл
-      // В реальном приложении здесь будет логика сохранения и шаринга
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
