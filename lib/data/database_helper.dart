@@ -1,101 +1,91 @@
-import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/quote.dart';
 import '../models/line_item.dart';
 import '../models/company_profile.dart';
 
 class DatabaseHelper {
-  // Singleton pattern
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
-  
+
   static Database? _database;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('ceiling_crm.db');
+    _database = await _initDatabase();
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+  Future<Database> _initDatabase() async {
+    final String path = join(await getDatabasesPath(), 'ceiling_crm.db');
     
     return await openDatabase(
       path,
       version: 1,
-      onCreate: _createDB,
+      onCreate: _onCreate,
     );
   }
 
-  Future<void> _createDB(Database db, int version) async {
-    // Таблица quotes с ВСЕМИ полями
+  Future<void> _onCreate(Database db, int version) async {
+    // Таблица коммерческих предложений
     await db.execute('''
       CREATE TABLE quotes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         client_name TEXT NOT NULL,
-        client_email TEXT,
-        client_phone TEXT,
-        client_address TEXT,
-        project_name TEXT,
-        project_description TEXT,
-        total_amount REAL NOT NULL DEFAULT 0,
-        status TEXT DEFAULT 'черновик',
-        notes TEXT,
+        address TEXT,
+        phone TEXT,
+        email TEXT,
+        total_amount REAL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
     ''');
 
-    // Таблица line_items с ВСЕМИ полями
+    // Таблица позиций (пунктов) в КП
     await db.execute('''
       CREATE TABLE line_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         quote_id INTEGER NOT NULL,
         description TEXT NOT NULL,
-        quantity REAL NOT NULL DEFAULT 1,
-        price REAL NOT NULL DEFAULT 0,
-        unit TEXT DEFAULT 'шт',
-        name TEXT,
+        quantity INTEGER DEFAULT 1,
+        price_per_unit REAL NOT NULL,
+        unit TEXT,
+        total REAL NOT NULL,
         FOREIGN KEY (quote_id) REFERENCES quotes (id) ON DELETE CASCADE
       )
     ''');
 
-    // Таблица company_profile с ВСЕМИ полями
+    // Таблица профиля компании (единственная запись)
     await db.execute('''
-      CREATE TABLE company_profile (
+      CREATE TABLE company_profiles (
         id INTEGER PRIMARY KEY CHECK (id = 1),
-        name TEXT NOT NULL DEFAULT 'Моя компания',
-        email TEXT,
-        phone TEXT,
+        company_name TEXT NOT NULL,
         address TEXT,
+        phone TEXT,
+        email TEXT,
         website TEXT,
-        tax_id TEXT,
         logo_path TEXT,
-        created_at TEXT NOT NULL
+        tax_number TEXT,
+        bank_details TEXT
       )
     ''');
 
-    // Инициализируем профиль компании
-    final defaultProfile = CompanyProfile(
-      id: 1,
-      name: 'Моя компания',
-      email: '',
-      phone: '',
-      address: '',
-      website: '',
-      taxId: '',
-      logoPath: '',
-      createdAt: DateTime.now(),
-    );
-    
-    await db.insert('company_profile', defaultProfile.toMap());
+    // Вставляем профиль компании по умолчанию
+    await db.insert('company_profiles', {
+      'id': 1,
+      'company_name': 'Моя компания',
+      'address': 'г. Москва, ул. Примерная, д. 1',
+      'phone': '+7 (999) 123-45-67',
+      'email': 'info@company.com',
+      'website': 'www.company.com',
+      'tax_number': 'ИНН 1234567890',
+      'bank_details': 'Банк: Пример Банк\nР/с: 40702810123456789012\nК/с: 30101810123456789012\nБИК: 044525123'
+    });
   }
 
-  // ========== CRUD ДЛЯ QUOTE ==========
+  // ========== CRUD для Quote ==========
+  
   Future<int> insertQuote(Quote quote) async {
     final db = await database;
     return await db.insert('quotes', quote.toMap());
@@ -105,11 +95,9 @@ class DatabaseHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'quotes',
-      orderBy: 'created_at DESC'
+      orderBy: 'updated_at DESC',
     );
-    return List.generate(maps.length, (i) {
-      return Quote.fromMap(maps[i]);
-    });
+    return List.generate(maps.length, (i) => Quote.fromMap(maps[i]));
   }
 
   Future<Quote?> getQuote(int id) async {
@@ -144,12 +132,8 @@ class DatabaseHelper {
     );
   }
 
-  // ========== CRUD ДЛЯ LINE ITEM ==========
-  Future<int> insertLineItem(LineItem item) async {
-    final db = await database;
-    return await db.insert('line_items', item.toMap());
-  }
-
+  // ========== CRUD для LineItem ==========
+  
   Future<List<LineItem>> getLineItemsForQuote(int quoteId) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -158,199 +142,65 @@ class DatabaseHelper {
       whereArgs: [quoteId],
       orderBy: 'id',
     );
-    return List.generate(maps.length, (i) {
-      return LineItem.fromMap(maps[i]);
+    return List.generate(maps.length, (i) => LineItem.fromMap(maps[i]));
+  }
+
+  Future<void> updateQuoteWithItems(Quote quote, List<LineItem> items) async {
+    final db = await database;
+    
+    await db.transaction((txn) async {
+      // 1. Обновляем сам квоут
+      await txn.update(
+        'quotes',
+        quote.toMap(),
+        where: 'id = ?',
+        whereArgs: [quote.id],
+      );
+      
+      // 2. Удаляем старые позиции
+      await txn.delete(
+        'line_items', 
+        where: 'quote_id = ?', 
+        whereArgs: [quote.id],
+      );
+      
+      // 3. Добавляем новые позиции
+      for (final item in items) {
+        await txn.insert(
+          'line_items',
+          item.copyWith(quoteId: quote.id).toMap(),
+        );
+      }
     });
   }
 
-  Future<int> updateLineItem(LineItem item) async {
-    final db = await database;
-    return await db.update(
-      'line_items',
-      item.toMap(),
-      where: 'id = ?',
-      whereArgs: [item.id],
-    );
-  }
-
-  Future<int> deleteLineItem(int id) async {
-    final db = await database;
-    return await db.delete(
-      'line_items',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<int> deleteLineItemsForQuote(int quoteId) async {
-    final db = await database;
-    return await db.delete(
-      'line_items',
-      where: 'quote_id = ?',
-      whereArgs: [quoteId],
-    );
-  }
-
-  // ========== COMPANY PROFILE ==========
-  Future<int> saveCompanyProfile(CompanyProfile profile) async {
-    final db = await database;
-    return await db.insert(
-      'company_profile',
-      profile.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
+  // ========== CRUD для CompanyProfile ==========
+  
   Future<CompanyProfile?> getCompanyProfile() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('company_profile');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'company_profiles',
+      limit: 1,
+    );
+    
     if (maps.isNotEmpty) {
       return CompanyProfile.fromMap(maps.first);
     }
     return null;
   }
 
-  // ========== ТЕСТОВЫЕ ДАННЫЕ ==========
-  Future<void> createTestData() async {
-    try {
-      print('🔄 Начинаю создание тестовых данных...');
-      
-      // 1. Создаем тестовое КП
-      final quote = Quote(
-        clientName: 'Тестовый клиент',
-        clientEmail: 'test@example.com',
-        clientPhone: '+7 (999) 123-45-67',
-        clientAddress: 'г. Москва, ул. Тестовая, д. 1',
-        projectName: 'Натяжные потолки в 3-х комнатной квартире',
-        projectDescription: 'Установка глянцевых потолков в зале и спальнях',
-        totalAmount: 0.0,
-        status: 'черновик',
-        notes: 'Тестовое КП для проверки',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      print('📝 Создаю КП...');
-      final quoteId = await insertQuote(quote);
-      print('✅ КП создано с ID: $quoteId');
-
-      // 2. Создаем тестовые позиции
-      final testItems = [
-        LineItem(
-          quoteId: quoteId,
-          description: 'Натяжной потолок ПВХ глянцевый (Германия)',
-          quantity: 25.5,
-          price: 610.0,
-          unit: 'м²',
-          name: 'Потолок глянцевый',
-        ),
-        LineItem(
-          quoteId: quoteId,
-          description: 'Точечный светильник LED (хром)',
-          quantity: 8.0,
-          price: 450.0,
-          unit: 'шт',
-          name: 'Светильник LED',
-        ),
-        LineItem(
-          quoteId: quoteId,
-          description: 'Монтаж светильника (проход через полотно)',
-          quantity: 8.0,
-          price: 300.0,
-          unit: 'шт',
-          name: 'Монтаж светильника',
-        ),
-      ];
-
-      print('📦 Добавляю позиции...');
-      for (final item in testItems) {
-        await insertLineItem(item);
-      }
-      print('✅ Позиции добавлены');
-
-      // 3. Рассчитываем и обновляем общую сумму
-      final items = await getLineItemsForQuote(quoteId);
-      double total = 0;
-      for (final item in items) {
-        total += (item.quantity * item.price);
-      }
-      
-      print('💰 Рассчитываю сумму: $total руб.');
-      
-      final updatedQuote = Quote(
-        id: quoteId,
-        clientName: quote.clientName,
-        clientEmail: quote.clientEmail,
-        clientPhone: quote.clientPhone,
-        clientAddress: quote.clientAddress,
-        projectName: quote.projectName,
-        projectDescription: quote.projectDescription,
-        totalAmount: total,
-        status: quote.status,
-        notes: quote.notes,
-        createdAt: quote.createdAt,
-        updatedAt: DateTime.now(),
-      );
-
-      await updateQuote(updatedQuote);
-      print('🎉 Тестовые данные успешно созданы!');
-
-    } catch (e) {
-      print('❌ Ошибка создания тестовых данных: $e');
-      rethrow;
-    }
+  Future<int> updateCompanyProfile(CompanyProfile profile) async {
+    final db = await database;
+    return await db.update(
+      'company_profiles',
+      profile.toMap(),
+      where: 'id = ?',
+      whereArgs: [profile.id],
+    );
   }
 
-  // ========== ЭКСПОРТ/ИМПОРТ ==========
-  Future<File> exportDatabase() async {
-    try {
-      final dbPath = await getDatabasesPath();
-      final source = File(join(dbPath, 'ceiling_crm.db'));
-      
-      if (await source.exists()) {
-        print('📁 Файл базы найден: ${source.path}');
-        return source;
-      } else {
-        throw Exception('Файл базы данных не найден по пути: ${source.path}');
-      }
-    } catch (e) {
-      print('❌ Ошибка экспорта: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> importDatabase(File sourceFile) async {
-    try {
-      if (!await sourceFile.exists()) {
-        throw Exception('Исходный файл не существует');
-      }
-
-      final dbPath = await getDatabasesPath();
-      final destination = File(join(dbPath, 'ceiling_crm.db'));
-      
-      print('🔄 Начинаю импорт базы...');
-      print('📥 Источник: ${sourceFile.path}');
-      print('📤 Назначение: ${destination.path}');
-
-      // Закрываем текущее соединение
-      if (_database != null) {
-        await _database!.close();
-        _database = null;
-      }
-
-      // Копируем файл
-      await sourceFile.copy(destination.path);
-      
-      print('✅ Файл скопирован успешно');
-      
-      // Переоткрываем базу
-      await database;
-      
-      print('🎉 Импорт базы завершен успешно!');
-
-    } catch (e) {
-      print('❌ Ошибка импорта: $e');
-      rethrow;
-    }
+  Future<void> close() async {
+    final db = await database;
+    await db.close();
   }
 }
