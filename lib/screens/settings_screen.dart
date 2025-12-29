@@ -496,8 +496,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 32),/*
-                    
+                    const SizedBox(height: 32),
+                    /*
                     // Резервное копирование
                     _buildBackupSection(),
                     const SizedBox(height: 24),
