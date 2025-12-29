@@ -1,36 +1,34 @@
-import 'dart:typed_data';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../models/quote.dart';
 import '../models/line_item.dart';
 import '../models/company_profile.dart';
-import '../data/database_helper.dart';
 
 class PdfService {
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final NumberFormat currencyFormat = NumberFormat.currency(
+    locale: 'ru_RU',
+    symbol: '₽',
+    decimalDigits: 0,
+  );
 
-  Future<Uint8List> generateQuotePdf(Quote quote, List<LineItem> items) async {
+  Future<File> generateQuotePdf({
+    required Quote quote,
+    required List<LineItem> items,
+    required CompanyProfile companyProfile,
+  }) async {
     final pdf = pw.Document();
-    final company = await _dbHelper.getCompanyProfile() ?? CompanyProfile(
-      id: 1,
-      name: 'Ваша компания',
-      email: '',
-      phone: '',
-      address: '',
-      website: '',
-      taxId: '',
-      logoPath: '',
-      createdAt: DateTime.now(),
-    );
 
-    final dateFormat = DateFormat('dd.MM.yyyy');
-    final currencyFormat = NumberFormat.currency(
-      locale: 'ru_RU',
-      symbol: '₽',
-      decimalDigits: 2,
-    );
+    // Получаем путь для сохранения
+    final directory = await getApplicationDocumentsDirectory();
+    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final fileName = 'КП_${quote.clientName}_$timestamp.pdf';
+    final filePath = '${directory.path}/$fileName';
 
+    // Создаем PDF
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -39,7 +37,11 @@ class PdfService {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Заголовок
+              // Шапка с логотипом и реквизитами
+              _buildHeader(companyProfile),
+              pw.SizedBox(height: 30),
+              
+              // Заголовок КП
               pw.Center(
                 child: pw.Text(
                   'КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ',
@@ -49,387 +51,275 @@ class PdfService {
                   ),
                 ),
               ),
-              pw.SizedBox(height: 10),
-              pw.Divider(),
               pw.SizedBox(height: 20),
-
-              // Информация о компании
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          company.name,
-                          style: pw.TextStyle(
-                            fontSize: 14,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        if (company.address.isNotEmpty)
-                          pw.Text(
-                            'Адрес: ${company.address}',
-                            style: pw.TextStyle(fontSize: 10),
-                          ),
-                        if (company.phone.isNotEmpty)
-                          pw.Text(
-                            'Телефон: ${company.phone}',
-                            style: pw.TextStyle(fontSize: 10),
-                          ),
-                        if (company.email.isNotEmpty)
-                          pw.Text(
-                            'Email: ${company.email}',
-                            style: pw.TextStyle(fontSize: 10),
-                          ),
-                        if (company.website.isNotEmpty)
-                          pw.Text(
-                            'Сайт: ${company.website}',
-                            style: pw.TextStyle(fontSize: 10),
-                          ),
-                        if (company.taxId.isNotEmpty)
-                          pw.Text(
-                            'ИНН: ${company.taxId}',
-                            style: pw.TextStyle(fontSize: 10),
-                          ),
-                      ],
-                    ),
-                  ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text(
-                        '№ ${quote.id}',
-                        style: pw.TextStyle(
-                          fontSize: 12,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.Text(
-                        'Дата: ${dateFormat.format(quote.createdAt)}',
-                        style: pw.TextStyle(fontSize: 10),
-                      ),
-                      pw.Text(
-                        'Статус: ${quote.status}',
-                        style: pw.TextStyle(fontSize: 10),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              pw.SizedBox(height: 30),
-
+              
               // Информация о клиенте
-              pw.Text(
-                'Клиент:',
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.Container(
-                padding: const pw.EdgeInsets.all(10),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(width: 0.5),
-                  borderRadius: pw.BorderRadius.circular(5),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      quote.clientName,
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    if (quote.clientEmail.isNotEmpty)
-                      pw.Text(
-                        'Телефон: ${quote.clientPhone}',
-                        style: pw.TextStyle(fontSize: 10),
-                      ),
-                    if (quote.clientEmail.isNotEmpty)
-                      pw.Text(
-                        'Email: ${quote.clientEmail}',
-                        style: pw.TextStyle(fontSize: 10),
-                      ),
-                    if (quote.clientAddress.isNotEmpty)
-                      pw.Text(
-                        'Адрес: ${quote.clientAddress}',
-                        style: pw.TextStyle(fontSize: 10),
-                      ),
-                  ],
-                ),
-              ),
-
+              _buildClientInfo(quote),
               pw.SizedBox(height: 20),
-
-              // Название проекта
-              if (quote.projectName.isNotEmpty)
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'Проект:',
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      quote.projectName,
-                      style: pw.TextStyle(fontSize: 11),
-                    ),
-                    pw.SizedBox(height: 10),
-                  ],
-                ),
-
-              // Описание проекта
-              if (quote.projectDescription.isNotEmpty)
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'Описание работ:',
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      quote.projectDescription,
-                      style: pw.TextStyle(fontSize: 10),
-                    ),
-                    pw.SizedBox(height: 20),
-                  ],
-                ),
-
+              
               // Таблица позиций
-              pw.Text(
-                'Спецификация:',
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 10),
-
-              pw.Table(
-                border: pw.TableBorder.all(width: 0.5),
-                columnWidths: {
-                  0: const pw.FlexColumnWidth(1),
-                  1: const pw.FlexColumnWidth(2),
-                  2: const pw.FixedColumnWidth(50),
-                  3: const pw.FixedColumnWidth(60),
-                  4: const pw.FixedColumnWidth(40),
-                  5: const pw.FixedColumnWidth(80),
-                },
-                children: [
-                  // Заголовок таблицы
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey200,
-                    ),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          '№',
-                          style: pw.TextStyle(
-                            fontSize: 9,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                          textAlign: pw.TextAlign.center,
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Наименование',
-                          style: pw.TextStyle(
-                            fontSize: 9,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Кол-во',
-                          style: pw.TextStyle(
-                            fontSize: 9,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                          textAlign: pw.TextAlign.center,
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Ед.',
-                          style: pw.TextStyle(
-                            fontSize: 9,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                          textAlign: pw.TextAlign.center,
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Цена',
-                          style: pw.TextStyle(  // ИСПРАВЛЕНО: было pwStyle
-                            fontSize: 9,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                          textAlign: pw.TextAlign.center,
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Сумма',
-                          style: pw.TextStyle(
-                            fontSize: 9,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                          textAlign: pw.TextAlign.center,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // Данные таблицы
-                  for (var i = 0; i < items.length; i++)
-                    pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            '${i + 1}',
-                            style: pw.TextStyle(fontSize: 9),
-                            textAlign: pw.TextAlign.center,
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            items[i].description,  // ИСПРАВЛЕНО: убрали !
-                            style: pw.TextStyle(fontSize: 9),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            items[i].quantity.toStringAsFixed(2),
-                            style: pw.TextStyle(fontSize: 9),
-                            textAlign: pw.TextAlign.center,
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            items[i].unit,
-                            style: pw.TextStyle(fontSize: 9),
-                            textAlign: pw.TextAlign.center,
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            currencyFormat.format(items[i].price),
-                            style: pw.TextStyle(fontSize: 9),
-                            textAlign: pw.TextAlign.center,
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            currencyFormat.format(items[i].totalPrice),
-                            style: pw.TextStyle(fontSize: 9),
-                            textAlign: pw.TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-
+              _buildItemsTable(items),
               pw.SizedBox(height: 20),
-
+              
               // Итоговая сумма
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.end,
-                children: [
-                  pw.Text(
-                    'Итого: ',
-                    style: pw.TextStyle(
-                      fontSize: 12,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.Text(
-                    currencyFormat.format(quote.totalAmount),
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-
+              _buildTotal(quote),
               pw.SizedBox(height: 30),
-
-              // Примечания
-              if (quote.notes.isNotEmpty)
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'Примечания:',
-                      style: pw.TextStyle(
-                        fontSize: 11,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      quote.notes,
-                      style: pw.TextStyle(fontSize: 10),
-                    ),
-                    pw.SizedBox(height: 20),
-                  ],
-                ),
-
-              // Подпись
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  pw.Container(
-                    width: 200,
-                    child: pw.Column(
-                      children: [
-                        pw.Divider(),
-                        pw.Text(
-                          'С уважением, ${company.name}',
-                          style: pw.TextStyle(fontSize: 10),
-                        ),
-                        pw.Text(
-                          'Дата: ${dateFormat.format(DateTime.now())}',
-                          style: pw.TextStyle(fontSize: 10),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              
+              // Подписи
+              _buildSignatures(),
             ],
           );
         },
       ),
     );
 
-    return pdf.save();
+    // Сохраняем файл
+    final file = File(filePath);
+    await file.writeAsBytes(await pdf.save());
+    return file;
+  }
+
+  pw.Widget _buildHeader(CompanyProfile company) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              company.companyName,
+              style: pw.TextStyle(
+                fontSize: 16,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            if (company.address != null && company.address!.isNotEmpty)
+              pw.Text(company.address!, style: _smallText()),
+            if (company.phone != null && company.phone!.isNotEmpty)
+              pw.Text('Тел: ${company.phone!}', style: _smallText()),
+            if (company.email != null && company.email!.isNotEmpty)
+              pw.Text('Email: ${company.email!}', style: _smallText()),
+            if (company.website != null && company.website!.isNotEmpty)
+              pw.Text('Сайт: ${company.website!}', style: _smallText()),
+          ],
+        ),
+        // Здесь можно добавить логотип если есть
+        // if (company.logoPath != null && company.logoPath!.isNotEmpty)
+        //   pw.Image(pw.MemoryImage(File(company.logoPath!).readAsBytesSync())),
+      ],
+    );
+  }
+
+  pw.Widget _buildClientInfo(Quote quote) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text('Клиент: ${quote.clientName}', style: _normalText()),
+        if (quote.address != null && quote.address!.isNotEmpty)
+          pw.Text('Адрес: ${quote.address!}', style: _normalText()),
+        if (quote.phone != null && quote.phone!.isNotEmpty)
+          pw.Text('Телефон: ${quote.phone!}', style: _normalText()),
+        if (quote.email != null && quote.email!.isNotEmpty)
+          pw.Text('Email: ${quote.email!}', style: _normalText()),
+        pw.Text(
+          'Дата: ${DateFormat('dd.MM.yyyy').format(DateTime.now())}',
+          style: _normalText(),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildItemsTable(List<LineItem> items) {
+    final headers = ['№', 'Наименование', 'Кол-во', 'Ед.', 'Цена', 'Сумма'];
+    
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300, width: 1),
+      columnWidths: {
+        0: const pw.FixedColumnWidth(30),
+        1: const pw.FlexColumnWidth(3),
+        2: const pw.FixedColumnWidth(50),
+        3: const pw.FixedColumnWidth(40),
+        4: const pw.FixedColumnWidth(70),
+        5: const pw.FixedColumnWidth(80),
+      },
+      children: [
+        // Заголовки таблицы
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+          children: headers
+              .map((text) => pw.Padding(
+                    padding: const pw.EdgeInsets.all(8),
+                    child: pw.Text(
+                      text,
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ))
+              .toList(),
+        ),
+        // Данные
+        for (int i = 0; i < items.length; i++)
+          pw.TableRow(
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text('${i + 1}', style: _tableText()),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(items[i].description, style: _tableText()),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  items[i].quantity.toString(),
+                  style: _tableText(),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  items[i].unit ?? 'шт.',
+                  style: _tableText(),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  currencyFormat.format(items[i].pricePerUnit),
+                  style: _tableText(),
+                  textAlign: pw.TextAlign.right,
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  currencyFormat.format(items[i].total),
+                  style: _tableText(),
+                  textAlign: pw.TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  pw.Widget _buildTotal(Quote quote) {
+    return pw.Container(
+      alignment: pw.Alignment.centerRight,
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
+        children: [
+          pw.Text(
+            'ИТОГО: ${currencyFormat.format(quote.totalAmount)}',
+            style: pw.TextStyle(
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 10),
+          pw.Text(
+            _amountInWords(quote.totalAmount),
+            style: _smallText(),
+            textAlign: pw.TextAlign.right,
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSignatures() {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text('От лица Исполнителя:', style: _smallText()),
+            pw.SizedBox(height: 40),
+            pw.Text('_________________ / _________________', style: _smallText()),
+            pw.Text('         (подпись)          (ФИО)', style: _verySmallText()),
+          ],
+        ),
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text('От лица Заказчика:', style: _smallText()),
+            pw.SizedBox(height: 40),
+            pw.Text('_________________ / _________________', style: _smallText()),
+            pw.Text('         (подпись)          (ФИО)', style: _verySmallText()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _amountInWords(double amount) {
+    // Здесь можно реализовать логику прописью
+    final int rubles = amount.floor();
+    final int kopecks = ((amount - rubles) * 100).round();
+    return '${NumberFormat("#,##0", "ru_RU").format(rubles)} руб. $kopecks коп.';
+  }
+
+  pw.TextStyle _smallText() {
+    return const pw.TextStyle(fontSize: 10);
+  }
+
+  pw.TextStyle _verySmallText() {
+    return const pw.TextStyle(fontSize: 8);
+  }
+
+  pw.TextStyle _normalText() {
+    return const pw.TextStyle(fontSize: 12);
+  }
+
+  pw.TextStyle _tableText() {
+    return const pw.TextStyle(fontSize: 10);
+  }
+
+  // Метод для предпросмотра PDF
+  Future<void> previewPdf({
+    required Quote quote,
+    required List<LineItem> items,
+    required CompanyProfile companyProfile,
+  }) async {
+    final pdf = await generateQuotePdf(
+      quote: quote,
+      items: items,
+      companyProfile: companyProfile,
+    );
+    
+    // Показываем предпросмотр
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async {
+        return await pdf.readAsBytes();
+      },
+    );
+  }
+
+  // Метод для шаринга PDF
+  Future<void> sharePdf({
+    required Quote quote,
+    required List<LineItem> items,
+    required CompanyProfile companyProfile,
+  }) async {
+    final pdf = await generateQuotePdf(
+      quote: quote,
+      items: items,
+      companyProfile: companyProfile,
+    );
+    
+    // Для шаринга используем share_plus или другой пакет
+    // Это место для интеграции с пакетом шаринга
+    // Например:
+    // await Share.shareFiles([pdf.path], text: 'Коммерческое предложение');
+    
+    // Временно просто покажем путь к файлу
+    print('PDF сохранен по пути: ${pdf.path}');
   }
 }
