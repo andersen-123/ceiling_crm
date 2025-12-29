@@ -1,67 +1,50 @@
 class LineItem {
   int? id;
   int quoteId;
-  String name;
-  String? description;
+  String description;
+  double quantity;
   double price;
-  int quantity;
   String unit;
+  String? name;  // Добавлено поле name
 
   LineItem({
     this.id,
     required this.quoteId,
-    required this.name,
-    this.description,
+    required this.description,
+    required this.quantity,
     required this.price,
-    this.quantity = 1,
-    this.unit = 'шт.',
+    required this.unit,
+    this.name,
   });
 
-  // Геттер для обратной совместимости
-  double get unitPrice => price;
-  double get totalPrice => price * quantity;
+  double get totalPrice => quantity * price;
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'quoteId': quoteId,
-      'name': name,
+      if (id != null) 'id': id,
+      'quote_id': quoteId,
       'description': description,
-      'price': price,
       'quantity': quantity,
+      'price': price,
       'unit': unit,
+      'name': name,
     };
   }
 
   factory LineItem.fromMap(Map<String, dynamic> map) {
     return LineItem(
       id: map['id'],
-      quoteId: map['quoteId'],
+      quoteId: map['quote_id'],
+      description: map['description'] ?? '',
+      quantity: map['quantity']?.toDouble() ?? 0.0,
+      price: map['price']?.toDouble() ?? 0.0,
+      unit: map['unit'] ?? 'шт',
       name: map['name'],
-      description: map['description'],
-      price: map['price'] ?? map['unitPrice'] ?? 0.0,
-      quantity: map['quantity'] ?? 1,
-      unit: map['unit'] ?? 'шт.',
     );
   }
 
-  LineItem copyWith({
-    int? id,
-    int? quoteId,
-    String? name,
-    String? description,
-    double? price,
-    int? quantity,
-    String? unit,
-  }) {
-    return LineItem(
-      id: id ?? this.id,
-      quoteId: quoteId ?? this.quoteId,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      price: price ?? this.price,
-      quantity: quantity ?? this.quantity,
-      unit: unit ?? this.unit,
-    );
+  @override
+  String toString() {
+    return 'LineItem(id: $id, desc: $description, qty: $quantity, price: $price)';
   }
 }
