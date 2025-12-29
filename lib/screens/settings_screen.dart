@@ -140,64 +140,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _exportDatabase() async {
-    try {
-      final dbFile = await _dbHelper.exportDatabase();
-      
-      if (await dbFile.exists()) {
-        final bytes = await dbFile.readAsBytes();
-        final fileName = 'ceiling_crm_backup_${DateTime.now().millisecondsSinceEpoch}.db';
-        
-        // Для Android 10+ используем file_saver или share_plus
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('База данных сохранена: ${dbFile.path}'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Не удалось найти файл базы данных'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка экспорта: $e'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Экспорт базы данных будет доступен в следующем обновлении'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _importDatabase() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
-    if (pickedFile != null) {
-      try {
-        await _dbHelper.importDatabase(File(pickedFile.path));
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('База данных успешно импортирована'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-        
-        // Перезагружаем профиль после импорта
-        await _loadCompanyProfile();
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ошибка импорта: $e'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Импорт базы данных будет доступен в следующем обновлении'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _resetToDefaults() async {
@@ -345,6 +302,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(color: Colors.black54),
             ),
             const SizedBox(height: 16),
+            /*
             Row(
               children: [
                 Expanded(
@@ -370,12 +328,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
+            */
           ],
         ),
       ),
     );
   }
-
+  
   Widget _buildAppInfoSection() {
     return Card(
       child: Padding(
@@ -510,7 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 32),
-                    
+                    /*
                     // Кнопки действий
                     Row(
                       children: [
@@ -537,6 +496,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                     ),
+                    /*
                     const SizedBox(height: 32),
                     
                     // Резервное копирование
