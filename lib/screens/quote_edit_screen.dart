@@ -54,7 +54,13 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       _items = items;
     } else {
       // Новая цитата - добавляем одну пустую позицию
-      _items = [LineItem(description: '', quantity: 1, pricePerUnit: 0)];
+      _items = [LineItem(
+        quoteId: 0,
+        description: '', 
+        quantity: 1, 
+        pricePerUnit: 0,
+        total: 0,
+      )];
     }
     
     // Инициализируем контроллеры и ключи форм для каждой позиции
@@ -113,10 +119,12 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     
     setState(() {
       _items[index] = LineItem(
+        quoteId: _items[index].quoteId,
         description: description,
         quantity: quantity,
         pricePerUnit: price,
         unit: unit,
+        total: quantity * price,
       );
     });
     
