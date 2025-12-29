@@ -11,6 +11,7 @@ class Quote {
   String notes;
   DateTime createdAt;
   DateTime updatedAt;
+  List<LineItem> items;  // ДОБАВЛЕНО
 
   Quote({
     this.id,
@@ -25,7 +26,37 @@ class Quote {
     required this.notes,
     required this.createdAt,
     required this.updatedAt,
+    this.items = const [],  // ДОБАВЛЕНО
   });
+
+  // Методы для управления позициями
+  void addItem(LineItem item) {
+    items.add(item);
+    _calculateTotal();
+  }
+
+  void addItems(List<LineItem> newItems) {
+    items.addAll(newItems);
+    _calculateTotal();
+  }
+
+  void updateItem(int index, LineItem item) {
+    if (index >= 0 && index < items.length) {
+      items[index] = item;
+      _calculateTotal();
+    }
+  }
+
+  void removeItem(int index) {
+    if (index >= 0 && index < items.length) {
+      items.removeAt(index);
+      _calculateTotal();
+    }
+  }
+
+  void _calculateTotal() {
+    totalAmount = items.fold(0.0, (sum, item) => sum + item.totalPrice);
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -58,11 +89,12 @@ class Quote {
       notes: map['notes'] ?? '',
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
+      items: [],  // items загружаются отдельно
     );
   }
 
   @override
   String toString() {
-    return 'Quote(id: $id, client: $clientName, total: $totalAmount, status: $status)';
+    return 'Quote(id: $id, client: $clientName, total: $totalAmount, status: $status, items: ${items.length})';
   }
 }
