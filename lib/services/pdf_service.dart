@@ -4,6 +4,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/quote.dart';
 import '../models/line_item.dart';
 import '../models/company_profile.dart';
@@ -103,9 +104,6 @@ class PdfService {
               pw.Text('Сайт: ${company.website!}', style: _smallText()),
           ],
         ),
-        // Здесь можно добавить логотип если есть
-        // if (company.logoPath != null && company.logoPath!.isNotEmpty)
-        //   pw.Image(pw.MemoryImage(File(company.logoPath!).readAsBytesSync())),
       ],
     );
   }
@@ -260,7 +258,6 @@ class PdfService {
   }
 
   String _amountInWords(double amount) {
-    // Здесь можно реализовать логику прописью
     final int rubles = amount.floor();
     final int kopecks = ((amount - rubles) * 100).round();
     return '${NumberFormat("#,##0", "ru_RU").format(rubles)} руб. $kopecks коп.';
@@ -288,7 +285,7 @@ class PdfService {
     required List<LineItem> items,
     required CompanyProfile companyProfile,
   }) async {
-    final pdf = await generateQuotePdf(
+    final pdfFile = await generateQuotePdf(
       quote: quote,
       items: items,
       companyProfile: companyProfile,
@@ -297,7 +294,7 @@ class PdfService {
     // Показываем предпросмотр
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async {
-        return await pdf.readAsBytes();
+        return await pdfFile.readAsBytes();
       },
     );
   }
@@ -308,18 +305,22 @@ class PdfService {
     required List<LineItem> items,
     required CompanyProfile companyProfile,
   }) async {
-    final pdf = await generateQuotePdf(
-      quote: quote,
-      items: items,
-      companyProfile: companyProfile,
-    );
-    
-    // Для шаринга используем share_plus или другой пакет
-    // Это место для интеграции с пакетом шаринга
-    // Например:
-    // await Share.shareFiles([pdf.path], text: 'Коммерческое предложение');
-    
-    // Временно просто покажем путь к файлу
-    print('PDF сохранен по пути: ${pdf.path}');
+    try {
+      final pdfFile = await generateQuotePdf(
+        quote: quote,
+        items: items,
+        companyProfile: companyProfile,
+      );
+      
+      // Шарим файл
+      await Share.shareFiles(
+        [pdfFile.path],
+        text: 'Коммерческое предложение для ${quote.clientName}',
+        subject: 'КП ${quote.clientName}',
+      );
+      
+    } catch (e) {
+      rethrow;
+    }
   }
 }
