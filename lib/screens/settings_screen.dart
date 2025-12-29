@@ -108,26 +108,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (_formKey.currentState!.validate()) {
-      // Создаем новый объект CompanyProfile с обновленными данными
-      _companyProfile = CompanyProfile(
-        id: _companyProfile.id,
-        name: _nameController.text,
+    try {
+      final newProfile = CompanyProfile(
+        id: 1,
+        name: _nameController.text.isEmpty ? 'Моя компания' : _nameController.text,
         email: _emailController.text,
         phone: _phoneController.text,
         address: _addressController.text,
         website: _websiteController.text,
         taxId: _taxIdController.text,
         logoPath: _logoPath ?? '',
-        createdAt: _companyProfile.createdAt,
+        createdAt: DateTime.now(),
       );
 
-      await _dbHelper.saveCompanyProfile(_companyProfile);
+      await _dbHelper.saveCompanyProfile(newProfile);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Настройки компании сохранены'),
-          duration: Duration(seconds: 2),
+          content: Text('Настройки сохранены'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка: $e'),
+          backgroundColor: Colors.red,
         ),
       );
     }
