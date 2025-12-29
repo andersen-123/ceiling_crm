@@ -5,7 +5,7 @@ class LineItem {
   double quantity;
   double price;
   String unit;
-  String? name;  // Добавлено поле name
+  String? name;
 
   LineItem({
     this.id,
@@ -18,6 +18,27 @@ class LineItem {
   });
 
   double get totalPrice => quantity * price;
+
+  // Метод для создания копии с измененными полями
+  LineItem copyWith({
+    int? id,
+    int? quoteId,
+    String? description,
+    double? quantity,
+    double? price,
+    String? unit,
+    String? name,
+  }) {
+    return LineItem(
+      id: id ?? this.id,
+      quoteId: quoteId ?? this.quoteId,
+      description: description ?? this.description,
+      quantity: quantity ?? this.quantity,
+      price: price ?? this.price,
+      unit: unit ?? this.unit,
+      name: name ?? this.name,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
