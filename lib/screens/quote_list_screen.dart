@@ -89,7 +89,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
   Future<void> _shareQuote(Quote quote) async {
     try {
       final company = await _dbHelper.getCompanyProfile();
-      final pdfBytes = await _pdfService.generateQuotePdf(quote, company);
+      final pdfBytes = await _pdfService.generateQuotePdf(quote, company!);
       final file = await _pdfService.savePdfToFile(pdfBytes, 'quote_${quote.id}.pdf');
 
       await Share.shareXFiles(
