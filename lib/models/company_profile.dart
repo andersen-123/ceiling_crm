@@ -6,6 +6,7 @@ class CompanyProfile {
   final String address;
   final String inn;
   final String website;
+  final String? logoPath;  // ✅ ДОБАВЛЕНО для settings_screen.dart:107
 
   CompanyProfile({
     this.id,
@@ -15,6 +16,7 @@ class CompanyProfile {
     this.address = '',
     this.inn = '',
     this.website = '',
+    this.logoPath,  // ✅ ДОБАВЛЕНО
   });
 
   Map<String, dynamic> toMap() {
@@ -26,18 +28,20 @@ class CompanyProfile {
       'address': address,
       'inn': inn,
       'website': website,
+      'logo_path': logoPath,  // ✅ ДОБАВЛЕНО
     };
   }
 
   factory CompanyProfile.fromMap(Map<String, dynamic> map) {
     return CompanyProfile(
-      id: map['id'],
+      id: map['id'] as int?,
       companyName: map['company_name'] ?? 'Моя Компания',
       email: map['email'] ?? '',
       phone: map['phone'] ?? '',
       address: map['address'] ?? '',
       inn: map['inn'] ?? '',
       website: map['website'] ?? '',
+      logoPath: map['logo_path'],  // ✅ ДОБАВЛЕНО
     );
   }
 
@@ -49,6 +53,7 @@ class CompanyProfile {
     String? address,
     String? inn,
     String? website,
+    String? logoPath,
   }) {
     return CompanyProfile(
       id: id ?? this.id,
@@ -58,6 +63,16 @@ class CompanyProfile {
       address: address ?? this.address,
       inn: inn ?? this.inn,
       website: website ?? this.website,
+      logoPath: logoPath ?? this.logoPath,
     );
+  }
+
+  // ✅ ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ ДЛЯ ПОЛНОЙ СОВМЕСТИМОСТИ
+
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  String toString() {
+    return 'CompanyProfile(id: $id, companyName: $companyName, logoPath: $logoPath)';
   }
 }
