@@ -55,9 +55,11 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     } else {
       // Новая цитата - добавляем одну пустую позицию
       _items = [LineItem(
-        quoteId: 0,
-        description: '', 
-        quantity: 1, 
+        quoteId: widget.quote!.id!,
+        name: 'Позиция 1',
+        description: '',
+        quantity: 1,
+        unit: 'м²',
         pricePerUnit: 0,
       )];
     }
@@ -125,12 +127,8 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     final unit = controllers['unit']!.text;
     
     setState(() {
-      _items[index] = LineItem(
-        quoteId: widget.quote?.id ?? 0,
-        name: nameController.text.isNotEmpty ? nameController.text : 'Позиция ${index + 1}',
-        description: descController.text,
-        quantity: quantity,
-        unit: unitController.text,
+      _items[index] = _items[index].copyWith(
+        quantity: quantity.toDouble(),
         pricePerUnit: price,
       );
     });
@@ -146,7 +144,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     
     if (widget.quote != null) {
       setState(() {
-        widget.quote!.//totalAmount = total;
+        // widget.quote!.totalAmount = total; // Вычисляется автоматически
       });
     }
   }
@@ -169,7 +167,11 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     }
     
     final quote = widget.quote ?? Quote(
-      clientName: '',
+      clientName: _clientNameController.text,
+      clientEmail: _emailController.text,
+      clientPhone: _phoneController.text,
+      clientAddress: _addressController.text,
+      projectName: 'Проект',
       date: DateTime.now(),
     );
     
@@ -226,10 +228,9 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
-                //await _pdfService.previewPdf(
-                  quote: widget.quote!,
-                  items: _items,
-                  companyProfile: companyProfile,
+                // Функция в разработке
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Предпросмотр PDF в разработке')),
                 );
               },
               child: const Text('Предпросмотр'),
@@ -237,10 +238,9 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
-                //await _pdfService.sharePdf(
-                  quote: widget.quote!,
-                  items: _items,
-                  companyProfile: companyProfile,
+                // Функция в разработке
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Шаринг PDF в разработке')),
                 );
                 
                 if (mounted) {
