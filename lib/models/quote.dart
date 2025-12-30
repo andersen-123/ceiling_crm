@@ -1,107 +1,84 @@
-import 'line_item.dart'; // ← ДОБАВЛЕН ИМПОРТ
-
 class Quote {
   final int? id;
-  final String clientName;
-  final String clientEmail;
-  final String clientPhone;
-  final String clientAddress;
-  final String projectName;
-  final String projectDescription;
-  final String notes;
-  final String status;
-  final double totalAmount;
-  final DateTime createdAt;
-  final DateTime updatedAt; // ← ДОБАВЛЕНО
-  final List<LineItem> items; // ← ДОБАВЛЕНО
-
-  String get email => clientEmail;
-  String get phone => clientPhone;
-  String get address => clientAddress;
+  final String title;
+  final String customerName;
+  final String customerPhone;
+  final String customerEmail;
+  final List<LineItem> lineItems;
+  final DateTime date;  // ✅ ДОБАВЛЕНО для pdf_service.dart:89
+  final String? notes;
+  final double? totalAmount;
 
   Quote({
     this.id,
-    required this.clientName,
-    this.clientEmail = '',
-    this.clientPhone = '',
-    this.clientAddress = '',
-    required this.projectName,
-    this.projectDescription = '',
-    this.notes = '',
-    this.status = 'draft',
-    this.totalAmount = 0.0,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    this.items = const [],
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+    required this.title,
+    required this.customerName,
+    this.customerPhone = '',
+    this.customerEmail = '',
+    required this.lineItems,
+    required this.date,  // ✅ ДОБАВЛЕНО
+    this.notes,
+    this.totalAmount,
+  });
+
+  double get total => totalAmount ?? lineItems.fold(0.0, (sum, item) => sum + item.total);
 
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id,
-      'client_name': clientName,
-      'client_email': clientEmail,
-      'client_phone': clientPhone,
-      'client_address': clientAddress,
-      'project_name': projectName,
-      'project_description': projectDescription,
+      'id': id,
+      'title': title,
+      'customer_name': customerName,
+      'customer_phone': customerPhone,
+      'customer_email': customerEmail,
+      'date': date.toIso8601String(),  // ✅ ДОБАВЛЕНО
       'notes': notes,
-      'status': status,
-      'total_amount': totalAmount,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'total_amount': total,
     };
   }
 
-  factory Quote.fromMap(Map<String, dynamic> map, {List<LineItem>? items}) {
+  factory Quote.fromMap(Map<String, dynamic> map) {
     return Quote(
       id: map['id'] as int?,
-      clientName: map['client_name'] as String? ?? '',
-      clientEmail: map['client_email'] as String? ?? '',
-      clientPhone: map['client_phone'] as String? ?? '',
-      clientAddress: map['client_address'] as String? ?? '',
-      projectName: map['project_name'] as String? ?? '',
-      projectDescription: map['project_description'] as String? ?? '',
-      notes: map['notes'] as String? ?? '',
-      status: map['status'] as String? ?? 'draft',
-      totalAmount: (map['total_amount'] as num?)?.toDouble() ?? 0.0,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
-      items: items ?? [],
+      title: map['title'] ?? '',
+      customerName: map['customer_name'] ?? '',
+      customerPhone: map['customer_phone'] ?? '',
+      customerEmail: map['customer_email'] ?? '',
+      lineItems: [], // Заполняется отдельно
+      date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),  // ✅ ДОБАВЛЕНО
+      notes: map['notes'],
+      totalAmount: (map['total_amount'] ?? 0.0).toDouble(),
     );
   }
 
   Quote copyWith({
     int? id,
-    String? clientName,
-    String? clientEmail,
-    String? clientPhone,
-    String? clientAddress,
-    String? projectName,
-    String? projectDescription,
+    String? title,
+    String? customerName,
+    String? customerPhone,
+    String? customerEmail,
+    List<LineItem>? lineItems,
+    DateTime? date,
     String? notes,
-    String? status,
     double? totalAmount,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    List<LineItem>? items,
   }) {
     return Quote(
       id: id ?? this.id,
-      clientName: clientName ?? this.clientName,
-      clientEmail: clientEmail ?? this.clientEmail,
-      clientPhone: clientPhone ?? this.clientPhone,
-      clientAddress: clientAddress ?? this.clientAddress,
-      projectName: projectName ?? this.projectName,
-      projectDescription: projectDescription ?? this.projectDescription,
+      title: title ?? this.title,
+      customerName: customerName ?? this.customerName,
+      customerPhone: customerPhone ?? this.customerPhone,
+      customerEmail: customerEmail ?? this.customerEmail,
+      lineItems: lineItems ?? this.lineItems,
+      date: date ?? this.date,
       notes: notes ?? this.notes,
-      status: status ?? this.status,
       totalAmount: totalAmount ?? this.totalAmount,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      items: items ?? this.items,
     );
   }
 
-  double calculateTotal() => items.fold(0.0, (sum, item) => sum + item.total);
+  // ✅ ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ
+  Map<String, dynamic> toJson() => toMap();
+
+  @override
+  String toString() {
+    return 'Quote(id: $id, title: $title, total: ${total.toStringAsFixed(2)}₽, date: $date)';
+  }
 }
