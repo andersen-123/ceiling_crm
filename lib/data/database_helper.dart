@@ -211,7 +211,7 @@ class DatabaseHelper {
     // Тестовый квоут
     final quote = Quote(
       clientName: 'Тестовый клиент',
-      address: 'г. Москва, ул. Тестовая, д. 1',
+      clientAddress: 'г. Москва, ул. Тестовая, д. 1',
       phone: '+7 (999) 999-99-99',
       email: 'test@test.com',
       createdAt: DateTime.now(),
