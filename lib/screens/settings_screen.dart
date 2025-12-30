@@ -61,7 +61,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           address: '',
           website: '',
           inn: '',
-          createdAt: DateTime.now(),
         );
       }
     } catch (e) {
@@ -74,7 +73,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         address: '',
         website: '',
         inn: '',
-        createdAt: DateTime.now(),
       );
     }
 
@@ -115,7 +113,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         address: _addressController.text,
         website: _websiteController.text,
         inn: _taxIdController.text,
-        createdAt: DateTime.now(),
       );
 
       print('📝 Данные профиля: ${newProfile.name}, ${newProfile.email}');
@@ -191,7 +188,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         address: 'г. Москва, ул. Примерная, д. 1',
         website: 'www.company.com',
         inn: '1234567890',
-        createdAt: DateTime.now(),
       );
 
       _companyProfile = defaultProfile;
