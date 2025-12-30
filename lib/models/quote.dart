@@ -7,8 +7,11 @@ class Quote {
   final String projectName;
   final String projectDescription;
   final double totalAmount;
-  final String status; // 'draft' или 'отправлено'
+  final String status;
   final DateTime date;
+  String get email => clientEmail;
+  String get phone => clientPhone;
+  String get address => clientAddress;
 
   Quote({
     this.id,
