@@ -132,7 +132,6 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
         quantity: quantity,
         pricePerUnit: price,
         unit: unit,
-        total: quantity * price,
       );
     });
     
@@ -171,7 +170,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     
     final quote = widget.quote ?? Quote(
       clientName: '',
-      createdAt: DateTime.now(),
+      date: DateTime.now(),
       updatedAt: DateTime.now(),
     );
     
