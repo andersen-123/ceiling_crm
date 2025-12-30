@@ -17,7 +17,7 @@ class QuoteListScreen extends StatefulWidget {
 
 class _QuoteListScreenState extends State<QuoteListScreen> {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
-  final PdfService _pdfService = PdfService();
+  final PdfService _pdfService = PdfService.instance;
   List<Quote> _quotes = [];
   bool _isLoading = true;
 
@@ -74,7 +74,7 @@ class _QuoteListScreenState extends State<QuoteListScreen> {
   Future<void> _exportQuoteAsPdf(Quote quote) async {
     try {
       final company = await _dbHelper.getCompanyProfile();
-      final pdfBytes = await _pdfService.generateQuotePdf(quote, company);
+      final pdfBytes = await _pdfService.generateQuotePdf(quote, company!);
 
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
