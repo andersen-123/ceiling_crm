@@ -211,7 +211,7 @@ class DatabaseHelper {
       clientName: 'Тестовый клиент',
       clientAddress: 'г. Москва, ул. Тестовая, д. 1',
       clientPhone: '+7 (999) 999-99-99',
-      email: 'test@test.com',
+      clientEmail: 'test@test.com',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
