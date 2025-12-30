@@ -51,12 +51,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final profile = await _dbHelper.getCompanyProfile();
       if (profile != null) {
         _companyProfile = profile;
-        _logoPath = profile.logoPath;
         _updateControllers();
       } else {
         _companyProfile = CompanyProfile(
           id: 1,
-          name: 'Ваша компания',
+          companyName: 'Ваша компания',
           email: '',
           phone: '',
           address: '',
@@ -70,7 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       print('Ошибка загрузки профиля: $e');
       _companyProfile = CompanyProfile(
         id: 1,
-        name: 'Ваша компания',
+        companyName: 'Ваша компания',
         email: '',
         phone: '',
         address: '',
@@ -87,12 +86,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _updateControllers() {
-    _nameController.text = _companyProfile.name;
+    _nameController.text = _companyProfile.companyName;
     _emailController.text = _companyProfile.email;
     _phoneController.text = _companyProfile.phone;
     _addressController.text = _companyProfile.address;
     _websiteController.text = _companyProfile.website;
-    _taxIdController.text = _companyProfile.taxId;
+    _taxIdController.text = _companyProfile.inn;
   }
 
   Future<void> _pickImage() async {
@@ -112,7 +111,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
       final newProfile = CompanyProfile(
         id: 1,
-        name: _nameController.text.isNotEmpty ? _nameController.text : 'Моя компания',
+        companyName: _nameController.text.isNotEmpty ? _nameController.text : 'Моя компания',
         email: _emailController.text,
         phone: _phoneController.text,
         address: _addressController.text,
@@ -126,7 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
       final result = await _dbHelper.saveCompanyProfile(newProfile);
     
-      print('✅ Профиль сохранен, результат: $result');
+      print('✅ Профиль сохранен');
     
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -189,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirmed == true) {
       final defaultProfile = CompanyProfile(
         id: 1,
-        name: 'Моя компания',
+        companyName: 'Моя компания',
         email: 'info@company.com',
         phone: '+7 (999) 123-45-67',
         address: 'г. Москва, ул. Примерная, д. 1',
