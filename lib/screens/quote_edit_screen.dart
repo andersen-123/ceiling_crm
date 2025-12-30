@@ -19,57 +19,59 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   final PdfService _pdfService = PdfService.instance;
   
   late TextEditingController _clientNameController;
-  late TextEditingController _addressController;
-  late TextEditingController _phoneController;
-  late TextEditingController _emailController;
+  late TextEditingController _clientAddressController;
+  late TextEditingController _clientPhoneController;
+  late TextEditingController _clientEmailController;
   
-  // Ключи для каждого TextField в позициях
+  // Динамические контроллеры для позиций
   final List<GlobalKey<FormState>> _itemFormKeys = [];
-  // Контроллеры для каждой позиции (фиксированные, не пересоздаются)
   final List<Map<String, TextEditingController>> _itemControllers = [];
   
   List<LineItem> _items = [];
   bool _isLoading = true;
+  double _totalAmount = 0.0;
   
   @override
   void initState() {
     super.initState();
-    
     _clientNameController = TextEditingController();
-    _addressController = TextEditingController();
-    _phoneController = TextEditingController();
-    _emailController = TextEditingController();
-    
-    _loadData();
+    _clientAddressController = TextEditingController();
+    _clientPhoneController = TextEditingController();
+    _clientEmailController = TextEditingController();
+    _loadInitialData();
   }
   
-  Future<void> _loadData() async {
-    if (widget.quote != null) {
-      _clientNameController.text = widget.quote!.clientName;
-      _addressController.text = widget.quote!.address ?? '';
-      _phoneController.text = widget.quote!.phone ?? '';
-      _emailController.text = widget.quote!.email ?? '';
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      if (widget.quote != null) {
+        // Редактирование существующего КП
+        final quote = widget.quote!;
+        _clientNameController.text = quote.clientName;
+        _clientAddressController.text = quote.clientAddress;
+        _clientPhoneController.text = quote.clientPhone;
+        _clientEmailController.text = quote.clientEmail;
+        _items = quote.items;
+        _totalAmount = quote.totalAmount;
+      } else {
+        // Новое КП - одна пустая позиция
+        _items = [LineItem(
+          quoteId: 0,
+          name: 'Новая позиция',
+          description: '',
+          quantity: 1.0,
+          unit: 'м²',
+          price: 0.0,
+        )];
+      }
       
-      final items = await _dbHelper.getLineItemsForQuote(widget.quote!.id!);
-      _items = items;
-    } else {
-      // Новая цитата - добавляем одну пустую позицию
-      _items = [LineItem(
-        quoteId: widget.quote!.id!,
-        name: 'Позиция 1',
-        description: '',
-        quantity: 1,
-        unit: 'м²',
-        pricePerUnit: 0,
-      )];
+      _initItemControllers();
+    } catch (e) {
+      print('Ошибка загрузки данных: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    
-    // Инициализируем контроллеры и ключи форм для каждой позиции
-    _initItemControllers();
-    
-    setState(() {
-      _isLoading = false;
-    });
   }
   
   void _initItemControllers() {
@@ -79,32 +81,37 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     for (int i = 0; i < _items.length; i++) {
       _itemFormKeys.add(GlobalKey<FormState>());
       _itemControllers.add({
+        'name': TextEditingController(text: _items[i].name),
         'description': TextEditingController(text: _items[i].description),
         'quantity': TextEditingController(text: _items[i].quantity.toString()),
-        'price': TextEditingController(text: _items[i].pricePerUnit.toString()),
-        'unit': TextEditingController(text: _items[i].unit ?? 'шт.'),
+        'unit': TextEditingController(text: _items[i].unit),
+        'price': TextEditingController(text: _items[i].price.toStringAsFixed(2)),
       });
     }
   }
   
   void _addNewItem() {
     setState(() {
-      _items.add(LineItem(
+      final newItem = LineItem(
         quoteId: widget.quote?.id ?? 0,
-        name: '',
+        name: 'Новая позиция',
         description: '',
-        quantity: 1,
+        quantity: 1.0,
         unit: 'м²',
-        pricePerUnit: 0,
-      ));
-
+        price: 0.0,
+      );
+      _items.add(newItem);
+      
       _itemFormKeys.add(GlobalKey<FormState>());
       _itemControllers.add({
+        'name': TextEditingController(text: newItem.name),
         'description': TextEditingController(),
-        'quantity': TextEditingController(text: '1'),
-        'price': TextEditingController(text: '0'),
-        'unit': TextEditingController(text: 'шт.'),
+        'quantity': TextEditingController(text: '1.0'),
+        'unit': TextEditingController(text: 'м²'),
+        'price': TextEditingController(text: '0.00'),
       });
+      
+      _calculateTotal();
     });
   }
   
@@ -112,97 +119,94 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     if (_items.length > 1) {
       setState(() {
         _items.removeAt(index);
-        _itemFormKeys.removeAt(index);
         _itemControllers.removeAt(index);
+        _itemFormKeys.removeAt(index);
+        _calculateTotal();
       });
     }
   }
   
   void _updateItem(int index) {
     final controllers = _itemControllers[index];
-    
+    final name = controllers['name']!.text.trim();
     final description = controllers['description']!.text;
-    final quantity = int.tryParse(controllers['quantity']!.text) ?? 1;
-    final price = double.tryParse(controllers['price']!.text) ?? 0;
+    final quantityStr = controllers['quantity']!.text;
     final unit = controllers['unit']!.text;
+    final priceStr = controllers['price']!.text;
+    
+    final quantity = double.tryParse(quantityStr) ?? 1.0;
+    final price = double.tryParse(priceStr) ?? 0.0;
     
     setState(() {
       _items[index] = _items[index].copyWith(
-        quantity: quantity.toDouble(),
-        pricePerUnit: price,
+        name: name.isEmpty ? 'Позиция ${index + 1}' : name,
+        description: description,
+        quantity: quantity,
+        unit: unit,
+        price: price,
       );
+      _calculateTotal();
     });
-    
-    _calculateTotal();
   }
   
   void _calculateTotal() {
-    double total = 0;
-    for (final item in _items) {
-      total += item.total;
-    }
-    
-    if (widget.quote != null) {
-      setState(() {
-        // widget.quote!.totalAmount = total; // Вычисляется автоматически
-      });
-    }
+    _totalAmount = _items.fold(0.0, (sum, item) => sum + item.total);
+    if (mounted) setState(() {});
   }
   
   Future<void> _saveQuote() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
     
-    // Валидируем все позиции
-    for (final key in _itemFormKeys) {
-      if (!key.currentState!.validate()) {
+    // Валидация всех позиций
+    for (int i = 0; i < _itemFormKeys.length; i++) {
+      if (!_itemFormKeys[i].currentState!.validate()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Проверьте позицию ${i + 1}')),
+        );
         return;
       }
-    }
-    
-    // Обновляем все позиции перед сохранением
-    for (int i = 0; i < _items.length; i++) {
       _updateItem(i);
     }
     
-    final quote = widget.quote ?? Quote(
-      clientName: _clientNameController.text,
-      clientEmail: _emailController.text,
-      clientPhone: _phoneController.text,
-      clientAddress: _addressController.text,
-      projectName: 'Проект',
-      date: DateTime.now(),
-    );
-    
-     // Обновляем quote через copyWith (поля final)
-    final updatedQuote = quote.copyWith(
-      clientName: _clientNameController.text,
-      clientAddress: _addressController.text.isNotEmpty ? _addressController.text : '',
-      clientPhone: _phoneController.text.isNotEmpty ? _phoneController.text : '',
-      clientEmail: _emailController.text.isNotEmpty ? _emailController.text : '',
-      totalAmount: _calculateTotal(),
-    );
-
-    // Сохраняем в базу данных
     try {
+      final quote = widget.quote ?? Quote(
+        clientName: _clientNameController.text.trim(),
+        projectName: 'Новый проект',
+        items: _items,
+      );
+      
+      final updatedQuote = quote.copyWith(
+        clientName: _clientNameController.text.trim(),
+        clientEmail: _clientEmailController.text.trim(),
+        clientPhone: _clientPhoneController.text.trim(),
+        clientAddress: _clientAddressController.text.trim(),
+        totalAmount: _totalAmount,
+        items: _items,
+      );
+      
       if (widget.quote == null) {
-        // Создаем новое КП
         await _dbHelper.createQuote(updatedQuote);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ Новое КП создано')),
+          );
+        }
       } else {
-        // Обновляем существующее КП
-        await _dbHelper.updateQuote(updatedQuote);
+        await _dbHelper.updateQuoteWithItems(updatedQuote, _items);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ КП обновлено')),
+          );
+        }
       }
-  
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('КП сохранено')),
-      );
+      
+      if (mounted) Navigator.pop(context, updatedQuote);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка сохранения: $e')),
-      );
-     }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка сохранения: $e')),
+        );
+      }
     }
   }
   
@@ -216,54 +220,23 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     
     try {
       final companyProfile = await _dbHelper.getCompanyProfile();
-      if (companyProfile == null) {
-        throw Exception('Профиль компании не найден');
-      }
-      
-      // Показываем диалог выбора действия
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Экспорт PDF'),
-          content: const Text('Выберите действие:'),
+          content: const Text('Функция в разработке'),
           actions: [
             TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                // Функция в разработке
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Предпросмотр PDF в разработке')),
-                );
-              },
-              child: const Text('Предпросмотр'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                // Функция в разработке
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Шаринг PDF в разработке')),
-                );
-                
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('PDF готов к отправке. Проверьте консоль для пути к файлу.'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Поделиться'),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
             ),
           ],
         ),
       );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка генерации PDF: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
     }
   }
   
@@ -271,9 +244,9 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     final controllers = _itemControllers[index];
     
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Form(
           key: _itemFormKeys[index],
           child: Column(
@@ -284,7 +257,10 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                 children: [
                   Text(
                     'Позиция ${index + 1}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   if (_items.length > 1)
                     IconButton(
@@ -295,22 +271,34 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
               ),
               
               TextFormField(
-                controller: controllers['description'],
+                controller: controllers['name'],
                 decoration: const InputDecoration(
-                  labelText: 'Наименование',
+                  labelText: 'Наименование *',
                   border: OutlineInputBorder(),
                 ),
-                textInputAction: TextInputAction.next,
                 onChanged: (_) => _updateItem(index),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Введите описание';
+                    return 'Введите наименование';
                   }
                   return null;
                 },
               ),
               
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
+              
+              TextFormField(
+                controller: controllers['description'],
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Описание',
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+                onChanged: (_) => _updateItem(index),
+              ),
+              
+              const SizedBox(height: 16),
               
               Row(
                 children: [
@@ -318,52 +306,47 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                     child: TextFormField(
                       controller: controllers['quantity'],
                       decoration: const InputDecoration(
-                        labelText: 'Кол-во',
+                        labelText: 'Кол-во *',
                         border: OutlineInputBorder(),
                       ),
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.next,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => _updateItem(index),
                       validator: (value) {
-                        final quantity = int.tryParse(value ?? '');
-                        if (quantity == null || quantity <= 0) {
-                          return 'Введите число > 0';
-                        }
+                        final qty = double.tryParse(value ?? '');
+                        if (qty == null || qty <= 0) return 'Введите > 0';
                         return null;
                       },
                     ),
                   ),
                   
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   
                   Expanded(
                     child: TextFormField(
                       controller: controllers['unit'],
                       decoration: const InputDecoration(
-                        labelText: 'Ед. изм.',
+                        labelText: 'Ед.изм.',
                         border: OutlineInputBorder(),
                       ),
                       onChanged: (_) => _updateItem(index),
                     ),
                   ),
                   
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   
                   Expanded(
                     child: TextFormField(
                       controller: controllers['price'],
                       decoration: const InputDecoration(
-                        labelText: 'Цена',
+                        labelText: 'Цена *',
                         border: OutlineInputBorder(),
+                        prefixText: '₽ ',
                       ),
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.done,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => _updateItem(index),
                       validator: (value) {
                         final price = double.tryParse(value ?? '');
-                        if (price == null || price < 0) {
-                          return 'Введите число ≥ 0';
-                        }
+                        if (price == null || price < 0) return 'Введите ≥ 0';
                         return null;
                       },
                     ),
@@ -371,15 +354,16 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                 ],
               ),
               
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               
               Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  'Сумма: ${_items[index].total.toStringAsFixed(2)} ₽',
+                  '${_items[index].total.toStringAsFixed(2)} ₽',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
+                    color: Colors.green,
                   ),
                 ),
               ),
@@ -406,7 +390,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
             IconButton(
               icon: const Icon(Icons.picture_as_pdf),
               onPressed: _generatePdf,
-              tooltip: 'Создать PDF',
+              tooltip: 'PDF',
             ),
           IconButton(
             icon: const Icon(Icons.save),
@@ -421,26 +405,23 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           key: _formKey,
           child: ListView(
             children: [
+              // Клиентская информация
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Информация о клиенте',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       
                       TextFormField(
                         controller: _clientNameController,
                         decoration: const InputDecoration(
-                          labelText: 'Имя клиента *',
+                          labelText: 'Клиент *',
                           border: OutlineInputBorder(),
                         ),
                         validator: (value) {
@@ -451,47 +432,54 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                         },
                       ),
                       
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       
                       TextFormField(
-                        controller: _addressController,
+                        controller: _clientAddressController,
                         decoration: const InputDecoration(
                           labelText: 'Адрес',
                           border: OutlineInputBorder(),
                         ),
                       ),
                       
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       
-                      TextFormField(
-                        controller: _phoneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Телефон',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.phone,
-                      ),
-                      
-                      const SizedBox(height: 10),
-                      
-                      TextFormField(
-                        controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _clientPhoneController,
+                              decoration: const InputDecoration(
+                                labelText: 'Телефон',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.phone,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _clientEmailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.emailAddress,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
               
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               
+              // Позиции
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -500,30 +488,31 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                         children: [
                           const Text(
                             'Позиции',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.add),
+                          ElevatedButton.icon(
                             onPressed: _addNewItem,
-                            tooltip: 'Добавить позицию',
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Добавить'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            ),
                           ),
                         ],
                       ),
                       
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       
-                      ...List.generate(_items.length, (index) => _buildItemRow(index)),
+                      ..._items.asMap().entries.map((entry) => _buildItemRow(entry.key)),
                       
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                       
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue[200]!),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -531,16 +520,16 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
                             const Text(
                               'ИТОГО:',
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: 22,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
-                              '${widget.quote?.totalAmount.toStringAsFixed(2) ?? '0.00'} ₽',
-                              style: const TextStyle(
-                                fontSize: 24,
+                              '${_totalAmount.toStringAsFixed(2)} ₽',
+                              style: TextStyle(
+                                fontSize: 28,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue,
+                                color: Colors.blue[700],
                               ),
                             ),
                           ],
@@ -554,9 +543,10 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _saveQuote,
-        child: const Icon(Icons.save),
+        icon: const Icon(Icons.save),
+        label: const Text('Сохранить'),
       ),
     );
   }
@@ -564,16 +554,16 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
   @override
   void dispose() {
     _clientNameController.dispose();
-    _addressController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
+    _clientAddressController.dispose();
+    _clientPhoneController.dispose();
+    _clientEmailController.dispose();
     
-    // Диспозим все контроллеры позиций
     for (final controllers in _itemControllers) {
+      controllers['name']?.dispose();
       controllers['description']?.dispose();
       controllers['quantity']?.dispose();
-      controllers['price']?.dispose();
       controllers['unit']?.dispose();
+      controllers['price']?.dispose();
     }
     
     super.dispose();
