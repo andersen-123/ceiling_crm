@@ -28,7 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _taxIdController;
   String? _logoPath;
   bool _isLoading = true;
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
   @override
   void initState() {
@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           phone: '',
           address: '',
           website: '',
-          taxId: '',
+          inn: '',
           logoPath: '',
           createdAt: DateTime.now(),
         );
@@ -74,7 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         phone: '',
         address: '',
         website: '',
-        taxId: '',
+        inn: '',
         logoPath: '',
         createdAt: DateTime.now(),
       );
@@ -116,7 +116,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         phone: _phoneController.text,
         address: _addressController.text,
         website: _websiteController.text,
-        taxId: _taxIdController.text,
+        inn: _taxIdController.text,
         logoPath: _logoPath ?? '',
         createdAt: DateTime.now(),
       );
@@ -193,7 +193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         phone: '+7 (999) 123-45-67',
         address: 'г. Москва, ул. Примерная, д. 1',
         website: 'www.company.com',
-        taxId: '1234567890',
+        inn: '1234567890',
         logoPath: '',
         createdAt: DateTime.now(),
       );
