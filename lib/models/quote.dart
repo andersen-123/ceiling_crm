@@ -4,13 +4,13 @@ import 'line_item.dart';
 class Quote {
   final int? id;
   final String title;
-  final String customerName;      // ✅ clientName
-  final String customerPhone;     // ✅ clientPhone  
-  final String? customerEmail;    // ✅ clientEmail
-  final String? customerAddress;  // ✅ clientAddress
-  final String? projectName;      // ✅ projectName
-  final String status;            // ✅ status
-  final List<LineItem> items;     // ✅ items (не lineItems)
+  final String customerName;
+  final String customerPhone;
+  final String? customerEmail;
+  final String? customerAddress;
+  final String? projectNameField;  // ✅ Переименовано чтобы избежать конфликта
+  final String status;
+  final List<LineItem> items;
   final DateTime date;
   final String? notes;
   final double? totalAmount;
@@ -22,7 +22,7 @@ class Quote {
     this.customerPhone = '',
     this.customerEmail,
     this.customerAddress,
-    this.projectName,
+    this.projectNameField,  // ✅ Используем новое имя
     this.status = 'черновик',
     required this.items,
     required this.date,
@@ -30,12 +30,12 @@ class Quote {
     this.totalAmount,
   });
 
-  // ✅ ГЕТТЕРЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ
+  // ✅ ГЕТТЕРЫ ДЛЯ СОВМЕСТИМОСТИ (без конфликтов)
   String get clientName => customerName;
   String get clientPhone => customerPhone;
   String get clientEmail => customerEmail ?? '';
   String get clientAddress => customerAddress ?? '';
-  String get projectName => projectName ?? '';
+  String get projectName => projectNameField ?? '';
   List<LineItem> get lineItems => items;
   
   double get total => totalAmount ?? items.fold(0.0, (sum, item) => sum + item.total);
@@ -48,7 +48,7 @@ class Quote {
       'customer_phone': customerPhone,
       'customer_email': customerEmail,
       'customer_address': customerAddress,
-      'project_name': projectName,
+      'project_name': projectName,  // ✅ Используем геттер
       'status': status,
       'date': date.toIso8601String(),
       'notes': notes,
@@ -56,7 +56,6 @@ class Quote {
     };
   }
 
-  // ✅ ФАБРИКА С ПОДДЕРЖКОЙ items ПАРАМЕТРА
   factory Quote.fromMap(Map<String, dynamic> map, {List<LineItem>? items}) {
     return Quote(
       id: map['id'] as int?,
@@ -65,7 +64,7 @@ class Quote {
       customerPhone: map['customer_phone'] ?? '',
       customerEmail: map['customer_email'],
       customerAddress: map['customer_address'],
-      projectName: map['project_name'],
+      projectNameField: map['project_name'],  // ✅ В поле
       status: map['status'] ?? 'черновик',
       items: items ?? [],
       date: DateTime.parse(map['date'] ?? DateTime.now().toIso8601String()),
@@ -81,7 +80,7 @@ class Quote {
     String? customerPhone,
     String? customerEmail,
     String? customerAddress,
-    String? projectName,
+    String? projectNameField,
     String? status,
     List<LineItem>? items,
     DateTime? date,
@@ -95,7 +94,7 @@ class Quote {
       customerPhone: customerPhone ?? this.customerPhone,
       customerEmail: customerEmail ?? this.customerEmail,
       customerAddress: customerAddress ?? this.customerAddress,
-      projectName: projectName ?? this.projectName,
+      projectNameField: projectNameField ?? this.projectNameField,
       status: status ?? this.status,
       items: items ?? this.items,
       date: date ?? this.date,
@@ -108,6 +107,6 @@ class Quote {
 
   @override
   String toString() {
-    return 'Quote(id: $id, title: $title, total: ${total.toStringAsFixed(2)}₽, status: $status)';
+    return 'Quote(id: $id, title: $title, total: ${total.toStringAsFixed(2)}₽)';
   }
 }
