@@ -8,7 +8,6 @@ class LineItem {
   final double pricePerUnit;
   
   // Вычисляемое поле
-  double get price => pricePerUnit * quantity;
   double get total => pricePerUnit * quantity;
 
   LineItem({
@@ -35,8 +34,8 @@ class LineItem {
 
   factory LineItem.fromMap(Map<String, dynamic> map) {
     return LineItem(
-      id: map['id'],
-      quoteId: map['quote_id'],
+      id: map['id'] as int?,
+      quoteId: map['quote_id'] as int,
       name: map['name'] ?? '',
       description: map['description'] ?? '',
       quantity: (map['quantity'] ?? 0.0).toDouble(),
@@ -64,5 +63,35 @@ class LineItem {
       pricePerUnit: pricePerUnit ?? this.pricePerUnit,
     );
   }
-}
 
+  // ✅ ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ ДЛЯ СОВМЕСТИМОСТИ С КОДОМ
+
+  // Для обратной совместимости с кодом, ожидающим price
+  double get price => total;
+
+  // Статический конструктор для быстрого создания (database_helper.dart)
+  factory LineItem.quick({
+    required String name,
+    required double quantity,
+    required String unit,
+    required double pricePerUnit,
+    int quoteId = 1,
+  }) {
+    return LineItem(
+      quoteId: quoteId,
+      name: name,
+      quantity: quantity,
+      unit: unit,
+      pricePerUnit: pricePerUnit,
+    );
+  }
+
+  // JSON сериализация для PDF и других сервисов
+  Map<String, dynamic> toJson() => toMap();
+
+  // Строка представления для отладки
+  @override
+  String toString() {
+    return 'LineItem(id: $id, name: $name, quantity: $quantity $unit, total: ${total.toStringAsFixed(2)}₽)';
+  }
+}
