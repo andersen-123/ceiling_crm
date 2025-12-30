@@ -15,8 +15,8 @@ class QuoteEditScreen extends StatefulWidget {
 
 class _QuoteEditScreenState extends State<QuoteEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  final DatabaseHelper _dbHelper = DatabaseHelper();
-  final PdfService _pdfService = PdfService();
+  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final PdfService _pdfService = PdfService.instance;
   
   late TextEditingController _clientNameController;
   late TextEditingController _addressController;
@@ -59,7 +59,6 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
         description: '', 
         quantity: 1, 
         pricePerUnit: 0,
-        total: 0,
       )];
     }
     
@@ -127,11 +126,12 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     
     setState(() {
       _items[index] = LineItem(
-        quoteId: _items[index].quoteId,
-        description: description,
+        quoteId: widget.quote?.id ?? 0,
+        name: nameController.text.isNotEmpty ? nameController.text : 'Позиция ${index + 1}',
+        description: descController.text,
         quantity: quantity,
+        unit: unitController.text,
         pricePerUnit: price,
-        unit: unit,
       );
     });
     
@@ -146,7 +146,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     
     if (widget.quote != null) {
       setState(() {
-        widget.quote!.totalAmount = total;
+        widget.quote!.//totalAmount = total;
       });
     }
   }
@@ -171,7 +171,6 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
     final quote = widget.quote ?? Quote(
       clientName: '',
       date: DateTime.now(),
-      updatedAt: DateTime.now(),
     );
     
     quote.clientName = _clientNameController.text;
@@ -227,7 +226,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
-                await _pdfService.previewPdf(
+                //await _pdfService.previewPdf(
                   quote: widget.quote!,
                   items: _items,
                   companyProfile: companyProfile,
@@ -238,7 +237,7 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
-                await _pdfService.sharePdf(
+                //await _pdfService.sharePdf(
                   quote: widget.quote!,
                   items: _items,
                   companyProfile: companyProfile,
