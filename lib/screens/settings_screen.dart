@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ceiling_crm/data/database_helper.dart';
-import 'package:ceiling_crm/models/company_profile.dart';
+import '../data/database_helper.dart';
+import '../models/company_profile.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
@@ -49,31 +49,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       final profile = await _dbHelper.getCompanyProfile();
-      if (profile != null) {
-        _companyProfile = profile;
-        _updateControllers();
-      } else {
-        _companyProfile = CompanyProfile(
-          id: 1,
-          companyName: 'Ваша компания',
-          email: '',
-          phone: '',
-          address: '',
-          website: '',
-          inn: '',
-        );
-      }
+      _companyProfile = profile;
+      _updateControllers();
     } catch (e) {
       print('Ошибка загрузки профиля: $e');
       _companyProfile = CompanyProfile(
         id: 1,
-        companyName: 'Ваша компания',
+        companyName: 'Моя компания',
         email: '',
         phone: '',
         address: '',
         website: '',
         inn: '',
       );
+      _updateControllers();
     }
 
     setState(() {
@@ -102,62 +91,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
     try {
       print('💾 Сохраняю профиль компании...');
     
       final newProfile = CompanyProfile(
-        id: 1,
+        id: _companyProfile.id,
         companyName: _nameController.text.isNotEmpty ? _nameController.text : 'Моя компания',
         email: _emailController.text,
         phone: _phoneController.text,
         address: _addressController.text,
         website: _websiteController.text,
         inn: _taxIdController.text,
+        logoPath: _logoPath,
       );
 
-      print('📝 Данные профиля: ${newProfile.name}, ${newProfile.email}');
+      print('📝 Данные профиля: ${newProfile.companyName}, ${newProfile.email}');
     
-      final result = await _dbHelper.saveCompanyProfile(newProfile);
+      await _dbHelper.saveCompanyProfile(newProfile);
     
       print('✅ Профиль сохранен');
     
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Настройки компании сохранены'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Настройки компании сохранены'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
 
     } catch (e) {
       print('❌ Ошибка сохранения профиля: $e');
     
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Ошибка сохранения: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportDatabase() async {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Ошибка сохранения: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
+        const SnackBar(
+          content: Text('Экспорт/импорт будет в следующем обновлении'),
+          duration: Duration(seconds: 2),
         ),
       );
     }
   }
 
-  Future<void> _exportDatabase() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Экспорт/импорт будет в следующем обновлении'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
   Future<void> _importDatabase() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Экспорт/импорт будет в следующем обновлении'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Экспорт/импорт будет в следующем обновлении'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _resetToDefaults() async {
@@ -180,26 +180,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (confirmed == true) {
-      final defaultProfile = CompanyProfile(
-        id: 1,
-        companyName: 'Моя компания',
-        email: 'info@company.com',
-        phone: '+7 (999) 123-45-67',
-        address: 'г. Москва, ул. Примерная, д. 1',
-        website: 'www.company.com',
-        inn: '1234567890',
-      );
+      try {
+        final defaultProfile = CompanyProfile(
+          id: 1,
+          companyName: 'Моя компания',
+          email: 'info@company.com',
+          phone: '+7 (999) 123-45-67',
+          address: 'г. Москва, ул. Примерная, д. 1',
+          website: 'www.company.com',
+          inn: '1234567890',
+        );
+        
+        _companyProfile = defaultProfile;
+        _updateControllers();
+        await _dbHelper.saveCompanyProfile(defaultProfile);
 
-      _companyProfile = defaultProfile;
-      _updateControllers();
-      await _dbHelper.saveCompanyProfile(defaultProfile);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Настройки сброшены к значениям по умолчанию'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Настройки сброшены к значениям по умолчанию'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка сброса: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -230,6 +240,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       width: 120,
                       height: 120,
                       fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => 
+                        const Icon(Icons.error, size: 40, color: Colors.red),
                     ),
                   )
                 : const Column(
@@ -251,10 +263,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _logoPath != null && _logoPath!.isNotEmpty
               ? path.basename(_logoPath!)
               : 'Логотип не выбран',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
         ),
       ],
     );
@@ -273,11 +282,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         labelText: label,
         hintText: hintText,
         border: const OutlineInputBorder(),
+        filled: true,
+        fillColor: Colors.grey[50],
       ),
       keyboardType: keyboardType,
       validator: required
           ? (value) {
-              if (value == null || value.isEmpty) {
+              if (value == null || value.trim().isEmpty) {
                 return 'Поле обязательно для заполнения';
               }
               return null;
@@ -310,9 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onPressed: _exportDatabase,
                     icon: const Icon(Icons.backup),
                     label: const Text('Экспорт данных'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(0, 48),
-                    ),
+                    style: ElevatedButton.styleFrom(minimumSize: const Size(0, 48)),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -321,9 +330,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onPressed: _importDatabase,
                     icon: const Icon(Icons.restore),
                     label: const Text('Импорт данных'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 48),
-                    ),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
                   ),
                 ),
               ],
@@ -401,10 +408,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     const Text(
                       'Настройки компании',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -413,11 +417,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 24),
                     
-                    // Логотип
                     _buildLogoSection(),
                     const SizedBox(height: 32),
                     
-                    // Основные поля
                     _buildTextField(
                       label: 'Название компании *',
                       controller: _nameController,
@@ -466,7 +468,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 32),
                     
-                    // Кнопки действий
                     Row(
                       children: [
                         Expanded(
@@ -474,9 +475,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             onPressed: _saveProfile,
                             icon: const Icon(Icons.save),
                             label: const Text('Сохранить настройки'),
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(0, 48),
-                            ),
+                            style: ElevatedButton.styleFrom(minimumSize: const Size(0, 48)),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -485,24 +484,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             onPressed: _resetToDefaults,
                             icon: const Icon(Icons.restore),
                             label: const Text('Сбросить'),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 48),
-                            ),
+                            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 32),
                     
-                    // Резервное копирование
                     _buildBackupSection(),
                     const SizedBox(height: 24),
                     
-                    // Информация о приложении
                     _buildAppInfoSection(),
                     const SizedBox(height: 32),
                     
-                    // Ссылка на GitHub
                     Center(
                       child: TextButton.icon(
                         onPressed: () async {
@@ -520,5 +514,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _websiteController.dispose();
+    _taxIdController.dispose();
+    super.dispose();
   }
 }
