@@ -1,3 +1,5 @@
+import 'line_item.dart'; // ← ДОБАВЛЕН ИМПОРТ
+
 class Quote {
   final int? id;
   final String clientName;
@@ -6,9 +8,13 @@ class Quote {
   final String clientAddress;
   final String projectName;
   final String projectDescription;
-  final double totalAmount;
+  final String notes;
   final String status;
-  final DateTime date;
+  final double totalAmount;
+  final DateTime createdAt;
+  final DateTime updatedAt; // ← ДОБАВЛЕНО
+  final List<LineItem> items; // ← ДОБАВЛЕНО
+
   String get email => clientEmail;
   String get phone => clientPhone;
   String get address => clientAddress;
@@ -21,38 +27,47 @@ class Quote {
     this.clientAddress = '',
     required this.projectName,
     this.projectDescription = '',
+    this.notes = '',
+    this.status = 'draft',
     this.totalAmount = 0.0,
-    this.status = 'черновик',
-    DateTime? date,
-  }) : date = date ?? DateTime.now();
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    this.items = const [],
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'client_name': clientName,
       'client_email': clientEmail,
       'client_phone': clientPhone,
       'client_address': clientAddress,
       'project_name': projectName,
       'project_description': projectDescription,
-      'total_amount': totalAmount,
+      'notes': notes,
       'status': status,
-      'date': date.toIso8601String(),
+      'total_amount': totalAmount,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 
-  factory Quote.fromMap(Map<String, dynamic> map) {
+  factory Quote.fromMap(Map<String, dynamic> map, {List<LineItem>? items}) {
     return Quote(
-      id: map['id'],
-      clientName: map['client_name'] ?? '',
-      clientEmail: map['client_email'] ?? '',
-      clientPhone: map['client_phone'] ?? '',
-      clientAddress: map['client_address'] ?? '',
-      projectName: map['project_name'] ?? '',
-      projectDescription: map['project_description'] ?? '',
-      totalAmount: (map['total_amount'] ?? 0.0).toDouble(),
-      status: map['status'] ?? 'черновик',
-      date: map['date'] != null ? DateTime.parse(map['date']) : DateTime.now(),
+      id: map['id'] as int?,
+      clientName: map['client_name'] as String? ?? '',
+      clientEmail: map['client_email'] as String? ?? '',
+      clientPhone: map['client_phone'] as String? ?? '',
+      clientAddress: map['client_address'] as String? ?? '',
+      projectName: map['project_name'] as String? ?? '',
+      projectDescription: map['project_description'] as String? ?? '',
+      notes: map['notes'] as String? ?? '',
+      status: map['status'] as String? ?? 'draft',
+      totalAmount: (map['total_amount'] as num?)?.toDouble() ?? 0.0,
+      createdAt: DateTime.parse(map['created_at'] as String),
+      updatedAt: DateTime.parse(map['updated_at'] as String),
+      items: items ?? [],
     );
   }
 
@@ -64,9 +79,12 @@ class Quote {
     String? clientAddress,
     String? projectName,
     String? projectDescription,
-    double? totalAmount,
+    String? notes,
     String? status,
-    DateTime? date,
+    double? totalAmount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    List<LineItem>? items,
   }) {
     return Quote(
       id: id ?? this.id,
@@ -76,9 +94,14 @@ class Quote {
       clientAddress: clientAddress ?? this.clientAddress,
       projectName: projectName ?? this.projectName,
       projectDescription: projectDescription ?? this.projectDescription,
-      totalAmount: totalAmount ?? this.totalAmount,
+      notes: notes ?? this.notes,
       status: status ?? this.status,
-      date: date ?? this.date,
+      totalAmount: totalAmount ?? this.totalAmount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      items: items ?? this.items,
     );
   }
+
+  double calculateTotal() => items.fold(0.0, (sum, item) => sum + item.total);
 }
