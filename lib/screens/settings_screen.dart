@@ -61,7 +61,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           address: '',
           website: '',
           inn: '',
-          logoPath: '',
           createdAt: DateTime.now(),
         );
       }
@@ -75,7 +74,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         address: '',
         website: '',
         inn: '',
-        logoPath: '',
         createdAt: DateTime.now(),
       );
     }
@@ -117,7 +115,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         address: _addressController.text,
         website: _websiteController.text,
         inn: _taxIdController.text,
-        logoPath: _logoPath ?? '',
         createdAt: DateTime.now(),
       );
 
@@ -194,7 +191,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         address: 'г. Москва, ул. Примерная, д. 1',
         website: 'www.company.com',
         inn: '1234567890',
-        logoPath: '',
         createdAt: DateTime.now(),
       );
 
