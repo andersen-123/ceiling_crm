@@ -175,32 +175,34 @@ class _QuoteEditScreenState extends State<QuoteEditScreen> {
       date: DateTime.now(),
     );
     
-    quote.clientName = _clientNameController.text;
-    quote.address = _addressController.text.isNotEmpty ? _addressController.text : null;
-    quote.phone = _phoneController.text.isNotEmpty ? _phoneController.text : null;
-    quote.email = _emailController.text.isNotEmpty ? _emailController.text : null;
-    quote.updatedAt = DateTime.now();
-    
+     // Обновляем quote через copyWith (поля final)
+    final updatedQuote = quote.copyWith(
+      clientName: _clientNameController.text,
+      clientAddress: _addressController.text.isNotEmpty ? _addressController.text : '',
+      clientPhone: _phoneController.text.isNotEmpty ? _phoneController.text : '',
+      clientEmail: _emailController.text.isNotEmpty ? _emailController.text : '',
+      totalAmount: _calculateTotal(),
+    );
+
+    // Сохраняем в базу данных
     try {
       if (widget.quote == null) {
-        // Новая цитата
-        final id = await _dbHelper.insertQuote(quote);
-        quote.id = id;
-        await _dbHelper.updateQuoteWithItems(quote, _items);
+        // Создаем новое КП
+        await _dbHelper.createQuote(updatedQuote);
       } else {
-        // Обновление существующей
-        await _dbHelper.updateQuoteWithItems(quote, _items);
+        // Обновляем существующее КП
+        await _dbHelper.updateQuote(updatedQuote);
       }
-      
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
+  
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('КП сохранено')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка сохранения: $e')),
+      );
+     }
     }
   }
   
