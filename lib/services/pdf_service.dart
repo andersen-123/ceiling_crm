@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -16,11 +17,7 @@ class PdfService {
     decimalDigits: 0,
   );
 
-  Future<File> generateQuotePdf({
-    required Quote quote,
-    required List<LineItem> items,
-    required CompanyProfile companyProfile,
-  }) async {
+  Future<Uint8List> generateQuotePdf(Quote quote, CompanyProfile company) async {
     final pdf = pw.Document();
 
     // Получаем путь для сохранения
@@ -28,7 +25,8 @@ class PdfService {
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final fileName = 'КП_${quote.clientName}_$timestamp.pdf';
     final filePath = '${directory.path}/$fileName';
-
+    return pdf.save();
+  }
     // Создаем PDF
     pdf.addPage(
       pw.Page(
@@ -277,6 +275,13 @@ class PdfService {
 
   pw.TextStyle _tableText() {
     return const pw.TextStyle(fontSize: 10);
+  }
+
+  Future<File> savePdfToFile(Uint8List bytes, String filename) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/$filename');
+    await file.writeAsBytes(bytes);
+    return file;
   }
 
   // Метод для предпросмотра PDF
