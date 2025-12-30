@@ -21,121 +21,156 @@ class DatabaseHelper {
     
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,  // ← Увеличена версия для миграции
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,  // ← Добавлена миграция
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Таблица коммерческих предложений
+    await _createTables(db);
+    await _insertDefaultCompanyProfile(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Миграция v1 → v2: исправляем поля таблицы quotes
+      await db.execute('ALTER TABLE quotes RENAME TO quotes_old');
+      await _createTables(db);
+      
+      // Переносим данные
+      await db.execute('''
+        INSERT INTO quotes (id, client_name, client_email, client_phone, client_address, 
+                           project_name, project_description, notes, status, total_amount, 
+                           created_at, updated_at)
+        SELECT id, client_name, email, phone, address, 'Проект', '', '', 'draft', 
+               total_amount, created_at, updated_at 
+        FROM quotes_old
+      ''');
+      
+      await db.execute('DROP TABLE quotes_old');
+    }
+  }
+
+  Future<void> _createTables(Database db) async {
+    // ✅ Таблица quotes - ПОЛНАЯ СХЕМА
     await db.execute('''
       CREATE TABLE quotes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         client_name TEXT NOT NULL,
-        address TEXT,
-        phone TEXT,
-        email TEXT,
+        client_email TEXT,
+        client_phone TEXT,
+        client_address TEXT,
+        project_name TEXT NOT NULL,
+        project_description TEXT,
+        notes TEXT,
+        status TEXT DEFAULT 'draft',
         total_amount REAL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
     ''');
 
-    // Таблица позиций (пунктов) в КП
+    // ✅ Таблица line_items - исправлена
     await db.execute('''
       CREATE TABLE line_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         quote_id INTEGER NOT NULL,
-        description TEXT NOT NULL,
-        quantity INTEGER DEFAULT 1,
-        price_per_unit REAL NOT NULL,
-        unit TEXT,
+        name TEXT NOT NULL,
+        description TEXT,
+        quantity REAL NOT NULL,
+        unit TEXT NOT NULL,
+        price REAL NOT NULL,
         total REAL NOT NULL,
         FOREIGN KEY (quote_id) REFERENCES quotes (id) ON DELETE CASCADE
       )
     ''');
 
-    // Таблица профиля компании (единственная запись)
+    // ✅ Таблица company_profiles - полная схема
     await db.execute('''
       CREATE TABLE company_profiles (
         id INTEGER PRIMARY KEY CHECK (id = 1),
-        company_name TEXT NOT NULL,
-        address TEXT,
-        phone TEXT,
+        companyName TEXT NOT NULL,
         email TEXT,
+        phone TEXT,
+        address TEXT,
         website TEXT,
-        logo_path TEXT,
-        tax_number TEXT,
-        bank_details TEXT
+        inn TEXT,
+        logo_path TEXT
       )
     ''');
+  }
 
-    // Вставляем профиль компании по умолчанию
+  Future<void> _insertDefaultCompanyProfile(Database db) async {
     await db.insert('company_profiles', {
       'id': 1,
-      'company_name': 'Моя компания',
-      'address': 'г. Москва, ул. Примерная, д. 1',
-      'phone': '+7 (999) 123-45-67',
+      'companyName': 'Моя компания',
       'email': 'info@company.com',
+      'phone': '+7 (999) 123-45-67',
+      'address': 'г. Москва, ул. Примерная, д. 1',
       'website': 'www.company.com',
-      'tax_number': 'ИНН 1234567890',
-      'bank_details': 'Банк: Пример Банк\nР/с: 40702810123456789012\nК/с: 30101810123456789012\nБИК: 044525123'
+      'inn': '1234567890',
+      'logo_path': null,
     });
   }
 
-  // ========== CRUD для Quote ==========
+  // ========== 🚀 CRUD для Quote ==========
   
-  Future<int> insertQuote(Quote quote) async {
+  /// ✅ НОВЫЙ: createQuote (полная транзакция с позициями)
+  Future<Quote> createQuote(Quote quote) async {
     final db = await database;
-    return await db.insert('quotes', quote.toMap());
+    return await db.transaction((txn) async {
+      // 1. Создаем quote
+      final quoteId = await txn.insert('quotes', quote.toMap());
+      
+      // 2. Создаем позиции
+      for (final item in quote.items) {
+        await txn.insert('line_items', item.copyWith(quoteId: quoteId).toMap());
+      }
+      
+      // 3. Возвращаем quote с ID
+      return (await getQuote(quoteId))!;
+    });
   }
 
   Future<List<Quote>> getAllQuotes() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'quotes',
-      orderBy: 'updated_at DESC',
-    );
-    return List.generate(maps.length, (i) => Quote.fromMap(maps[i]));
+    final quoteMaps = await db.query('quotes', orderBy: 'updated_at DESC');
+    
+    final quotes = <Quote>[];
+    for (final map in quoteMaps) {
+      final quoteId = map['id'] as int;
+      final items = await getLineItemsForQuote(quoteId);
+      quotes.add(Quote.fromMap(map, items: items));
+    }
+    return quotes;
   }
 
   Future<Quote?> getQuote(int id) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'quotes',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (maps.isNotEmpty) {
-      return Quote.fromMap(maps.first);
-    }
-    return null;
+    final quoteMaps = await db.query('quotes', where: 'id = ?', whereArgs: [id]);
+    
+    if (quoteMaps.isEmpty) return null;
+    
+    final items = await getLineItemsForQuote(id);
+    return Quote.fromMap(quoteMaps.first, items: items);
   }
 
   Future<int> updateQuote(Quote quote) async {
     final db = await database;
-    return await db.update(
-      'quotes',
-      quote.toMap(),
-      where: 'id = ?',
-      whereArgs: [quote.id],
-    );
+    return await db.update('quotes', quote.toMap(), where: 'id = ?', whereArgs: [quote.id]);
   }
 
   Future<int> deleteQuote(int id) async {
     final db = await database;
-    return await db.delete(
-      'quotes',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.delete('quotes', where: 'id = ?', whereArgs: [id]);
   }
 
   // ========== CRUD для LineItem ==========
   
   Future<List<LineItem>> getLineItemsForQuote(int quoteId) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
+    final maps = await db.query(
       'line_items',
       where: 'quote_id = ?',
       whereArgs: [quoteId],
@@ -144,48 +179,34 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => LineItem.fromMap(maps[i]));
   }
 
+  /// ✅ updateQuoteWithItems (полная замена quote + items)
   Future<void> updateQuoteWithItems(Quote quote, List<LineItem> items) async {
     final db = await database;
     
     await db.transaction((txn) async {
-      // 1. Обновляем сам квоут
-      await txn.update(
-        'quotes',
-        quote.toMap(),
-        where: 'id = ?',
-        whereArgs: [quote.id],
-      );
+      // Обновляем quote
+      await txn.update('quotes', quote.toMap(), where: 'id = ?', whereArgs: [quote.id]);
       
-      // 2. Удаляем старые позиции
-      await txn.delete(
-        'line_items', 
-        where: 'quote_id = ?', 
-        whereArgs: [quote.id],
-      );
+      // Удаляем старые items
+      await txn.delete('line_items', where: 'quote_id = ?', whereArgs: [quote.id]);
       
-      // 3. Добавляем новые позиции
+      // Добавляем новые items
       for (final item in items) {
-        await txn.insert(
-          'line_items',
-          item.copyWith(quoteId: quote.id).toMap(),
-        );
+        await txn.insert('line_items', item.copyWith(quoteId: quote.id).toMap());
       }
     });
   }
 
   // ========== CRUD для CompanyProfile ==========
   
-  Future<CompanyProfile?> getCompanyProfile() async {
+  Future<CompanyProfile> getCompanyProfile() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'company_profiles',
-      limit: 1,
-    );
+    final maps = await db.query('company_profiles', limit: 1);
     
     if (maps.isNotEmpty) {
       return CompanyProfile.fromMap(maps.first);
     }
-    return null;
+    throw Exception('Профиль компании не найден');
   }
 
   Future<int> updateCompanyProfile(CompanyProfile profile) async {
@@ -194,51 +215,41 @@ class DatabaseHelper {
       'company_profiles',
       profile.toMap(),
       where: 'id = ?',
-      whereArgs: [profile.id],
+      whereArgs: [profile.id ?? 1],
     );
+  }
+
+  /// ✅ Alias для совместимости
+  Future<void> saveCompanyProfile(CompanyProfile profile) async {
+    await updateCompanyProfile(profile);
   }
 
   Future<void> close() async {
     final db = await database;
     await db.close();
+    _database = null;
   }
-    // Метод для создания тестовых данных (удалите если не нужен)
+
+  // ✅ Тестовые данные (совместимые с новой моделью)
   Future<void> createTestData() async {
-    final db = await database;
-    
-    // Тестовый квоут
-    final quote = Quote(
-      clientName: 'Тестовый клиент',
-      clientAddress: 'г. Москва, ул. Тестовая, д. 1',
-      clientPhone: '+7 (999) 999-99-99',
-      clientEmail: 'test@test.com',
-      date: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    
-    final quoteId = await insertQuote(quote);
-    
-    // Тестовые позиции
-    await db.insert('line_items', {
-      'quote_id': quoteId,
-      'description': 'Натяжной потолок ПВХ',
-      'quantity': 20,
-      'price_per_unit': 450,
-      'unit': 'м²',
-      'total': 9000,
-    });
-    
-    await db.insert('line_items', {
-      'quote_id': quoteId,
-      'description': 'Профиль пристенный',
-      'quantity': 40,
-      'price_per_unit': 120,
-      'unit': 'м.п.',
-      'total': 4800,
-    });
-  }
-  /// Сохранение профиля компании (alias для updateCompanyProfile)
-  Future<void> saveCompanyProfile(CompanyProfile profile) async {
-    await updateCompanyProfile(profile);
+    try {
+      final testQuote = Quote(
+        clientName: 'ООО "Тест"',
+        projectName: 'Офисное помещение',
+        clientAddress: 'г. Москва, ул. Тестовая, д. 1',
+        clientPhone: '+7 (999) 123-45-67',
+        clientEmail: 'test@company.ru',
+        items: [
+          LineItem(name: 'Натяжной потолок матовый', quantity: 25.0, unit: 'м²', price: 400.0),
+          LineItem(name: 'Точечные светильники', quantity: 12.0, unit: 'шт', price: 300.0),
+          LineItem(name: 'Светодиодная лента', quantity: 20.0, unit: 'м.п.', price: 350.0),
+        ],
+      );
+      
+      await createQuote(testQuote);
+      print('✅ Тестовые данные созданы');
+    } catch (e) {
+      print('❌ Ошибка создания тестовых данных: $e');
+    }
   }
 }
