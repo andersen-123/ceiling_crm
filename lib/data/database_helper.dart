@@ -212,7 +212,7 @@ class DatabaseHelper {
       clientAddress: 'г. Москва, ул. Тестовая, д. 1',
       clientPhone: '+7 (999) 999-99-99',
       clientEmail: 'test@test.com',
-      createdAt: DateTime.now(),
+      date: DateTime.now(),
       updatedAt: DateTime.now(),
     );
     
