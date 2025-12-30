@@ -210,7 +210,7 @@ class DatabaseHelper {
     final quote = Quote(
       clientName: 'Тестовый клиент',
       clientAddress: 'г. Москва, ул. Тестовая, д. 1',
-      phone: '+7 (999) 999-99-99',
+      clientPhone: '+7 (999) 999-99-99',
       email: 'test@test.com',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
