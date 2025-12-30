@@ -5,8 +5,11 @@ class LineItem {
   final String description;
   final double quantity;
   final String unit;
-  final double price;
   final double pricePerUnit;
+  
+  // Вычисляемое поле
+  double get price => pricePerUnit * quantity;
+  double get total => pricePerUnit * quantity;
 
   LineItem({
     this.id,
@@ -15,10 +18,8 @@ class LineItem {
     this.description = '',
     required this.quantity,
     required this.unit,
-    double? price,
-    double? pricePerUnit,
-  })  : price = price ?? (pricePerUnit ?? 0) * quantity,
-        pricePerUnit = pricePerUnit ?? (price ?? 0) / (quantity == 0 ? 1 : quantity);
+    required this.pricePerUnit,
+  });
 
   Map<String, dynamic> toMap() {
     return {
@@ -28,7 +29,6 @@ class LineItem {
       'description': description,
       'quantity': quantity,
       'unit': unit,
-      'price': price,
       'price_per_unit': pricePerUnit,
     };
   }
@@ -41,7 +41,6 @@ class LineItem {
       description: map['description'] ?? '',
       quantity: (map['quantity'] ?? 0.0).toDouble(),
       unit: map['unit'] ?? '',
-      price: (map['price'] ?? 0.0).toDouble(),
       pricePerUnit: (map['price_per_unit'] ?? 0.0).toDouble(),
     );
   }
@@ -53,7 +52,6 @@ class LineItem {
     String? description,
     double? quantity,
     String? unit,
-    double? price,
     double? pricePerUnit,
   }) {
     return LineItem(
@@ -63,8 +61,8 @@ class LineItem {
       description: description ?? this.description,
       quantity: quantity ?? this.quantity,
       unit: unit ?? this.unit,
-      price: price,
       pricePerUnit: pricePerUnit ?? this.pricePerUnit,
     );
   }
 }
+
